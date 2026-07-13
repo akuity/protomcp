@@ -1,4 +1,4 @@
-module github.com/gdsoumya/protomcp
+module github.com/akuity/protomcp
 
 go 1.26.2
 

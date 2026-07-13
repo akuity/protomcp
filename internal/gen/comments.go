@@ -5,7 +5,7 @@ import (
 
 	"google.golang.org/protobuf/compiler/protogen"
 
-	"github.com/gdsoumya/protomcp/internal/gen/schema"
+	"github.com/akuity/protomcp/internal/gen/schema"
 )
 
 // commentPragmaPrefixes are whole-line markers stripped from proto

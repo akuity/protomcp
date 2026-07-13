@@ -17,10 +17,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	authv1 "github.com/gdsoumya/protomcp/pkg/api/gen/examples/auth/v1"
-	"github.com/gdsoumya/protomcp/pkg/protomcp"
+	authv1 "github.com/akuity/protomcp/pkg/api/gen/examples/auth/v1"
+	"github.com/akuity/protomcp/pkg/protomcp"
 
-	authserver "github.com/gdsoumya/protomcp/examples/auth/server"
+	authserver "github.com/akuity/protomcp/examples/auth/server"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/grpc"

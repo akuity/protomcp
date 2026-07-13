@@ -15,7 +15,7 @@ receives updates.
 | Older | ❌ |
 
 Check the [releases
-page](https://github.com/gdsoumya/protomcp/releases) for the current
+page](https://github.com/akuity/protomcp/releases) for the current
 latest versions.
 
 ## Reporting a vulnerability
@@ -23,7 +23,7 @@ latest versions.
 Please do **not** open a public GitHub issue for suspected security
 problems.
 
-File a private advisory via GitHub's [private vulnerability reporting](https://github.com/gdsoumya/protomcp/security/advisories/new).
+File a private advisory via GitHub's [private vulnerability reporting](https://github.com/akuity/protomcp/security/advisories/new).
 
 Please include:
 

@@ -7,8 +7,8 @@ import (
 
 	"google.golang.org/protobuf/types/known/structpb"
 
-	authv1 "github.com/gdsoumya/protomcp/pkg/api/gen/examples/auth/v1"
-	"github.com/gdsoumya/protomcp/pkg/protomcp"
+	authv1 "github.com/akuity/protomcp/pkg/api/gen/examples/auth/v1"
+	"github.com/akuity/protomcp/pkg/protomcp"
 )
 
 // TestClearOutputOnly_TopLevelScalar, the canonical case: a message

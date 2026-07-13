@@ -7,7 +7,7 @@
 package greeterv1
 
 import (
-	_ "github.com/gdsoumya/protomcp/pkg/api/gen/protomcp/v1"
+	_ "github.com/akuity/protomcp/pkg/api/gen/protomcp/v1"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -535,8 +535,8 @@ const file_examples_greeter_v1_greeter_proto_rawDesc = "" +
 	"\bFailWith\x12-.protomcp.examples.greeter.v1.FailWithRequest\x1a(.protomcp.examples.greeter.v1.HelloReply\"J\x8a\xb5\x18F\x12\x0eFail With Code\x1a4Returns a gRPC status error with the requested code.\x12\xce\x01\n" +
 	"\vEchoComplex\x120.protomcp.examples.greeter.v1.EchoComplexRequest\x1a1.protomcp.examples.greeter.v1.EchoComplexResponse\"Z\x8a\xb5\x18V\x12\fEcho Complex\x1aDEchoes a structured request to verify protojson round-trip fidelity. \x01\x12\xae\x01\n" +
 	"\x04Slow\x12*.protomcp.examples.greeter.v1.HelloRequest\x1a(.protomcp.examples.greeter.v1.HelloReply\"P\x8a\xb5\x18L\x12\x04Slow\x1aDBlocks until ctx is cancelled; for testing cancellation propagation.\x12`\n" +
-	"\bInternal\x12*.protomcp.examples.greeter.v1.HelloRequest\x1a(.protomcp.examples.greeter.v1.HelloReplyB\x8b\x02\n" +
-	" com.protomcp.examples.greeter.v1B\fGreeterProtoP\x01ZFgithub.com/gdsoumya/protomcp/pkg/api/gen/examples/greeter/v1;greeterv1\xa2\x02\x03PEG\xaa\x02\x1cProtomcp.Examples.Greeter.V1\xca\x02\x1cProtomcp\\Examples\\Greeter\\V1\xe2\x02(Protomcp\\Examples\\Greeter\\V1\\GPBMetadata\xea\x02\x1fProtomcp::Examples::Greeter::V1b\x06proto3"
+	"\bInternal\x12*.protomcp.examples.greeter.v1.HelloRequest\x1a(.protomcp.examples.greeter.v1.HelloReplyB\x89\x02\n" +
+	" com.protomcp.examples.greeter.v1B\fGreeterProtoP\x01ZDgithub.com/akuity/protomcp/pkg/api/gen/examples/greeter/v1;greeterv1\xa2\x02\x03PEG\xaa\x02\x1cProtomcp.Examples.Greeter.V1\xca\x02\x1cProtomcp\\Examples\\Greeter\\V1\xe2\x02(Protomcp\\Examples\\Greeter\\V1\\GPBMetadata\xea\x02\x1fProtomcp::Examples::Greeter::V1b\x06proto3"
 
 var (
 	file_examples_greeter_v1_greeter_proto_rawDescOnce sync.Once

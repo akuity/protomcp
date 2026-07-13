@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gdsoumya/protomcp/internal/gen/schema"
+	"github.com/akuity/protomcp/internal/gen/schema"
 )
 
 // TestMustacheRejections_SchemaLayer enumerates every Mustache form the

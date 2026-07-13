@@ -4,7 +4,7 @@ package protomcp.gen.testdata.multiservice.v1;
 
 import "protomcp/v1/annotations.proto";
 
-option go_package = "github.com/gdsoumya/protomcp/internal/gen/testdata/multi;multiv1";
+option go_package = "github.com/akuity/protomcp/internal/gen/testdata/multi;multiv1";
 
 // Alpha is the first of two services in this file. It ensures the generator
 // emits one RegisterXxxMCPTools function per service in a multi-service

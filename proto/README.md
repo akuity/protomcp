@@ -1,10 +1,10 @@
 # protomcp annotations
 
-[![Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue)](https://github.com/gdsoumya/protomcp/blob/main/LICENSE)
-[![GitHub](https://img.shields.io/badge/source-gdsoumya%2Fprotomcp-181717?logo=github)](https://github.com/gdsoumya/protomcp)
-[![Go Reference](https://pkg.go.dev/badge/github.com/gdsoumya/protomcp.svg)](https://pkg.go.dev/github.com/gdsoumya/protomcp)
+[![Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue)](https://github.com/akuity/protomcp/blob/main/LICENSE)
+[![GitHub](https://img.shields.io/badge/source-akuity%2Fprotomcp-181717?logo=github)](https://github.com/akuity/protomcp)
+[![Go Reference](https://pkg.go.dev/badge/github.com/akuity/protomcp.svg)](https://pkg.go.dev/github.com/akuity/protomcp)
 
-Protobuf annotations used by [**protomcp**](https://github.com/gdsoumya/protomcp), a Go library that turns any gRPC service into a [Model Context Protocol](https://modelcontextprotocol.io) server.
+Protobuf annotations used by [**protomcp**](https://github.com/akuity/protomcp), a Go library that turns any gRPC service into a [Model Context Protocol](https://modelcontextprotocol.io) server.
 
 Add a method option to mark an RPC as an MCP primitive (tool, resource
 template, resource list, resource list-changed feed, or prompt;
@@ -35,12 +35,12 @@ version: v2
 modules:
   - path: proto
 deps:
-  - buf.build/gdsoumya/protomcp
+  - buf.build/akuity/protomcp
 ```
 
 Then run `buf generate` against your proto tree.
 
-For the runtime library, generator plugin, quickstart, examples, authentication, and the full annotation reference, see the **[main README](https://github.com/gdsoumya/protomcp#readme)** on GitHub.
+For the runtime library, generator plugin, quickstart, examples, authentication, and the full annotation reference, see the **[main README](https://github.com/akuity/protomcp#readme)** on GitHub.
 
 ## What's in this module
 
@@ -50,4 +50,4 @@ For the runtime library, generator plugin, quickstart, examples, authentication,
 
 ## License
 
-Apache 2.0, see [LICENSE](https://github.com/gdsoumya/protomcp/blob/main/LICENSE).
+Apache 2.0, see [LICENSE](https://github.com/akuity/protomcp/blob/main/LICENSE).

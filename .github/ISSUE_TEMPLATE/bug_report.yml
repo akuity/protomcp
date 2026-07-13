@@ -37,7 +37,7 @@ body:
         Run these and paste the output:
         ```
         go version
-        protoc-gen-mcp -version 2>/dev/null || go list -m github.com/gdsoumya/protomcp
+        protoc-gen-mcp -version 2>/dev/null || go list -m github.com/akuity/protomcp
         go list -m github.com/modelcontextprotocol/go-sdk
         buf --version 2>/dev/null || echo "not using buf"
         ```

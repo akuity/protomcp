@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	tasksv1 "github.com/gdsoumya/protomcp/pkg/api/gen/examples/tasks/v1"
+	tasksv1 "github.com/akuity/protomcp/pkg/api/gen/examples/tasks/v1"
 )
 
 // TestParseMustache_RejectsSections, the generator's template

@@ -4,7 +4,7 @@ package protomcp.testdata.decorations.v1;
 
 import "google/api/field_behavior.proto";
 
-option go_package = "github.com/gdsoumya/protomcp/internal/gen/schema/testdata;testdatav1";
+option go_package = "github.com/akuity/protomcp/internal/gen/schema/testdata;testdatav1";
 
 // Documented exercises field-level JSON Schema decorations that require
 // descriptor source information: per-field description from leading proto

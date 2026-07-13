@@ -8,7 +8,7 @@ managed:
       module: buf.build/googleapis/googleapis
   override:
     - file_option: go_package_prefix
-      value: github.com/gdsoumya/protomcp/pkg/api/gen
+      value: github.com/akuity/protomcp/pkg/api/gen
 plugins:
   - local: protoc-gen-go
     out: pkg/api/gen

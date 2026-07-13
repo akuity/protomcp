@@ -5,7 +5,7 @@ modules:
   # (what consumers type after `import "…"`). excludes keeps the examples
   # out of what ships to BSR.
   - path: proto
-    name: buf.build/gdsoumya/protomcp
+    name: buf.build/akuity/protomcp
     excludes:
       - proto/examples
   # Local-only workspace module for the example services. Rooted at the

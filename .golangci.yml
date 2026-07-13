@@ -138,7 +138,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/gdsoumya/protomcp
+        - github.com/akuity/protomcp
   exclusions:
     generated: strict
     paths:

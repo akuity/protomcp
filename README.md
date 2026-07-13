@@ -15,8 +15,8 @@ visual title, and its `alt="protomcp"` provides the accessible name.
 
 _Turn any gRPC service into an [MCP](https://modelcontextprotocol.io) server with a single proto annotation. Zero changes to your gRPC server._
 
-[![CI](https://github.com/gdsoumya/protomcp/actions/workflows/ci.yml/badge.svg)](https://github.com/gdsoumya/protomcp/actions/workflows/ci.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/gdsoumya/protomcp.svg)](https://pkg.go.dev/github.com/gdsoumya/protomcp)
+[![CI](https://github.com/akuity/protomcp/actions/workflows/ci.yml/badge.svg)](https://github.com/akuity/protomcp/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/akuity/protomcp.svg)](https://pkg.go.dev/github.com/akuity/protomcp)
 [![Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue)](LICENSE)
 
 </div>
@@ -70,13 +70,13 @@ That's it. `protoc-gen-mcp` reads the annotation, emits an MCP tool handler boun
 ### Protoc plugin
 
 ```bash
-go install github.com/gdsoumya/protomcp/cmd/protoc-gen-mcp@latest
+go install github.com/akuity/protomcp/cmd/protoc-gen-mcp@latest
 ```
 
 ### Runtime library
 
 ```bash
-go get github.com/gdsoumya/protomcp/pkg/protomcp@latest
+go get github.com/akuity/protomcp/pkg/protomcp@latest
 ```
 
 ### Annotation schema
@@ -85,7 +85,7 @@ Your `.proto` files `import "protomcp/v1/annotations.proto";`. For protoc / buf 
 
 #### Option 1, Buf Schema Registry (recommended for buf users)
 
-The annotations are published on [BSR](https://buf.build) at [`buf.build/gdsoumya/protomcp`](https://buf.build/gdsoumya/protomcp). Add one line to your `buf.yaml` and `buf` fetches them on `buf generate`:
+The annotations are published on [BSR](https://buf.build) at [`buf.build/akuity/protomcp`](https://buf.build/akuity/protomcp). Add one line to your `buf.yaml` and `buf` fetches them on `buf generate`:
 
 ```yaml
 # buf.yaml
@@ -94,17 +94,17 @@ modules:
   - path: proto
 deps:
   # Tracks master (the BSR `main` label, updated on every push to master).
-  - buf.build/gdsoumya/protomcp
+  - buf.build/akuity/protomcp
   # Or pin to a release label (recommended for reproducible builds).
-  # - buf.build/gdsoumya/protomcp:<version-tag>
+  # - buf.build/akuity/protomcp:<version-tag>
   # Or pin to an exact commit.
-  # - buf.build/gdsoumya/protomcp:<commit>
+  # - buf.build/akuity/protomcp:<commit>
 ```
 
 Release labels are applied by `.github/workflows/buf-push.yml` on
 every published GitHub release and are immutable once pushed. Browse
 the available tags at
-[buf.build/gdsoumya/protomcp](https://buf.build/gdsoumya/protomcp)
+[buf.build/akuity/protomcp](https://buf.build/akuity/protomcp)
 and pick the one you want.
 
 #### Option 2, Vendor the file (works everywhere)
@@ -127,7 +127,7 @@ Because the file is small (a single `extend MethodOptions { ... }` + a couple of
 If you already vendor proto via submodules, add this repo as one:
 
 ```bash
-git submodule add https://github.com/gdsoumya/protomcp third_party/protomcp
+git submodule add https://github.com/akuity/protomcp third_party/protomcp
 ```
 
 Then point your include path at `third_party/protomcp/proto`:

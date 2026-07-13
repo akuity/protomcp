@@ -10,7 +10,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 
-	_ "github.com/gdsoumya/protomcp/internal/gen/schema/testdata"
+	_ "github.com/akuity/protomcp/internal/gen/schema/testdata"
 )
 
 // descByName looks up a message descriptor registered in the global protoregistry.

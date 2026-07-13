@@ -24,9 +24,9 @@ import (
 	"syscall"
 	"time"
 
-	tasksserver "github.com/gdsoumya/protomcp/examples/tasks/server"
-	tasksv1 "github.com/gdsoumya/protomcp/pkg/api/gen/examples/tasks/v1"
-	"github.com/gdsoumya/protomcp/pkg/protomcp"
+	tasksserver "github.com/akuity/protomcp/examples/tasks/server"
+	tasksv1 "github.com/akuity/protomcp/pkg/api/gen/examples/tasks/v1"
+	"github.com/akuity/protomcp/pkg/protomcp"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

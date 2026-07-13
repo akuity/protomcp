@@ -12,8 +12,8 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/types/pluginpb"
 
-	"github.com/gdsoumya/protomcp/internal/gen/schema"
-	protomcpv1 "github.com/gdsoumya/protomcp/pkg/api/gen/protomcp/v1"
+	"github.com/akuity/protomcp/internal/gen/schema"
+	protomcpv1 "github.com/akuity/protomcp/pkg/api/gen/protomcp/v1"
 )
 
 // Import paths of every external package the generated file references.
@@ -23,7 +23,7 @@ const (
 	importErrors       = protogen.GoImportPath("errors")
 	importFmt          = protogen.GoImportPath("fmt")
 	importIO           = protogen.GoImportPath("io")
-	importProtomcp     = protogen.GoImportPath("github.com/gdsoumya/protomcp/pkg/protomcp")
+	importProtomcp     = protogen.GoImportPath("github.com/akuity/protomcp/pkg/protomcp")
 	importMCP          = protogen.GoImportPath("github.com/modelcontextprotocol/go-sdk/mcp")
 	importGRPCMetadata = protogen.GoImportPath("google.golang.org/grpc/metadata")
 	importURITemplate  = protogen.GoImportPath("github.com/yosida95/uritemplate/v3")

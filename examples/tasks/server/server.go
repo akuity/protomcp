@@ -17,7 +17,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	tasksv1 "github.com/gdsoumya/protomcp/pkg/api/gen/examples/tasks/v1"
+	tasksv1 "github.com/akuity/protomcp/pkg/api/gen/examples/tasks/v1"
 )
 
 // sortStrings keeps the List/Pagination output deterministic. Factored

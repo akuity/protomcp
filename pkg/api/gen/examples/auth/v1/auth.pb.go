@@ -7,7 +7,7 @@
 package authv1
 
 import (
-	_ "github.com/gdsoumya/protomcp/pkg/api/gen/protomcp/v1"
+	_ "github.com/akuity/protomcp/pkg/api/gen/protomcp/v1"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -533,8 +533,8 @@ const file_examples_auth_v1_auth_proto_rawDesc = "" +
 	"server_ids\x18\x01 \x03(\tB\x03\xe0A\x03R\tserverIds\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names2\xb9\x01\n" +
 	"\aProfile\x12\xad\x01\n" +
-	"\x06WhoAmI\x12(.protomcp.examples.auth.v1.WhoAmIRequest\x1a).protomcp.examples.auth.v1.WhoAmIResponse\"N\x8a\xb5\x18J\x12\bWho Am I\x1a<Returns the caller identity propagated from HTTP middleware. \x01B\xf3\x01\n" +
-	"\x1dcom.protomcp.examples.auth.v1B\tAuthProtoP\x01Z@github.com/gdsoumya/protomcp/pkg/api/gen/examples/auth/v1;authv1\xa2\x02\x03PEA\xaa\x02\x19Protomcp.Examples.Auth.V1\xca\x02\x19Protomcp\\Examples\\Auth\\V1\xe2\x02%Protomcp\\Examples\\Auth\\V1\\GPBMetadata\xea\x02\x1cProtomcp::Examples::Auth::V1b\x06proto3"
+	"\x06WhoAmI\x12(.protomcp.examples.auth.v1.WhoAmIRequest\x1a).protomcp.examples.auth.v1.WhoAmIResponse\"N\x8a\xb5\x18J\x12\bWho Am I\x1a<Returns the caller identity propagated from HTTP middleware. \x01B\xf1\x01\n" +
+	"\x1dcom.protomcp.examples.auth.v1B\tAuthProtoP\x01Z>github.com/akuity/protomcp/pkg/api/gen/examples/auth/v1;authv1\xa2\x02\x03PEA\xaa\x02\x19Protomcp.Examples.Auth.V1\xca\x02\x19Protomcp\\Examples\\Auth\\V1\xe2\x02%Protomcp\\Examples\\Auth\\V1\\GPBMetadata\xea\x02\x1cProtomcp::Examples::Auth::V1b\x06proto3"
 
 var (
 	file_examples_auth_v1_auth_proto_rawDescOnce sync.Once

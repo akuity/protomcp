@@ -14,14 +14,14 @@ import (
 	// Side-effect imports: register the annotation extension and the fixture
 	// protos in the global protoregistry so protogen can resolve extension
 	// types when walking the descriptors embedded in fixtures.binpb.
-	_ "github.com/gdsoumya/protomcp/internal/gen/testdata/elicit"
-	_ "github.com/gdsoumya/protomcp/internal/gen/testdata/greeter"
-	_ "github.com/gdsoumya/protomcp/internal/gen/testdata/multi"
-	_ "github.com/gdsoumya/protomcp/internal/gen/testdata/notools"
-	_ "github.com/gdsoumya/protomcp/internal/gen/testdata/options"
-	_ "github.com/gdsoumya/protomcp/internal/gen/testdata/pragmas"
-	_ "github.com/gdsoumya/protomcp/internal/gen/testdata/prompts"
-	_ "github.com/gdsoumya/protomcp/pkg/api/gen/protomcp/v1"
+	_ "github.com/akuity/protomcp/internal/gen/testdata/elicit"
+	_ "github.com/akuity/protomcp/internal/gen/testdata/greeter"
+	_ "github.com/akuity/protomcp/internal/gen/testdata/multi"
+	_ "github.com/akuity/protomcp/internal/gen/testdata/notools"
+	_ "github.com/akuity/protomcp/internal/gen/testdata/options"
+	_ "github.com/akuity/protomcp/internal/gen/testdata/pragmas"
+	_ "github.com/akuity/protomcp/internal/gen/testdata/prompts"
+	_ "github.com/akuity/protomcp/pkg/api/gen/protomcp/v1"
 )
 
 // fixturesBin is the output of:

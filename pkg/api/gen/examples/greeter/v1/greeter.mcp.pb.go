@@ -30,10 +30,11 @@ var _Greeter_Slow_OutputSchema = protomcp.MustParseSchema(`{"properties":{"messa
 // and one unannotated RPC that must NOT be exposed over MCP.
 //
 // RegisterGreeterMCPTools registers every annotated RPC on the service as an
-// MCP tool on srv, dispatching to the supplied gRPC client.
-func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
+// MCP tool on srv, dispatching to the supplied gRPC client. opts are
+// forwarded to every AddTool (e.g. protomcp.WithToolDomain).
+func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient, opts ...protomcp.ToolOption) {
 
-	mcp.AddTool(srv.SDK(), &mcp.Tool{
+	protomcp.AddTool(srv, &mcp.Tool{
 		Name:         "Greeter_SayHello",
 		Title:        "Say Hello",
 		Description:  "Greets a caller by name.",
@@ -59,7 +60,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		}
 
 		final := func(ctx context.Context, _ *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
-			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*HelloRequest)
 			if !ok {
 				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "HelloRequest", g.Input)
@@ -81,9 +82,9 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 
 		result, err := srv.ToolChain(final)(ctx, req, g)
 		return srv.FinishToolCall(ctx, req, g, result, err)
-	})
+	}, opts...)
 
-	mcp.AddTool(srv.SDK(), &mcp.Tool{
+	protomcp.AddTool(srv, &mcp.Tool{
 		Name:         "Greeter_StreamGreetings",
 		Title:        "Stream Greetings",
 		Description:  "Emits a greeting for each turn, one per progress notification.",
@@ -109,7 +110,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		}
 
 		final := func(ctx context.Context, req *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
-			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*StreamGreetingsRequest)
 			if !ok {
 				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "StreamGreetingsRequest", g.Input)
@@ -166,9 +167,9 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 
 		result, err := srv.ToolChain(final)(ctx, req, g)
 		return srv.FinishToolCall(ctx, req, g, result, err)
-	})
+	}, opts...)
 
-	mcp.AddTool(srv.SDK(), &mcp.Tool{
+	protomcp.AddTool(srv, &mcp.Tool{
 		Name:         "Greeter_FailWith",
 		Title:        "Fail With Code",
 		Description:  "Returns a gRPC status error with the requested code.",
@@ -193,7 +194,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		}
 
 		final := func(ctx context.Context, _ *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
-			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*FailWithRequest)
 			if !ok {
 				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "FailWithRequest", g.Input)
@@ -215,9 +216,9 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 
 		result, err := srv.ToolChain(final)(ctx, req, g)
 		return srv.FinishToolCall(ctx, req, g, result, err)
-	})
+	}, opts...)
 
-	mcp.AddTool(srv.SDK(), &mcp.Tool{
+	protomcp.AddTool(srv, &mcp.Tool{
 		Name:         "Greeter_EchoComplex",
 		Title:        "Echo Complex",
 		Description:  "Echoes a structured request to verify protojson round-trip fidelity.",
@@ -243,7 +244,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		}
 
 		final := func(ctx context.Context, _ *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
-			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*EchoComplexRequest)
 			if !ok {
 				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "EchoComplexRequest", g.Input)
@@ -265,9 +266,9 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 
 		result, err := srv.ToolChain(final)(ctx, req, g)
 		return srv.FinishToolCall(ctx, req, g, result, err)
-	})
+	}, opts...)
 
-	mcp.AddTool(srv.SDK(), &mcp.Tool{
+	protomcp.AddTool(srv, &mcp.Tool{
 		Name:         "Greeter_Slow",
 		Title:        "Slow",
 		Description:  "Blocks until ctx is cancelled; for testing cancellation propagation.",
@@ -292,7 +293,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		}
 
 		final := func(ctx context.Context, _ *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
-			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*HelloRequest)
 			if !ok {
 				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "HelloRequest", g.Input)
@@ -314,6 +315,6 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 
 		result, err := srv.ToolChain(final)(ctx, req, g)
 		return srv.FinishToolCall(ctx, req, g, result, err)
-	})
+	}, opts...)
 
 }

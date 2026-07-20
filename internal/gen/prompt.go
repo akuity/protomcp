@@ -11,8 +11,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	"github.com/gdsoumya/protomcp/internal/gen/schema"
-	protomcpv1 "github.com/gdsoumya/protomcp/pkg/api/gen/protomcp/v1"
+	"github.com/akuity/protomcp/internal/gen/schema"
+	protomcpv1 "github.com/akuity/protomcp/pkg/api/gen/protomcp/v1"
 )
 
 // promptTemplateData is the context passed to prompt.go.tmpl.

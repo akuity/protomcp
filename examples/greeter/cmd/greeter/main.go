@@ -22,9 +22,9 @@ import (
 	"syscall"
 	"time"
 
-	greeterserver "github.com/gdsoumya/protomcp/examples/greeter/server"
-	greeterv1 "github.com/gdsoumya/protomcp/pkg/api/gen/examples/greeter/v1"
-	"github.com/gdsoumya/protomcp/pkg/protomcp"
+	greeterserver "github.com/akuity/protomcp/examples/greeter/server"
+	greeterv1 "github.com/akuity/protomcp/pkg/api/gen/examples/greeter/v1"
+	"github.com/akuity/protomcp/pkg/protomcp"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

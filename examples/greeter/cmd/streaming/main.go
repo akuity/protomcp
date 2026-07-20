@@ -34,9 +34,9 @@ import (
 	"syscall"
 	"time"
 
-	greeterserver "github.com/gdsoumya/protomcp/examples/greeter/server"
-	greeterv1 "github.com/gdsoumya/protomcp/pkg/api/gen/examples/greeter/v1"
-	"github.com/gdsoumya/protomcp/pkg/protomcp"
+	greeterserver "github.com/akuity/protomcp/examples/greeter/server"
+	greeterv1 "github.com/akuity/protomcp/pkg/api/gen/examples/greeter/v1"
+	"github.com/akuity/protomcp/pkg/protomcp"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/grpc"

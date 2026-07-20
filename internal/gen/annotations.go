@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
 
-	protomcpv1 "github.com/gdsoumya/protomcp/pkg/api/gen/protomcp/v1"
+	protomcpv1 "github.com/akuity/protomcp/pkg/api/gen/protomcp/v1"
 )
 
 // toolOptionsFor returns the protomcp.v1.ToolOptions attached to m.

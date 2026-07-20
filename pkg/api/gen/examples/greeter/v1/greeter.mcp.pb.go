@@ -8,7 +8,7 @@ import (
 	json "encoding/json"
 	errors "errors"
 	fmt "fmt"
-	protomcp "github.com/gdsoumya/protomcp/pkg/protomcp"
+	protomcp "github.com/akuity/protomcp/pkg/protomcp"
 	mcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	metadata "google.golang.org/grpc/metadata"
 	io "io"

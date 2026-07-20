@@ -3,6 +3,8 @@
 BIN_DIR := bin
 PLUGIN  := $(BIN_DIR)/protoc-gen-mcp
 
+# Plugins run via `go tool` (see buf.gen.yaml), pinned by the tool
+# directives in go.mod — no PATH lookup, no version drift vs CI.
 gen:
 	buf generate
 

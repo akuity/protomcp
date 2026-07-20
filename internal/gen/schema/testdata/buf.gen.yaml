@@ -10,7 +10,7 @@ managed:
       module: buf.build/googleapis/googleapis
   override:
     - file_option: go_package_prefix
-      value: github.com/gdsoumya/protomcp/internal/gen/schema/testdata
+      value: github.com/akuity/protomcp/internal/gen/schema/testdata
 plugins:
   - local: protoc-gen-go
     out: .

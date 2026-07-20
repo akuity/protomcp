@@ -40,9 +40,9 @@ import (
 	"syscall"
 	"time"
 
-	authserver "github.com/gdsoumya/protomcp/examples/auth/server"
-	authv1 "github.com/gdsoumya/protomcp/pkg/api/gen/examples/auth/v1"
-	"github.com/gdsoumya/protomcp/pkg/protomcp"
+	authserver "github.com/akuity/protomcp/examples/auth/server"
+	authv1 "github.com/akuity/protomcp/pkg/api/gen/examples/auth/v1"
+	"github.com/akuity/protomcp/pkg/protomcp"
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"

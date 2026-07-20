@@ -12,7 +12,7 @@ import (
 
 	"google.golang.org/protobuf/compiler/protogen"
 
-	"github.com/gdsoumya/protomcp/internal/gen"
+	"github.com/akuity/protomcp/internal/gen"
 )
 
 func main() {

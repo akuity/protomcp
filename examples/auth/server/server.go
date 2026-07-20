@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	authv1 "github.com/gdsoumya/protomcp/pkg/api/gen/examples/auth/v1"
+	authv1 "github.com/akuity/protomcp/pkg/api/gen/examples/auth/v1"
 )
 
 // principalKey is a context value populated by the UnaryServerInterceptor

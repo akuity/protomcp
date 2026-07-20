@@ -40,7 +40,7 @@ make lint    # golangci-lint + buf lint
 
 | Module | Path | Published? | Purpose |
 |---|---|---|---|
-| Annotations | `proto/` (excludes `proto/examples`) | ✅ as `buf.build/gdsoumya/protomcp` | the user-facing annotation schema |
+| Annotations | `proto/` (excludes `proto/examples`) | ✅ as `buf.build/akuity/protomcp` | the user-facing annotation schema |
 | Examples | `proto/examples/` | ❌ no `name` | local-only demo services |
 
 Both are linted and both are picked up by `buf generate`. Only the first is pushed to BSR.
@@ -50,9 +50,9 @@ Both are linted and both are picked up by `buf generate`. Only the first is push
 Publishing is automated by `.github/workflows/buf-push.yml`:
 
 - Every push to master updates the BSR `main` label, so consumers pinning
-  `buf.build/gdsoumya/protomcp` (no label) track master.
+  `buf.build/akuity/protomcp` (no label) track master.
 - Every published GitHub release applies the tag name as a label, so
-  consumers can pin `buf.build/gdsoumya/protomcp:vX.Y.Z`.
+  consumers can pin `buf.build/akuity/protomcp:vX.Y.Z`.
 
 Both flows use `buf push --exclude-unnamed` so the unnamed
 `proto/examples` workspace module stays local.
@@ -162,4 +162,4 @@ Conventional Commits style is preferred but not enforced. The body should explai
 
 ## Reporting a security issue
 
-See [SECURITY.md](./SECURITY.md). Use GitHub's [private vulnerability reporting](https://github.com/gdsoumya/protomcp/security/advisories/new); do not open a public issue.
+See [SECURITY.md](./SECURITY.md). Use GitHub's [private vulnerability reporting](https://github.com/akuity/protomcp/security/advisories/new); do not open a public issue.

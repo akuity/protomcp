@@ -21,8 +21,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	tasksv1 "github.com/gdsoumya/protomcp/pkg/api/gen/examples/tasks/v1"
-	"github.com/gdsoumya/protomcp/pkg/protomcp"
+	tasksv1 "github.com/akuity/protomcp/pkg/api/gen/examples/tasks/v1"
+	"github.com/akuity/protomcp/pkg/protomcp"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )

@@ -6,7 +6,7 @@ import "google/api/field_behavior.proto";
 import "google/protobuf/timestamp.proto";
 import "protomcp/v1/annotations.proto";
 
-option go_package = "github.com/gdsoumya/protomcp/pkg/api/gen/examples/tasks/v1;tasksv1";
+option go_package = "github.com/akuity/protomcp/pkg/api/gen/examples/tasks/v1;tasksv1";
 
 // Tasks is a CRUD gRPC service used to demonstrate protomcp's handling
 // of MCP tool hint annotations (read_only, idempotent, destructive),

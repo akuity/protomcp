@@ -738,8 +738,8 @@ const file_protomcp_v1_annotations_proto_rawDesc = "" +
 	"\x06prompt\x12\x1e.google.protobuf.MethodOptions\x18Ն\x03 \x01(\v2\x1a.protomcp.v1.PromptOptionsR\x06prompt:}\n" +
 	"\x15resource_list_changed\x12\x1e.google.protobuf.MethodOptions\x18؆\x03 \x01(\v2'.protomcp.v1.ResourceListChangedOptionsR\x13resourceListChanged:X\n" +
 	"\aservice\x12\x1f.google.protobuf.ServiceOptions\x18҆\x03 \x01(\v2\x1b.protomcp.v1.ServiceOptionsR\aservice:c\n" +
-	"\velicitation\x12\x1e.google.protobuf.MethodOptions\x18ֆ\x03 \x01(\v2\x1f.protomcp.v1.ElicitationOptionsR\velicitationB\xb1\x01\n" +
-	"\x0fcom.protomcp.v1B\x10AnnotationsProtoP\x01Z?github.com/gdsoumya/protomcp/pkg/api/gen/protomcp/v1;protomcpv1\xa2\x02\x03PXX\xaa\x02\vProtomcp.V1\xca\x02\vProtomcp\\V1\xe2\x02\x17Protomcp\\V1\\GPBMetadata\xea\x02\fProtomcp::V1b\x06proto3"
+	"\velicitation\x12\x1e.google.protobuf.MethodOptions\x18ֆ\x03 \x01(\v2\x1f.protomcp.v1.ElicitationOptionsR\velicitationB\xaf\x01\n" +
+	"\x0fcom.protomcp.v1B\x10AnnotationsProtoP\x01Z=github.com/akuity/protomcp/pkg/api/gen/protomcp/v1;protomcpv1\xa2\x02\x03PXX\xaa\x02\vProtomcp.V1\xca\x02\vProtomcp\\V1\xe2\x02\x17Protomcp\\V1\\GPBMetadata\xea\x02\fProtomcp::V1b\x06proto3"
 
 var (
 	file_protomcp_v1_annotations_proto_rawDescOnce sync.Once

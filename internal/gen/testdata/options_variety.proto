@@ -4,7 +4,7 @@ package protomcp.gen.testdata.optionsvariety.v1;
 
 import "protomcp/v1/annotations.proto";
 
-option go_package = "github.com/gdsoumya/protomcp/internal/gen/testdata/options;optionsv1";
+option go_package = "github.com/akuity/protomcp/internal/gen/testdata/options;optionsv1";
 
 // Prefixed is a fixture that exercises service-level tool_prefix, explicit
 // tool name overrides, every combination of the {read_only, idempotent,

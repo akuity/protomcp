@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package protomcp.testdata.decorations.v1;
 
-option go_package = "github.com/gdsoumya/protomcp/internal/gen/schema/testdata;testdatav1";
+option go_package = "github.com/akuity/protomcp/internal/gen/schema/testdata;testdatav1";
 
 // BadExample carries an intentionally malformed `@example` marker so tests
 // can assert that ForInputE surfaces a helpful file:line codegen error

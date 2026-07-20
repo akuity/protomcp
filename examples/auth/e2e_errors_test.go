@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	authv1 "github.com/gdsoumya/protomcp/pkg/api/gen/examples/auth/v1"
-	"github.com/gdsoumya/protomcp/pkg/protomcp"
+	authv1 "github.com/akuity/protomcp/pkg/api/gen/examples/auth/v1"
+	"github.com/akuity/protomcp/pkg/protomcp"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )

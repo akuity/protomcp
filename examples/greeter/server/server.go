@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	greeterv1 "github.com/gdsoumya/protomcp/pkg/api/gen/examples/greeter/v1"
+	greeterv1 "github.com/akuity/protomcp/pkg/api/gen/examples/greeter/v1"
 )
 
 type Server struct {

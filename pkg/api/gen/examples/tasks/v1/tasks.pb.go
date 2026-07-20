@@ -7,7 +7,7 @@
 package tasksv1
 
 import (
-	_ "github.com/gdsoumya/protomcp/pkg/api/gen/protomcp/v1"
+	_ "github.com/akuity/protomcp/pkg/api/gen/protomcp/v1"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -1000,9 +1000,9 @@ const file_examples_tasks_v1_tasks_proto_rawDesc = "" +
 	"Current status: done={{done}}\n" +
 	"Description: {{description}}\n" +
 	"\n" +
-	"What should happen next?B\xfb\x01\n" +
+	"What should happen next?B\xf9\x01\n" +
 	"\x1ecom.protomcp.examples.tasks.v1B\n" +
-	"TasksProtoP\x01ZBgithub.com/gdsoumya/protomcp/pkg/api/gen/examples/tasks/v1;tasksv1\xa2\x02\x03PET\xaa\x02\x1aProtomcp.Examples.Tasks.V1\xca\x02\x1aProtomcp\\Examples\\Tasks\\V1\xe2\x02&Protomcp\\Examples\\Tasks\\V1\\GPBMetadata\xea\x02\x1dProtomcp::Examples::Tasks::V1b\x06proto3"
+	"TasksProtoP\x01Z@github.com/akuity/protomcp/pkg/api/gen/examples/tasks/v1;tasksv1\xa2\x02\x03PET\xaa\x02\x1aProtomcp.Examples.Tasks.V1\xca\x02\x1aProtomcp\\Examples\\Tasks\\V1\xe2\x02&Protomcp\\Examples\\Tasks\\V1\\GPBMetadata\xea\x02\x1dProtomcp::Examples::Tasks::V1b\x06proto3"
 
 var (
 	file_examples_tasks_v1_tasks_proto_rawDescOnce sync.Once

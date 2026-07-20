@@ -1664,8 +1664,8 @@ const file_fixtures_proto_rawDesc = "" +
 	"\x06Status\x12\x16\n" +
 	"\x12STATUS_UNSPECIFIED\x10\x00\x12\r\n" +
 	"\tSTATUS_OK\x10\x01\x12\x10\n" +
-	"\fSTATUS_ERROR\x10\x02B\xe1\x01\n" +
-	"\x18com.protomcp.testdata.v1B\rFixturesProtoP\x01ZDgithub.com/gdsoumya/protomcp/internal/gen/schema/testdata;testdatav1\xa2\x02\x03PTX\xaa\x02\x14Protomcp.Testdata.V1\xca\x02\x14Protomcp\\Testdata\\V1\xe2\x02 Protomcp\\Testdata\\V1\\GPBMetadata\xea\x02\x16Protomcp::Testdata::V1b\x06proto3"
+	"\fSTATUS_ERROR\x10\x02B\xdf\x01\n" +
+	"\x18com.protomcp.testdata.v1B\rFixturesProtoP\x01ZBgithub.com/akuity/protomcp/internal/gen/schema/testdata;testdatav1\xa2\x02\x03PTX\xaa\x02\x14Protomcp.Testdata.V1\xca\x02\x14Protomcp\\Testdata\\V1\xe2\x02 Protomcp\\Testdata\\V1\\GPBMetadata\xea\x02\x16Protomcp::Testdata::V1b\x06proto3"
 
 var (
 	file_fixtures_proto_rawDescOnce sync.Once

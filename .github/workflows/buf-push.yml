@@ -2,19 +2,19 @@ name: buf push
 
 on:
   # Every push to the default branch updates the `main` label on BSR so
-  # `buf.build/gdsoumya/protomcp` (no label) resolves to the latest
+  # `buf.build/akuity/protomcp` (no label) resolves to the latest
   # master state.
   push:
     branches: [main, master]
   # Every published release applies the tag name as an immutable label
-  # so downstream users can pin to `buf.build/gdsoumya/protomcp:vX.Y.Z`.
+  # so downstream users can pin to `buf.build/akuity/protomcp:vX.Y.Z`.
   release:
     types: [published]
 
 permissions:
   contents: read
 
-# BUF_TOKEN is a BSR API token scoped to the buf.build/gdsoumya org.
+# BUF_TOKEN is a BSR API token scoped to the buf.build/akuity org.
 # Generate one at https://buf.build/settings/user/tokens and store it
 # as a repository secret named BUF_TOKEN.
 

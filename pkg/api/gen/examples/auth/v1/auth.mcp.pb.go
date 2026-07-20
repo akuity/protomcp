@@ -19,11 +19,10 @@ var _Profile_WhoAmI_OutputSchema = protomcp.MustParseSchema(`{"properties":{"ten
 // HTTP-middleware → gRPC-metadata propagation seam.
 //
 // RegisterProfileMCPTools registers every annotated RPC on the service as an
-// MCP tool on srv, dispatching to the supplied gRPC client. opts are
-// forwarded to every AddTool (e.g. protomcp.WithToolDomain).
-func RegisterProfileMCPTools(srv *protomcp.Server, client ProfileClient, opts ...protomcp.ToolOption) {
+// MCP tool on srv, dispatching to the supplied gRPC client.
+func RegisterProfileMCPTools(srv *protomcp.Server, client ProfileClient) {
 
-	protomcp.AddTool(srv, &mcp.Tool{
+	mcp.AddTool(srv.SDK(), &mcp.Tool{
 		Name:         "Profile_WhoAmI",
 		Title:        "Who Am I",
 		Description:  "Returns the caller identity propagated from HTTP middleware.",
@@ -49,7 +48,7 @@ func RegisterProfileMCPTools(srv *protomcp.Server, client ProfileClient, opts ..
 		}
 
 		final := func(ctx context.Context, _ *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
-			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
+			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*WhoAmIRequest)
 			if !ok {
 				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "WhoAmIRequest", g.Input)
@@ -71,6 +70,6 @@ func RegisterProfileMCPTools(srv *protomcp.Server, client ProfileClient, opts ..
 
 		result, err := srv.ToolChain(final)(ctx, req, g)
 		return srv.FinishToolCall(ctx, req, g, result, err)
-	}, opts...)
+	})
 
 }

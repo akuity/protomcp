@@ -3,12 +3,10 @@
 BIN_DIR := bin
 PLUGIN  := $(BIN_DIR)/protoc-gen-mcp
 
-# Always rebuild the plugin from this checkout and put it first on
-# PATH, so buf never picks up a stale protoc-gen-mcp from ~/go/bin.
+# Plugins run via `go tool` (see buf.gen.yaml), pinned by the tool
+# directives in go.mod — no PATH lookup, no version drift vs CI.
 gen:
-	mkdir -p $(BIN_DIR)
-	go build -o $(PLUGIN) ./cmd/protoc-gen-mcp
-	PATH="$(CURDIR)/$(BIN_DIR):$$PATH" buf generate
+	buf generate
 
 lint:
 	buf lint

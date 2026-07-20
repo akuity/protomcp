@@ -10,15 +10,15 @@ managed:
     - file_option: go_package_prefix
       value: github.com/akuity/protomcp/pkg/api/gen
 plugins:
-  - local: protoc-gen-go
+  - local: ["go", "tool", "protoc-gen-go"]
     out: pkg/api/gen
     opt:
       - paths=source_relative
-  - local: protoc-gen-go-grpc
+  - local: ["go", "tool", "protoc-gen-go-grpc"]
     out: pkg/api/gen
     opt:
       - paths=source_relative
-  - local: protoc-gen-mcp
+  - local: ["go", "tool", "protoc-gen-mcp"]
     out: pkg/api/gen
     opt:
       - paths=source_relative

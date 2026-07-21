@@ -105,12 +105,13 @@ type toolTemplateData struct {
 	QMCPTool           string
 	QJSONRaw           string
 	QMetadataMD        string
-	QMetadataNewOut    string
 	QMCPTextContent    string
 	QMCPProgressParams string
 	QMCPContent        string
 
 	QProtomcpGRPCReq string
+
+	QProtomcpOutgoingContext string
 
 	// QProtomcpClearOutputOnly zeros OUTPUT_ONLY fields after
 	// protojson.Unmarshal.
@@ -604,10 +605,7 @@ func buildToolTemplateData(
 	q := func(name string, path protogen.GoImportPath) string {
 		return g.QualifiedGoIdent(protogen.GoIdent{GoName: name, GoImportPath: path})
 	}
-	// Share one import alias across metadata.MD / NewOutgoingContext.
 	metaMD := q("MD", importGRPCMetadata)
-	metaPkg := strings.TrimSuffix(metaMD, ".MD")
-	metaNewOut := metaPkg + ".NewOutgoingContext"
 
 	mcpCallReq := q("CallToolRequest", importMCP)
 	mcpPkg := strings.TrimSuffix(mcpCallReq, ".CallToolRequest")
@@ -650,8 +648,8 @@ func buildToolTemplateData(
 		QMCPProgressParams:             mcpPkg + ".ProgressNotificationParams",
 		QJSONRaw:                       q("RawMessage", importJSON),
 		QMetadataMD:                    metaMD,
-		QMetadataNewOut:                metaNewOut,
 		QProtomcpGRPCReq:               q("GRPCData", importProtomcp),
+		QProtomcpOutgoingContext:       q("OutgoingContext", importProtomcp),
 		QProtomcpClearOutputOnly:       q("ClearOutputOnly", importProtomcp),
 		QProtomcpSanitizeMetadataValue: q("SanitizeMetadataValue", importProtomcp),
 	}, nil

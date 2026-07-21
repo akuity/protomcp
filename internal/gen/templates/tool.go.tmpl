@@ -50,7 +50,7 @@
 {{- end}}
 {{if .IsServerStreaming}}
 		final := func(ctx {{.QContext}}, req *{{.QMCPCallReq}}, g *{{.QProtomcpGRPCReq}}) (*{{.QMCPCallResult}}, error) {
-			ctx = {{.QMetadataNewOut}}(ctx, g.Metadata)
+			ctx = {{.QProtomcpOutgoingContext}}(ctx, g.Metadata)
 			upstream, ok := g.Input.(*{{.InputTypeRef}})
 			if !ok {
 				return nil, {{.QFmtErrorf}}("GRPCData.Input: want *%s, got %T", "{{.InputTypeRef}}", g.Input)
@@ -106,7 +106,7 @@
 		}
 {{else}}
 		final := func(ctx {{.QContext}}, _ *{{.QMCPCallReq}}, g *{{.QProtomcpGRPCReq}}) (*{{.QMCPCallResult}}, error) {
-			ctx = {{.QMetadataNewOut}}(ctx, g.Metadata)
+			ctx = {{.QProtomcpOutgoingContext}}(ctx, g.Metadata)
 			upstream, ok := g.Input.(*{{.InputTypeRef}})
 			if !ok {
 				return nil, {{.QFmtErrorf}}("GRPCData.Input: want *%s, got %T", "{{.InputTypeRef}}", g.Input)

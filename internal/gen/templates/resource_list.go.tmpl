@@ -2,6 +2,7 @@
 {{- with .R}}
 	{
 		list := func(ctx {{$.F.QContext}}, req *{{$.F.MCPPkg}}.ListResourcesRequest, g *{{$.F.ProtomcpPkg}}.GRPCData) (*{{$.F.MCPPkg}}.ListResourcesResult, error) {
+			ctx = {{$.F.ProtomcpPkg}}.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*{{.InputTypeRef}})
 			if !ok {
 				return nil, {{$.F.QFmtErrorf}}("protomcp: GRPCData.Input: want *%s, got %T", "{{.InputTypeRef}}", g.Input)

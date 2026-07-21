@@ -59,7 +59,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		}
 
 		final := func(ctx context.Context, _ *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
-			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*HelloRequest)
 			if !ok {
 				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "HelloRequest", g.Input)
@@ -109,7 +109,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		}
 
 		final := func(ctx context.Context, req *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
-			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*StreamGreetingsRequest)
 			if !ok {
 				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "StreamGreetingsRequest", g.Input)
@@ -193,7 +193,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		}
 
 		final := func(ctx context.Context, _ *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
-			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*FailWithRequest)
 			if !ok {
 				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "FailWithRequest", g.Input)
@@ -243,7 +243,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		}
 
 		final := func(ctx context.Context, _ *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
-			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*EchoComplexRequest)
 			if !ok {
 				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "EchoComplexRequest", g.Input)
@@ -292,7 +292,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		}
 
 		final := func(ctx context.Context, _ *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
-			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*HelloRequest)
 			if !ok {
 				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "HelloRequest", g.Input)

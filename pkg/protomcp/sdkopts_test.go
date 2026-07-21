@@ -142,3 +142,41 @@ func TestOptionsOrderingAllowsPropagation(t *testing.T) {
 func noopMiddleware() ToolMiddleware {
 	return func(next ToolHandler) ToolHandler { return next }
 }
+
+// TestWithSDKOptions_NilIsNoOp locks the ServerOption contract for
+// single-value replacements: nil input is a no-op, so a later
+// WithSDKOptions(nil) must not discard previously set options.
+func TestWithSDKOptions_NilIsNoOp(t *testing.T) {
+	want := "survives a nil option"
+	s := New("t", "0.0.1",
+		WithSDKOptions(&mcp.ServerOptions{Instructions: want}),
+		WithSDKOptions(nil),
+	)
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "c", Version: "0.0.1"}, nil)
+	cT, sT := mcp.NewInMemoryTransports()
+	ctx := context.Background()
+	ss, _ := s.SDK().Connect(ctx, sT, nil)
+	t.Cleanup(func() { _ = ss.Close() })
+	cs, err := client.Connect(ctx, cT, nil)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	t.Cleanup(func() { _ = cs.Close() })
+
+	if got := cs.InitializeResult().Instructions; got != want {
+		t.Errorf("Instructions = %q, want %q (nil WithSDKOptions overwrote them)", got, want)
+	}
+}
+
+// TestWithHTTPOptions_NilIsNoOp is the StreamableHTTPOptions
+// counterpart: a later WithHTTPOptions(nil) must keep earlier options.
+func TestWithHTTPOptions_NilIsNoOp(t *testing.T) {
+	s := New("t", "0.0.1",
+		WithHTTPOptions(&mcp.StreamableHTTPOptions{JSONResponse: true}),
+		WithHTTPOptions(nil),
+	)
+	if s.httpOpts == nil || !s.httpOpts.JSONResponse {
+		t.Errorf("httpOpts = %+v, want JSONResponse=true preserved past a nil option", s.httpOpts)
+	}
+}

@@ -76,9 +76,15 @@ func WithToolErrorHandler(h ToolErrorHandler) ServerOption {
 // WithSDKOptions forwards *mcp.ServerOptions to mcp.NewServer. A
 // caller-supplied CompletionHandler is wrapped so a non-empty caller
 // result wins and generator prompt-argument completions act as a
-// fallback; all other fields pass through untouched.
+// fallback; all other fields pass through untouched. Nil is a no-op,
+// per the ServerOption contract.
 func WithSDKOptions(o *mcp.ServerOptions) ServerOption {
-	return func(s *Server) { s.sdkOpts = o }
+	return func(s *Server) {
+		if o == nil {
+			return
+		}
+		s.sdkOpts = o
+	}
 }
 
 // WithProgressTokenHeader overrides the gRPC metadata key used to
@@ -110,9 +116,15 @@ func WithProtoJSONUnmarshal(o protojson.UnmarshalOptions) ServerOption {
 }
 
 // WithHTTPOptions forwards *mcp.StreamableHTTPOptions to
-// mcp.NewStreamableHTTPHandler. No effect on ServeStdio.
+// mcp.NewStreamableHTTPHandler. No effect on ServeStdio. Nil is a
+// no-op, per the ServerOption contract.
 func WithHTTPOptions(o *mcp.StreamableHTTPOptions) ServerOption {
-	return func(s *Server) { s.httpOpts = o }
+	return func(s *Server) {
+		if o == nil {
+			return
+		}
+		s.httpOpts = o
+	}
 }
 
 // New constructs a Server. name and version populate the MCP

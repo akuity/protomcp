@@ -71,7 +71,7 @@ func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 		}
 
 		final := func(ctx context.Context, _ *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
-			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*ListTasksRequest)
 			if !ok {
 				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "ListTasksRequest", g.Input)
@@ -121,7 +121,7 @@ func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 		}
 
 		final := func(ctx context.Context, _ *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
-			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*GetTaskRequest)
 			if !ok {
 				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "GetTaskRequest", g.Input)
@@ -170,7 +170,7 @@ func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 		}
 
 		final := func(ctx context.Context, _ *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
-			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*CreateTaskRequest)
 			if !ok {
 				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "CreateTaskRequest", g.Input)
@@ -220,7 +220,7 @@ func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 		}
 
 		final := func(ctx context.Context, _ *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
-			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*UpdateTaskRequest)
 			if !ok {
 				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "UpdateTaskRequest", g.Input)
@@ -287,7 +287,7 @@ func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 		}
 
 		final := func(ctx context.Context, _ *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
-			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*DeleteTaskRequest)
 			if !ok {
 				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "DeleteTaskRequest", g.Input)
@@ -348,8 +348,9 @@ func RegisterTasksMCPResources(srv *protomcp.Server, client TasksClient) {
 			in.Id = val
 
 		}
-		g := &protomcp.GRPCData{Input: in, Metadata: nil}
+		g := &protomcp.GRPCData{Input: in, Metadata: metadata.MD{}}
 		final := func(ctx context.Context, req *mcp.ReadResourceRequest, g *protomcp.GRPCData) (*mcp.ReadResourceResult, error) {
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*GetTaskRequest)
 			if !ok {
 				return nil, fmt.Errorf("protomcp: GRPCData.Input: want *%s, got %T", "GetTaskRequest", g.Input)
@@ -393,8 +394,9 @@ func RegisterTasksMCPResources(srv *protomcp.Server, client TasksClient) {
 			in.Id = val
 
 		}
-		g := &protomcp.GRPCData{Input: in, Metadata: nil}
+		g := &protomcp.GRPCData{Input: in, Metadata: metadata.MD{}}
 		final := func(ctx context.Context, req *mcp.ReadResourceRequest, g *protomcp.GRPCData) (*mcp.ReadResourceResult, error) {
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*GetTagRequest)
 			if !ok {
 				return nil, fmt.Errorf("protomcp: GRPCData.Input: want *%s, got %T", "GetTagRequest", g.Input)
@@ -423,6 +425,7 @@ func RegisterTasksMCPResources(srv *protomcp.Server, client TasksClient) {
 
 	{
 		list := func(ctx context.Context, req *mcp.ListResourcesRequest, g *protomcp.GRPCData) (*mcp.ListResourcesResult, error) {
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*ListAllResourcesRequest)
 			if !ok {
 				return nil, fmt.Errorf("protomcp: GRPCData.Input: want *%s, got %T", "ListAllResourcesRequest", g.Input)

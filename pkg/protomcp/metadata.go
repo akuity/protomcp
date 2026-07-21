@@ -1,6 +1,18 @@
 package protomcp
 
-import "strings"
+import (
+	"context"
+	"strings"
+
+	"google.golang.org/grpc/metadata"
+)
+
+func OutgoingContext(ctx context.Context, md metadata.MD) context.Context {
+	if existing, ok := metadata.FromOutgoingContext(ctx); ok {
+		return metadata.NewOutgoingContext(ctx, metadata.Join(existing, md))
+	}
+	return metadata.NewOutgoingContext(ctx, md)
+}
 
 // SanitizeMetadataValue strips ASCII control bytes (< 0x20 except tab)
 // from v. HTTP/2 RFC 7540 §10.3 forbids CR/LF in header values;

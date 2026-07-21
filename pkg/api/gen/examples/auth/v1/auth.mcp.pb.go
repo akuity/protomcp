@@ -48,7 +48,7 @@ func RegisterProfileMCPTools(srv *protomcp.Server, client ProfileClient) {
 		}
 
 		final := func(ctx context.Context, _ *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
-			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*WhoAmIRequest)
 			if !ok {
 				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "WhoAmIRequest", g.Input)

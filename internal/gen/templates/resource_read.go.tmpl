@@ -18,8 +18,9 @@
 			{{.FieldAssign}}
 		}
 		{{- end}}
-		g := &{{$.F.ProtomcpPkg}}.GRPCData{Input: in, Metadata: nil}
+		g := &{{$.F.ProtomcpPkg}}.GRPCData{Input: in, Metadata: {{$.F.QMetadataMD}}{}}
 		final := func(ctx {{$.F.QContext}}, req *{{$.F.MCPPkg}}.ReadResourceRequest, g *{{$.F.ProtomcpPkg}}.GRPCData) (*{{$.F.MCPPkg}}.ReadResourceResult, error) {
+			ctx = {{$.F.ProtomcpPkg}}.OutgoingContext(ctx, g.Metadata)
 			upstream, ok := g.Input.(*{{.InputTypeRef}})
 			if !ok {
 				return nil, {{$.F.QFmtErrorf}}("protomcp: GRPCData.Input: want *%s, got %T", "{{.InputTypeRef}}", g.Input)

@@ -54,6 +54,20 @@ func AddTool[In, Out any](s *Server, tool *mcp.Tool, handler mcp.ToolHandlerFor[
 	mcp.AddTool(s.sdk, tool, handler)
 }
 
+// AddTool registers a tool with a plain (non-generic) handler, claiming
+// the tool's name. It panics if the name is already registered. This is
+// the counterpart of mcp.Server.AddTool, for hand-written tools that do
+// their own argument decoding; generated code uses the package-level
+// AddTool, which cannot be a method because Go methods take no type
+// parameters.
+func (s *Server) AddTool(tool *mcp.Tool, handler mcp.ToolHandler) {
+	if tool == nil {
+		panic("protomcp: AddTool received a nil tool")
+	}
+	s.claim(&s.toolNames, "tool", tool.Name)
+	s.sdk.AddTool(tool, handler)
+}
+
 // AddResource registers a static resource and its handler, claiming the
 // resource's URI. It panics if the URI is already registered.
 func (s *Server) AddResource(resource *mcp.Resource, handler mcp.ResourceHandler) {

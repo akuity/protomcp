@@ -193,3 +193,35 @@ func TestNotifyResourceListChangedDoesNotClaimKeys(t *testing.T) {
 		t.Fatalf("RegisteredResourceTemplates() = %v, want empty", got)
 	}
 }
+
+// TestServerAddToolClaimsSameRegistryAsPackageAddTool verifies the
+// non-generic method and the generic function share one name space: a
+// hand-written tool cannot quietly displace a generated one.
+func TestServerAddToolClaimsSameRegistryAsPackageAddTool(t *testing.T) {
+	s := New("test", "v0")
+	AddTool(s, testTool("shared_name"), testToolHandler("generic"))
+
+	recovered := recoverPanic(func() {
+		s.AddTool(testTool("shared_name"), func(context.Context, *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return nil, nil
+		})
+	})
+	if recovered == nil {
+		t.Fatalf("expected a panic: the generic AddTool already claimed the name")
+	}
+	if got := s.RegisteredToolNames(); !slices.Equal(got, []string{"shared_name"}) {
+		t.Fatalf("RegisteredToolNames() = %v, want [shared_name]", got)
+	}
+}
+
+// TestServerAddToolIsSnapshotted verifies plain handlers are cataloged
+// like generic ones.
+func TestServerAddToolIsSnapshotted(t *testing.T) {
+	s := New("test", "v0")
+	s.AddTool(testTool("plain_tool"), func(context.Context, *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return nil, nil
+	})
+	if got := s.RegisteredToolNames(); !slices.Equal(got, []string{"plain_tool"}) {
+		t.Fatalf("RegisteredToolNames() = %v, want [plain_tool]", got)
+	}
+}

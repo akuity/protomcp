@@ -45,7 +45,7 @@ var _protomcp_URITemplate_2 = v3.MustNew("{type}://{id}")
 // MCP tool on srv, dispatching to the supplied gRPC client.
 func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 
-	protomcp.AddTool(srv, &mcp.Tool{
+	protomcp.MustAddTool(srv, &mcp.Tool{
 		Name:         "Tasks_ListTasks",
 		Title:        "List Tasks",
 		Description:  "Returns every task stored on the server.",
@@ -95,7 +95,7 @@ func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 		return srv.FinishToolCall(ctx, req, g, result, err)
 	})
 
-	protomcp.AddTool(srv, &mcp.Tool{
+	protomcp.MustAddTool(srv, &mcp.Tool{
 		Name:         "Tasks_GetTask",
 		Title:        "Get Task",
 		Description:  "Returns the task with the given id, or NOT_FOUND.",
@@ -145,7 +145,7 @@ func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 		return srv.FinishToolCall(ctx, req, g, result, err)
 	})
 
-	protomcp.AddTool(srv, &mcp.Tool{
+	protomcp.MustAddTool(srv, &mcp.Tool{
 		Name:         "Tasks_CreateTask",
 		Title:        "Create Task",
 		Description:  "Creates a new task. Server assigns id and timestamps.",
@@ -194,7 +194,7 @@ func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 		return srv.FinishToolCall(ctx, req, g, result, err)
 	})
 
-	protomcp.AddTool(srv, &mcp.Tool{
+	protomcp.MustAddTool(srv, &mcp.Tool{
 		Name:         "Tasks_UpdateTask",
 		Title:        "Update Task",
 		Description:  "Updates a task's title / description / done. Idempotent.",
@@ -244,7 +244,7 @@ func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 		return srv.FinishToolCall(ctx, req, g, result, err)
 	})
 
-	protomcp.AddTool(srv, &mcp.Tool{
+	protomcp.MustAddTool(srv, &mcp.Tool{
 		Name:         "Tasks_DeleteTask",
 		Title:        "Delete Task",
 		Description:  "Removes a task by id. Safe to retry; returns existed=true if a task was actually removed.",
@@ -331,7 +331,7 @@ func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 // protomcp.WithSDKOptions.
 func RegisterTasksMCPResources(srv *protomcp.Server, client TasksClient) {
 
-	srv.AddResourceTemplate(&mcp.ResourceTemplate{
+	srv.MustAddResourceTemplate(&mcp.ResourceTemplate{
 		URITemplate: "tasks://{id}",
 		Name:        "Tasks_GetTask",
 		MIMEType:    "application/json",
@@ -377,7 +377,7 @@ func RegisterTasksMCPResources(srv *protomcp.Server, client TasksClient) {
 		return srv.FinishResourceRead(ctx, req, g, result, err)
 	})
 
-	srv.AddResourceTemplate(&mcp.ResourceTemplate{
+	srv.MustAddResourceTemplate(&mcp.ResourceTemplate{
 		URITemplate: "tags://{id}",
 		Name:        "Tasks_GetTag",
 		MIMEType:    "application/json",

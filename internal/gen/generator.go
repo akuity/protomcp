@@ -644,7 +644,7 @@ func buildToolTemplateData(
 		},
 		QMCPCallReq:                    mcpCallReq,
 		QMCPCallResult:                 mcpPkg + ".CallToolResult",
-		QMCPAddTool:                    q("AddTool", importProtomcp),
+		QMCPAddTool:                    q("MustAddTool", importProtomcp),
 		QMCPTool:                       mcpPkg + ".Tool",
 		QMCPContent:                    mcpPkg + ".Content",
 		QMCPTextContent:                mcpPkg + ".TextContent",

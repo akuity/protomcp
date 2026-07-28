@@ -35,6 +35,17 @@ func testPlainToolHandler(context.Context, *mcp.CallToolRequest) (*mcp.CallToolR
 	return &mcp.CallToolResult{}, nil
 }
 
+func testPromptHandler(context.Context, *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	return &mcp.GetPromptResult{}, nil
+}
+
+// unrepresentableInput has a field jsonschema cannot describe, so
+// mcp.AddTool's schema inference panics on a handler taking it — the SDK
+// rejecting a primitive whose key is perfectly valid.
+type unrepresentableInput struct {
+	Ch chan int `json:"ch"`
+}
+
 // recoverPanic runs fn and returns the value it panicked with, or nil.
 func recoverPanic(fn func()) (recovered any) {
 	defer func() { recovered = recover() }()
@@ -239,5 +250,114 @@ func TestServerMustAddToolIsSnapshotted(t *testing.T) {
 	s.MustAddTool(testTool("plain_tool"), testPlainToolHandler)
 	if got := s.RegisteredToolNames(); !slices.Equal(got, []string{"plain_tool"}) {
 		t.Fatalf("RegisteredToolNames() = %v, want [plain_tool]", got)
+	}
+}
+
+// TestKeyIsNotClaimedWhenTheSDKRejectsThePrimitive covers the phantom-key
+// case: the SDK panics on input it rejects (a URI with no scheme here, an
+// unrepresentable schema for mcp.AddTool), and a key recorded before that
+// call would be reported by the snapshots though absent from the SDK, and
+// would block a corrected retry as a duplicate.
+func TestKeyIsNotClaimedWhenTheSDKRejectsThePrimitive(t *testing.T) {
+	s := New("test", "v0")
+
+	recovered := recoverPanic(func() {
+		s.MustAddResource(testResource("://no-scheme"), testResourceHandler)
+	})
+	if recovered == nil {
+		t.Fatalf("expected the SDK to reject a URI with no scheme")
+	}
+	var duplicate *DuplicateRegistrationError
+	if err, ok := recovered.(error); ok && errors.As(err, &duplicate) {
+		t.Fatalf("the SDK's rejection was misreported as a duplicate: %v", err)
+	}
+
+	// Nothing was claimed, so the snapshot stays accurate...
+	if got := s.RegisteredResourceURIs(); len(got) != 0 {
+		t.Fatalf("RegisteredResourceURIs() = %v, want empty after a rejected registration", got)
+	}
+	// ...and the same URI can be retried once corrected.
+	s.MustAddResource(testResource("test://corrected"), testResourceHandler)
+	if got := s.RegisteredResourceURIs(); !slices.Equal(got, []string{"test://corrected"}) {
+		t.Fatalf("RegisteredResourceURIs() = %v, want [test://corrected]", got)
+	}
+}
+
+// TestRetryAfterSDKRejectionReusesTheSameKey is the retry case in full: a
+// primitive whose *name* is fine but whose schema the SDK cannot represent
+// is rejected, and registering that same name again with a workable schema
+// must succeed rather than report a duplicate.
+func TestRetryAfterSDKRejectionReusesTheSameKey(t *testing.T) {
+	s := New("test", "v0")
+	const name = "retry_tool"
+
+	recovered := recoverPanic(func() {
+		MustAddTool(s, &mcp.Tool{Name: name},
+			func(context.Context, *mcp.CallToolRequest, unrepresentableInput) (*mcp.CallToolResult, any, error) {
+				return nil, nil, nil
+			})
+	})
+	if recovered == nil {
+		t.Fatalf("expected the SDK to reject a schema it cannot represent")
+	}
+	if got := s.RegisteredToolNames(); len(got) != 0 {
+		t.Fatalf("RegisteredToolNames() = %v, want empty after a rejected registration", got)
+	}
+
+	// Same name, workable schema: the retry must not see a duplicate.
+	MustAddTool(s, testTool(name), testToolHandler("corrected"))
+	if got := s.RegisteredToolNames(); !slices.Equal(got, []string{name}) {
+		t.Fatalf("RegisteredToolNames() = %v, want [%s]", got, name)
+	}
+}
+
+func TestMustAddPromptClaimsName(t *testing.T) {
+	s := New("test", "v0")
+	s.MustAddPrompt(&mcp.Prompt{Name: "b_prompt"}, testPromptHandler)
+	s.MustAddPrompt(&mcp.Prompt{Name: "a_prompt"}, testPromptHandler)
+
+	if got := s.RegisteredPromptNames(); !slices.Equal(got, []string{"a_prompt", "b_prompt"}) {
+		t.Fatalf("RegisteredPromptNames() = %v, want [a_prompt b_prompt]", got)
+	}
+}
+
+// TestMustAddPromptPanicsOnDuplicateName closes the same hole for prompts
+// that MustAddTool closes for tools: mcp.Server.AddPrompt "replaces one
+// with the same name", so a registrar invoked twice would silently rebind
+// every prompt handler.
+func TestMustAddPromptPanicsOnDuplicateName(t *testing.T) {
+	s := New("test", "v0")
+	s.MustAddPrompt(&mcp.Prompt{Name: "dup_prompt"}, testPromptHandler)
+
+	duplicate := recoverDuplicate(t, func() {
+		s.MustAddPrompt(&mcp.Prompt{Name: "dup_prompt"}, testPromptHandler)
+	})
+	if duplicate.Kind != "prompt" || duplicate.Key != "dup_prompt" {
+		t.Fatalf("err = %+v, want kind=prompt key=dup_prompt", duplicate)
+	}
+	if got := s.RegisteredPromptNames(); !slices.Equal(got, []string{"dup_prompt"}) {
+		t.Fatalf("RegisteredPromptNames() = %v, want [dup_prompt]", got)
+	}
+}
+
+func TestMustAddPromptPanicsOnNilPromptAndEmptyName(t *testing.T) {
+	s := New("test", "v0")
+	if recoverPanic(func() { s.MustAddPrompt(nil, testPromptHandler) }) == nil {
+		t.Fatalf("expected a panic on a nil prompt")
+	}
+	if recoverPanic(func() { s.MustAddPrompt(&mcp.Prompt{}, testPromptHandler) }) == nil {
+		t.Fatalf("expected a panic on an empty prompt name")
+	}
+}
+
+// TestPromptRegistryIsIndependent verifies a prompt may share a key with a
+// tool: the SDK keeps separate registries per primitive.
+func TestPromptRegistryIsIndependent(t *testing.T) {
+	s := New("test", "v0")
+	MustAddTool(s, testTool("shared"), testToolHandler("tool"))
+	if recovered := recoverPanic(func() {
+		s.MustAddPrompt(&mcp.Prompt{Name: "shared"}, testPromptHandler)
+	}); recovered != nil {
+		t.Fatalf("unexpected cross-primitive collision: %v", recovered)
 	}
 }

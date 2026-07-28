@@ -498,7 +498,7 @@ func RegisterTasksMCPResources(srv *protomcp.Server, client TasksClient) {
 // buf.validate.string.in), a completion/complete handler is also wired up.
 func RegisterTasksMCPPrompts(srv *protomcp.Server, client TasksClient) {
 
-	srv.SDK().AddPrompt(&mcp.Prompt{
+	srv.MustAddPrompt(&mcp.Prompt{
 		Name:        "tasks_review",
 		Title:       "Review a task",
 		Description: "TaskReview surfaces a single task as an MCP prompt. It simply loads\nthe task by id (reusing GetTask semantics) and renders a Mustache\ntemplate against the response, producing one user-role PromptMessage\nthe LLM client can use to kick off a review conversation.",

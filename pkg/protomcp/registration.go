@@ -9,9 +9,9 @@ import (
 
 // Registration bookkeeping.
 //
-// The SDK's registries are maps keyed by tool name, resource URI, and URI
-// template: registering a key that already exists REPLACES the previous
-// entry — handler included — and returns nothing. Nothing observes the
+// The SDK's registries are maps keyed by tool name, resource URI, URI
+// template, and prompt name: registering a key that already exists
+// REPLACES the previous entry — handler included — and returns nothing. Nothing observes the
 // collision, and the wire-visible catalog is unchanged, so a server can
 // serve one registrar's definition with another registrar's handler and
 // look completely healthy.
@@ -24,8 +24,9 @@ import (
 // exposed on more than one surface — silently rebinds every one of its
 // tools to the second client.
 //
-// The functions here are the write side of the registry: they claim the
-// key first and panic if it is already taken. They carry the Must prefix
+// The functions here are the write side of the registry: they refuse a key
+// that is already taken, and claim it once the SDK has accepted the
+// primitive (see claimAndRegister). They carry the Must prefix
 // (as MustParseSchema does) because the panic is the contract, not a
 // surprise: generated registrars have no error return to use, and with
 // proto-derived keys a duplicate is a wiring bug that fails
@@ -55,9 +56,9 @@ import (
 // collision protection.
 
 // DuplicateRegistrationError reports a key already claimed on the server.
-// Kind names the primitive ("tool", "resource", "resource template") and
-// Key is the tool name, resource URI, or URI template. It is the value the
-// MustAdd functions panic with.
+// Kind names the primitive ("tool", "resource", "resource template",
+// "prompt") and Key is the tool name, resource URI, URI template, or
+// prompt name. It is the value the MustAdd functions panic with.
 type DuplicateRegistrationError struct {
 	Kind string
 	Key  string
@@ -79,8 +80,9 @@ func MustAddTool[In, Out any](s *Server, tool *mcp.Tool, handler mcp.ToolHandler
 	if tool == nil {
 		panic("protomcp: MustAddTool received a nil tool")
 	}
-	s.mustClaim(&s.toolNames, "tool", tool.Name)
-	mcp.AddTool(s.sdk, tool, handler)
+	s.claimAndRegister(&s.toolNames, "tool", tool.Name, func() {
+		mcp.AddTool(s.sdk, tool, handler)
+	})
 }
 
 // MustAddTool registers a tool with a plain (non-generic) handler,
@@ -93,8 +95,9 @@ func (s *Server) MustAddTool(tool *mcp.Tool, handler mcp.ToolHandler) {
 	if tool == nil {
 		panic("protomcp: MustAddTool received a nil tool")
 	}
-	s.mustClaim(&s.toolNames, "tool", tool.Name)
-	s.sdk.AddTool(tool, handler)
+	s.claimAndRegister(&s.toolNames, "tool", tool.Name, func() {
+		s.sdk.AddTool(tool, handler)
+	})
 }
 
 // MustAddResource registers a static resource and its handler, claiming
@@ -103,8 +106,9 @@ func (s *Server) MustAddResource(resource *mcp.Resource, handler mcp.ResourceHan
 	if resource == nil {
 		panic("protomcp: MustAddResource received a nil resource")
 	}
-	s.mustClaim(&s.resourceURIs, "resource", resource.URI)
-	s.sdk.AddResource(resource, handler)
+	s.claimAndRegister(&s.resourceURIs, "resource", resource.URI, func() {
+		s.sdk.AddResource(resource, handler)
+	})
 }
 
 // MustAddResourceTemplate registers a resource template and its handler,
@@ -114,8 +118,22 @@ func (s *Server) MustAddResourceTemplate(template *mcp.ResourceTemplate, handler
 	if template == nil {
 		panic("protomcp: MustAddResourceTemplate received a nil resource template")
 	}
-	s.mustClaim(&s.resourceTemplates, "resource template", template.URITemplate)
-	s.sdk.AddResourceTemplate(template, handler)
+	s.claimAndRegister(&s.resourceTemplates, "resource template", template.URITemplate, func() {
+		s.sdk.AddResourceTemplate(template, handler)
+	})
+}
+
+// MustAddPrompt registers a prompt and its handler, claiming the prompt's
+// name and panicking if it is already registered. The SDK replaces a
+// same-named prompt as silently as it replaces a tool. Generated prompt
+// registrars use this.
+func (s *Server) MustAddPrompt(prompt *mcp.Prompt, handler mcp.PromptHandler) {
+	if prompt == nil {
+		panic("protomcp: MustAddPrompt received a nil prompt")
+	}
+	s.claimAndRegister(&s.promptNames, "prompt", prompt.Name, func() {
+		s.sdk.AddPrompt(prompt, handler)
+	})
 }
 
 // RegisteredToolNames returns the tool names registered through
@@ -138,10 +156,26 @@ func (s *Server) RegisteredResourceTemplates() []string {
 	return s.registered(&s.resourceTemplates)
 }
 
-// mustClaim records key in the registry, panicking with a
-// *DuplicateRegistrationError if it is already present. kind names the
+// RegisteredPromptNames returns the prompt names registered through
+// MustAddPrompt, sorted. Prompts attached directly via SDK() are not
+// included.
+func (s *Server) RegisteredPromptNames() []string {
+	return s.registered(&s.promptNames)
+}
+
+// claimAndRegister runs register with the key claimed, panicking with a
+// *DuplicateRegistrationError if the key is already present. kind names the
 // primitive in the message.
-func (s *Server) mustClaim(registry *map[string]bool, kind, key string) {
+//
+// The claim and the SDK call are one critical section, and the key is
+// recorded only after register returns. The SDK panics on input it
+// rejects — an unrepresentable schema (mcp.AddTool) or a URI that is not
+// absolute (mcp.Server.AddResource) — and a key recorded before that would
+// be a phantom: reported by the Registered* snapshots though absent from
+// the SDK, and blocking a corrected retry as a duplicate. Recording after
+// makes the pair all-or-nothing, since the deferred unlock runs whether
+// register returns or panics.
+func (s *Server) claimAndRegister(registry *map[string]bool, kind, key string, register func()) {
 	if key == "" {
 		panic(fmt.Sprintf("protomcp: %s registered with an empty key", kind))
 	}
@@ -153,6 +187,7 @@ func (s *Server) mustClaim(registry *map[string]bool, kind, key string) {
 	if (*registry)[key] {
 		panic(&DuplicateRegistrationError{Kind: kind, Key: key})
 	}
+	register()
 	(*registry)[key] = true
 }
 

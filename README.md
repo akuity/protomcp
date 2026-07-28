@@ -633,13 +633,14 @@ entry — handler included — with no error and no change to the wire-visible
 catalog. A server can end up serving one registrar's definition bound to
 another registrar's handler and look perfectly healthy.
 
-Register through protomcp instead, and the key is claimed first:
+Register through protomcp instead, and the key is claimed:
 
 ```go
 protomcp.MustAddTool(srv, tool, handler)        // generic handler (mcp.AddTool shape)
 srv.MustAddTool(tool, handler)                  // plain handler (mcp.Server.AddTool shape)
 srv.MustAddResource(res, handler)
 srv.MustAddResourceTemplate(tmpl, handler)
+srv.MustAddPrompt(prompt, handler)
 ```
 
 A duplicate key panics with `*protomcp.DuplicateRegistrationError`. The
@@ -658,14 +659,24 @@ data-dependent, so it can pass tests and then crash the process on a
 particular row. Derive keys from code, and use a URI template for the
 parameterized case.
 
-`RegisteredToolNames`, `RegisteredResourceURIs`, and
-`RegisteredResourceTemplates` snapshot what has been claimed. Keys are only
-ever added, never replaced, so the difference between two snapshots is
-exactly what the registrations between them added — useful for binding
-primitives to an authorization scope without re-deriving the list.
+The key is recorded only once the SDK accepts the primitive. The SDK panics
+on input it rejects — a schema it cannot represent, a URI with no scheme —
+and a key claimed before that call would be a phantom: reported by the
+snapshots though absent from the SDK, and blocking a corrected retry as a
+duplicate.
 
-Primitives added via `SDK()` bypass all of this: no claim, no collision
-protection, and absent from the snapshots.
+`RegisteredToolNames`, `RegisteredResourceURIs`,
+`RegisteredResourceTemplates`, and `RegisteredPromptNames` snapshot what has
+been claimed. Keys are only ever added, never replaced, so the difference
+between two snapshots is exactly what the registrations between them added
+— useful for binding primitives to an authorization scope without
+re-deriving the list.
+
+`SDK()` remains an **untracked escape hatch**: primitives added straight to
+the underlying `mcp.Server` get no claim and no collision protection, are
+absent from the snapshots, and (as documented on `SDK()` itself) bypass
+every middleware, result processor, and error handler. Prefer the `MustAdd*`
+functions for anything you want tracked.
 
 ### SDK pass-through
 
@@ -699,7 +710,7 @@ srv := protomcp.New("svc", "0.1.0",
 - `google.api.field_behavior`, `REQUIRED` and `OUTPUT_ONLY` (recursive stripping and runtime zeroing).
 - Schema hints from comments: field descriptions from leading `//` comments, `@example <json>` lines, enum-value `enumDescriptions`, `buf:lint:ignore` / `@ignore-comment` pragma stripping.
 - `[deprecated = true]` → JSON Schema `deprecated`.
-- Cross-file tool-name collision detection at codegen time.
+- Key-collision detection for every registered primitive: cross-file tool names at codegen time, plus a runtime claim on tool names, resource URIs, URI templates, and prompt names (see [Registration](#registration-duplicate-keys-are-refused)).
 - Template safety: Mustache sections / partials rejected at codegen; every Mustache variable reference validated against a real proto field path.
 - Generated Go is parsed with `go/parser` before being written; backtick-containing comments are safely split across raw-string literals.
 
@@ -807,7 +818,7 @@ We surveyed every Go-based proto → MCP project we could find before starting. 
 | **Unary RPCs** | ✅ | ✅ | ✅ | ✅ |
 | **Server-streaming** | ✅ MCP progress notifications + monotonic counter | ❌ | ❌ | ❌ |
 | **Client-streaming / bidi** | generation error (by design) | skipped silently | skipped silently | skipped silently |
-| **Cross-file tool-name collision detection** | ✅ hard error at codegen | ❌ (silent SDK override at runtime) | ❌ | ❌ (silent mux override) |
+| **Key-collision detection** | ✅ hard error at codegen (tool names) + runtime claim on tools, resources, templates, prompts | ❌ (silent SDK override at runtime) | ❌ | ❌ (silent mux override) |
 | **`buf.validate` rule coverage** | strings / bytes / all numerics / enums / bool / repeated / maps / extended formats (uri-reference, tuuid, ip-with-prefixlen, ip-prefix, host-and-port, address, …) | strings (pattern / length / uuid / email) / int32/64 + uint32/64 bounds / float + double bounds, no enums, no repeated, no bytes, no booleans, no extended formats | strings / bytes / numerics / booleans / enums / repeated / maps + extended string formats (uri_ref, tuuid, ip_prefix, host_and_port, …) | ❌ (no `buf.validate` support) |
 | **`google.api.field_behavior`** | `REQUIRED` + `OUTPUT_ONLY` (recursive runtime clear) | `REQUIRED` only | ❌ (via `buf.validate.required` only) | `REQUIRED` + `OUTPUT_ONLY` (codegen only, no runtime clear) |
 | **Resources (templates + list)** | ✅ `resource_template` (multiple per server, served via `resources/templates/list`) + single `resource_list` with `{type}://{id}`-style multi-type enumeration; `OffsetPagination` / `PageTokenPagination` helpers | ❌ | ❌ | ❌ |
@@ -827,7 +838,7 @@ We surveyed every Go-based proto → MCP project we could find before starting. 
 - **Auth is a first-class extension seam, not an afterthought.** The `protomcp.ToolMiddleware` type composes like stdlib HTTP middleware but has access to both the parsed tool request **and** the outgoing gRPC metadata, so a single function can verify a caller AND propagate identity to the upstream gRPC server. None of the other three projects expose a middleware or per-request ctx hook; users have to build auth + metadata propagation on their own. Adiom exposes a `--header` CLI flag for *static* headers only.
 - **`OUTPUT_ONLY` is enforced end-to-end.** Only linkbreakers strips it from the input schema at all (via raw protowire parsing of `google.api.field_behavior`); redpanda and adiom ignore it entirely, redpanda reads `field_behavior` but only for `REQUIRED`, adiom doesn't read it at all. Nobody else runs a runtime clear. protomcp does both: strips from the schema AND runs `ClearOutputOnly` (recursive, nested, repeated, map) on every tool call so a malicious or sloppy client cannot forge server-computed fields by bypassing the advertised schema.
 - **Server-streaming is supported.** Each gRPC message becomes a `notifications/progress` event (monotonic counter per MCP spec) with a final summary `CallToolResult`. All three other projects skip streaming RPCs entirely.
-- **Tool-name collisions fail at codegen, not silently at runtime.** Both the MCP Go SDK's `AddTool` and linkbreakers' `MCPServeMux.RegisterTool` *replace* a duplicate name without warning; our generator refuses to emit a colliding pair and cites both declaration sites.
+- **Key collisions fail loudly, at codegen and at runtime.** Both the MCP Go SDK's `AddTool` and linkbreakers' `MCPServeMux.RegisterTool` *replace* a duplicate name without warning — handler included, with no change to the advertised catalog. Our generator refuses to emit a colliding tool pair and cites both declaration sites; at runtime every registration claims its key (tool name, resource URI, URI template, prompt name) and panics on a collision, which catches what codegen cannot see: the same registrar invoked twice with different clients.
 - **Pluggable `ErrorHandler` and `ResultProcessor`.** Customize how gRPC status codes map to MCP error shapes; redact or rewrite responses after the tool handler runs. No other project offers either hook.
 - **Client-streaming / bidi annotated RPCs are hard errors.** The other three silently skip them; we surface the mistake at codegen time.
 

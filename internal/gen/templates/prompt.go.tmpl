@@ -1,5 +1,5 @@
 {{define "prompt.go.tmpl"}}
-	srv.SDK().AddPrompt(&{{.QMCPPrompt}}{
+	srv.MustAddPrompt(&{{.QMCPPrompt}}{
 		Name: {{printf "%q" .PromptName}},
 {{- if .Title}}
 		Title: {{printf "%q" .Title}},

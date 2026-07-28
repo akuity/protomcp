@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -355,6 +356,103 @@ func TestOneofs(t *testing.T) {
 		if requiredSet(s)[name] {
 			t.Errorf("%s wrongly required", name)
 		}
+	}
+}
+
+func TestHasExclusions_Any(t *testing.T) {
+	if !HasExclusions(descByName(t, "protomcp.testdata.v1.WellKnown")) {
+		t.Error("HasExclusions(WellKnown) = false; a reachable google.protobuf.Any must count as an exclusion")
+	}
+	if HasExclusions(descByName(t, "protomcp.testdata.v1.Scalars")) {
+		t.Error("HasExclusions(Scalars) = true, want false")
+	}
+}
+
+func TestRequiredOneof_NoEmptyBranch(t *testing.T) {
+	md := descByName(t, "protomcp.testdata.v1.RequiredOneof")
+	s := jsonRound(t, ForInput(md, Options{}))
+
+	allOf, ok := s["allOf"].([]any)
+	if !ok || len(allOf) != 1 {
+		t.Fatalf("expected one allOf entry, got %v", s["allOf"])
+	}
+	oneOf := allOf[0].(map[string]any)["oneOf"].([]any)
+	if len(oneOf) != 2 {
+		t.Fatalf("required oneof: want 2 branches (id, name) and no no-arm branch, got %d: %v", len(oneOf), oneOf)
+	}
+	for _, b := range oneOf {
+		if _, hasNot := b.(map[string]any)["not"]; hasNot {
+			t.Errorf("required oneof must not carry a no-arm branch: %v", b)
+		}
+	}
+
+	raw, err := json.Marshal(ForInput(md, Options{}))
+	if err != nil {
+		t.Fatalf("marshal schema: %v", err)
+	}
+	sch := &jsonschema.Schema{}
+	if uErr := json.Unmarshal(raw, sch); uErr != nil {
+		t.Fatalf("unmarshal into jsonschema.Schema: %v", uErr)
+	}
+	resolved, err := sch.Resolve(nil)
+	if err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+	cases := []struct {
+		name     string
+		instance map[string]any
+		valid    bool
+	}{
+		{"no arm rejected", map[string]any{}, false},
+		{"no arm rejected even with other fields", map[string]any{"note": "x"}, false},
+		{"one arm validates", map[string]any{"id": "x"}, true},
+		{"other arm validates", map[string]any{"name": "y"}, true},
+		{"two arms rejected", map[string]any{"id": "x", "name": "y"}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := resolved.Validate(tc.instance)
+			if tc.valid && err != nil {
+				t.Errorf("want valid, got %v", err)
+			}
+			if !tc.valid && err == nil {
+				t.Errorf("want validation failure, got none")
+			}
+		})
+	}
+}
+
+func TestRequiredOneofPartial_MaskedArmKeepsEmptyBranch(t *testing.T) {
+	md := descByName(t, "protomcp.testdata.v1.RequiredOneofPartial")
+
+	in := jsonRound(t, ForInput(md, Options{}))
+	inOneOf := in["allOf"].([]any)[0].(map[string]any)["oneOf"].([]any)
+	if len(inOneOf) != 2 {
+		t.Fatalf("input oneOf: want 2 branches (visible + no-arm), got %d: %v", len(inOneOf), inOneOf)
+	}
+	if _, hasNot := inOneOf[1].(map[string]any)["not"]; !hasNot {
+		t.Errorf("input schema of a partially-masked required oneof must keep the no-arm branch: %v", inOneOf)
+	}
+
+	out := jsonRound(t, ForOutput(md, Options{}))
+	outOneOf := out["allOf"].([]any)[0].(map[string]any)["oneOf"].([]any)
+	if len(outOneOf) != 2 {
+		t.Fatalf("output oneOf: want 2 branches (visible, hidden), got %d: %v", len(outOneOf), outOneOf)
+	}
+	for _, b := range outOneOf {
+		if _, hasNot := b.(map[string]any)["not"]; hasNot {
+			t.Errorf("output schema sees every arm; no-arm branch must be dropped: %v", outOneOf)
+		}
+	}
+}
+
+func TestRequiredOneofAllMasked_InputErrors(t *testing.T) {
+	md := descByName(t, "protomcp.testdata.v1.RequiredOneofAllMasked")
+	if _, err := ForInputE(md, Options{}); err == nil || !strings.Contains(err.Error(), "every member is masked") {
+		t.Fatalf("ForInputE: want required-oneof masking error, got %v", err)
+	}
+	if _, err := ForOutputE(md, Options{}); err != nil {
+		t.Fatalf("ForOutputE: %v", err)
 	}
 }
 

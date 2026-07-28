@@ -254,6 +254,32 @@ func TestGenerate_ReadOnlyNameLintDisabled(t *testing.T) {
 	}
 }
 
+func TestGenerate_AnyMasking(t *testing.T) {
+	out := runGenerate(t, "any_masking.proto")
+
+	cases := []substringCase{
+		{"input containing Any clears excluded fields at runtime", true, "protomcp.ClearSchemaExcluded(&in)"},
+		{"output containing Any is masked at runtime", true, "MarshalProtoMasked(resp)"},
+	}
+	assertSubstrings(t, out, cases)
+}
+
+func TestGenerate_BadOneofRequired(t *testing.T) {
+	err := runGenerateExpectError(t, "bad_oneof_required.proto")
+	if err == nil {
+		t.Fatal("want error, got nil")
+	}
+	for _, want := range []string{
+		"BadOneof.Pick",
+		"PickRequest.target",
+		"every member is masked",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q\nerror: %v", want, err)
+		}
+	}
+}
+
 func TestGenerate_NoExclusionsEmitsNoClearCall(t *testing.T) {
 	out := runGenerate(t, "greeter.proto")
 	if strings.Contains(out, "ClearSchemaExcluded") {
@@ -363,6 +389,22 @@ func TestGenerate_BadReadOnlyMutating(t *testing.T) {
 	}
 }
 
+func TestGenerate_BadReadOnlyNameOverride(t *testing.T) {
+	err := runGenerateExpectError(t, "bad_read_only_name_override.proto")
+	if err == nil {
+		t.Fatal("want error, got nil")
+	}
+	for _, want := range []string{
+		"BadReadOnlyNameOverride.GetWidget",
+		`"delete_widget"`,
+		`mutating verb "Delete"`,
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q\nerror: %v", want, err)
+		}
+	}
+}
+
 func TestGenerate_ReadOnlyNames(t *testing.T) {
 	out := runGenerate(t, "read_only_names.proto")
 
@@ -401,6 +443,32 @@ func TestMutatingVerbPrefix(t *testing.T) {
 		}
 		if !hit && verb != "" {
 			t.Errorf("mutatingVerbPrefix(%q) returned verb %q without a hit", tc.in, verb)
+		}
+	}
+}
+
+func TestMutatingVerbPrefixFold(t *testing.T) {
+	cases := []struct {
+		in      string
+		wantHit bool
+	}{
+		{"delete_widget", true},
+		{"DeleteWidget", true},
+		{"DELETE_WIDGET", true},
+		{"delete", true},
+		{"update2widgets", true},
+		{"deletewidget", false},
+		{"settings_info", false},
+		{"get_widget", false},
+		{"removal", false},
+	}
+	for _, tc := range cases {
+		verb, hit := mutatingVerbPrefixFold(tc.in)
+		if hit != tc.wantHit {
+			t.Errorf("mutatingVerbPrefixFold(%q) hit = %v, want %v", tc.in, hit, tc.wantHit)
+		}
+		if hit && verb == "" {
+			t.Errorf("mutatingVerbPrefixFold(%q) hit without a verb", tc.in)
 		}
 	}
 }

@@ -6,7 +6,10 @@ import (
 	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 )
+
+const anyMessageName protoreflect.FullName = "google.protobuf.Any"
 
 // clearOutputOnlyMaxDepth bounds recursion so self-referential protos
 // (Struct/Value) cannot exhaust the stack on a malicious payload.
@@ -34,7 +37,11 @@ func clearFieldsMatching(m proto.Message, match func(protoreflect.FieldDescripto
 // clearFieldsMatchingReflect is the recursive worker; depth
 // short-circuits at clearOutputOnlyMaxDepth.
 func clearFieldsMatchingReflect(r protoreflect.Message, depth int, match func(protoreflect.FieldDescriptor) bool) {
-	if depth >= clearOutputOnlyMaxDepth {
+	if depth >= clearOutputOnlyMaxDepth || !r.IsValid() {
+		return
+	}
+	if r.Descriptor().FullName() == anyMessageName {
+		clearMatchingInAnyPayload(r, depth, match)
 		return
 	}
 	fields := r.Descriptor().Fields()
@@ -74,6 +81,68 @@ func clearFieldsMatchingReflect(r protoreflect.Message, depth int, match func(pr
 			clearFieldsMatchingReflect(r.Get(fd).Message(), depth+1, match)
 		}
 	}
+}
+
+func clearMatchingInAnyPayload(r protoreflect.Message, depth int, match func(protoreflect.FieldDescriptor) bool) {
+	fields := r.Descriptor().Fields()
+	urlFD := fields.ByName("type_url")
+	valueFD := fields.ByName("value")
+	raw := r.Get(valueFD).Bytes()
+	if len(raw) == 0 {
+		return
+	}
+	clearAll := func() {
+		r.Clear(urlFD)
+		r.Clear(valueFD)
+	}
+	mt, err := protoregistry.GlobalTypes.FindMessageByURL(r.Get(urlFD).String())
+	if err != nil {
+		clearAll()
+		return
+	}
+	if !descriptorHasMatch(mt.Descriptor(), match, map[protoreflect.FullName]bool{}) {
+		return
+	}
+	payload := mt.New()
+	if uErr := proto.Unmarshal(raw, payload.Interface()); uErr != nil {
+		clearAll()
+		return
+	}
+	clearFieldsMatchingReflect(payload, depth+1, match)
+	repacked, mErr := proto.Marshal(payload.Interface())
+	if mErr != nil {
+		clearAll()
+		return
+	}
+	r.Set(valueFD, protoreflect.ValueOfBytes(repacked))
+}
+
+func descriptorHasMatch(md protoreflect.MessageDescriptor, match func(protoreflect.FieldDescriptor) bool, seen map[protoreflect.FullName]bool) bool {
+	if md.FullName() == anyMessageName {
+		return true
+	}
+	if seen[md.FullName()] {
+		return false
+	}
+	seen[md.FullName()] = true
+	fields := md.Fields()
+	for i := range fields.Len() {
+		fd := fields.Get(i)
+		if match(fd) {
+			return true
+		}
+		switch {
+		case fd.IsMap():
+			if fd.MapValue().Kind() == protoreflect.MessageKind && descriptorHasMatch(fd.MapValue().Message(), match, seen) {
+				return true
+			}
+		case fd.Kind() == protoreflect.MessageKind || fd.Kind() == protoreflect.GroupKind:
+			if descriptorHasMatch(fd.Message(), match, seen) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // hasOutputOnly reports whether fd's FieldBehavior list includes

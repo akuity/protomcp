@@ -3,11 +3,14 @@
 package protomcp_test
 
 import (
+	"bytes"
 	"testing"
 
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	authv1 "github.com/akuity/protomcp/pkg/api/gen/examples/auth/v1"
+	greeterv1 "github.com/akuity/protomcp/pkg/api/gen/examples/greeter/v1"
 	"github.com/akuity/protomcp/pkg/protomcp"
 )
 
@@ -221,6 +224,119 @@ func TestClearOutputOnly_EmptyCollectionsSkipped(t *testing.T) {
 	}
 	if len(mm.Items) != 0 {
 		t.Errorf("Map items mutated: %v", mm.Items)
+	}
+}
+
+func TestClearOutputOnly_NilListAndMapElements(t *testing.T) {
+	m := &authv1.TestRepeatedMessages{
+		Items: []*authv1.TestInner{nil, {ServerId: "s", UserName: "u"}},
+	}
+	protomcp.ClearOutputOnly(m)
+	if m.Items[1].ServerId != "" {
+		t.Errorf("Items[1].ServerId = %q, want empty", m.Items[1].ServerId)
+	}
+	if m.Items[1].UserName != "u" {
+		t.Errorf("Items[1].UserName = %q, want %q", m.Items[1].UserName, "u")
+	}
+
+	mm := &authv1.TestMapMessages{
+		Items: map[string]*authv1.TestInner{"a": nil, "b": {ServerId: "s", UserName: "u"}},
+	}
+	protomcp.ClearOutputOnly(mm)
+	if mm.Items["b"].ServerId != "" {
+		t.Errorf(`Items["b"].ServerId = %q, want empty`, mm.Items["b"].ServerId)
+	}
+
+	holder := &authv1.TestAnyHolder{Items: []*anypb.Any{nil}}
+	protomcp.ClearOutputOnly(holder)
+}
+
+func TestClearOutputOnly_AnyPayload(t *testing.T) {
+	packed, err := anypb.New(&authv1.TestInner{ServerId: "admin", UserName: "alice"})
+	if err != nil {
+		t.Fatalf("anypb.New: %v", err)
+	}
+	m := &authv1.TestAnyHolder{Payload: packed}
+	protomcp.ClearOutputOnly(m)
+	var got authv1.TestInner
+	if err := m.Payload.UnmarshalTo(&got); err != nil {
+		t.Fatalf("UnmarshalTo: %v", err)
+	}
+	if got.ServerId != "" {
+		t.Errorf("packed ServerId = %q, want empty (OUTPUT_ONLY leaked through Any)", got.ServerId)
+	}
+	if got.UserName != "alice" {
+		t.Errorf("packed UserName = %q, want alice", got.UserName)
+	}
+}
+
+func TestClearSchemaExcluded_AnyPayload(t *testing.T) {
+	packed, err := anypb.New(&greeterv1.EchoComplexRequest{Name: "n", InternalNote: "secret"})
+	if err != nil {
+		t.Fatalf("anypb.New: %v", err)
+	}
+	m := &authv1.TestAnyHolder{Payload: packed}
+	protomcp.ClearSchemaExcluded(m)
+	var got greeterv1.EchoComplexRequest
+	if err := m.Payload.UnmarshalTo(&got); err != nil {
+		t.Fatalf("UnmarshalTo: %v", err)
+	}
+	if got.GetInternalNote() != "" {
+		t.Errorf("packed InternalNote = %q, want empty (excluded field leaked through Any)", got.GetInternalNote())
+	}
+	if got.GetName() != "n" {
+		t.Errorf("packed Name = %q, want n", got.GetName())
+	}
+}
+
+func TestClearSchemaExcluded_AnyInListAndMap(t *testing.T) {
+	mk := func() *anypb.Any {
+		packed, err := anypb.New(&greeterv1.EchoComplexRequest{Name: "n", InternalNote: "secret"})
+		if err != nil {
+			t.Fatalf("anypb.New: %v", err)
+		}
+		return packed
+	}
+	m := &authv1.TestAnyHolder{
+		Items: []*anypb.Any{mk()},
+		ByKey: map[string]*anypb.Any{"k": mk()},
+	}
+	protomcp.ClearSchemaExcluded(m)
+	for name, packed := range map[string]*anypb.Any{"Items[0]": m.Items[0], `ByKey["k"]`: m.ByKey["k"]} {
+		var got greeterv1.EchoComplexRequest
+		if err := packed.UnmarshalTo(&got); err != nil {
+			t.Fatalf("%s UnmarshalTo: %v", name, err)
+		}
+		if got.GetInternalNote() != "" {
+			t.Errorf("%s InternalNote = %q, want empty", name, got.GetInternalNote())
+		}
+		if got.GetName() != "n" {
+			t.Errorf("%s Name = %q, want n", name, got.GetName())
+		}
+	}
+}
+
+func TestClearOutputOnly_AnyUnresolvableTypeCleared(t *testing.T) {
+	m := &authv1.TestAnyHolder{
+		Payload: &anypb.Any{TypeUrl: "type.googleapis.com/no.such.Type", Value: []byte{0x0a, 0x01, 0x78}},
+	}
+	protomcp.ClearOutputOnly(m)
+	if m.Payload.GetTypeUrl() != "" || len(m.Payload.GetValue()) != 0 {
+		t.Errorf("unresolvable Any not cleared: %+v", m.Payload)
+	}
+}
+
+func TestClearOutputOnly_AnyUntouchedWhenNoMatches(t *testing.T) {
+	packed, err := anypb.New(&greeterv1.HelloReply{Message: "hi"})
+	if err != nil {
+		t.Fatalf("anypb.New: %v", err)
+	}
+	origValue := append([]byte(nil), packed.GetValue()...)
+	origURL := packed.GetTypeUrl()
+	m := &authv1.TestAnyHolder{Payload: packed}
+	protomcp.ClearOutputOnly(m)
+	if m.Payload.GetTypeUrl() != origURL || !bytes.Equal(m.Payload.GetValue(), origValue) {
+		t.Errorf("Any with no matchable fields was rewritten: %+v", m.Payload)
 	}
 }
 

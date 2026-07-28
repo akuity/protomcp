@@ -142,6 +142,27 @@ func validateInputExclusions(md protoreflect.MessageDescriptor, seen map[protore
 		return nil
 	}
 	seen[md.FullName()] = true
+	oneofs := md.Oneofs()
+	for i := range oneofs.Len() {
+		oo := oneofs.Get(i)
+		if oo.IsSynthetic() || !oneofRequired(oo) {
+			continue
+		}
+		visible := 0
+		members := oo.Fields()
+		for j := range members.Len() {
+			if fd := members.Get(j); isInputField(fd) && !isExcluded(fd) {
+				visible++
+			}
+		}
+		if visible == 0 {
+			return fmt.Errorf(
+				"oneof %s: (buf.validate.oneof).required = true but every member is "+
+					"masked from the input schema (field_schema.exclude or OUTPUT_ONLY); "+
+					"clients could never satisfy the oneof — unmask a member or drop required",
+				oo.FullName())
+		}
+	}
 	fields := md.Fields()
 	for i := range fields.Len() {
 		fd := fields.Get(i)
@@ -173,12 +194,19 @@ func validateInputExclusions(md protoreflect.MessageDescriptor, seen map[protore
 	return nil
 }
 
-// HasExclusions reports whether any field reachable from md carries (protomcp.v1.field_schema).exclude = true.
+// HasExclusions reports whether any field reachable from md carries
+// (protomcp.v1.field_schema).exclude = true. A reachable
+// google.protobuf.Any counts as an exclusion: its payload type is
+// unknown until runtime, so the generated code must route through the
+// masking helpers, which inspect the packed message dynamically.
 func HasExclusions(md protoreflect.MessageDescriptor) bool {
 	return hasExclusions(md, make(map[protoreflect.FullName]bool))
 }
 
 func hasExclusions(md protoreflect.MessageDescriptor, seen map[protoreflect.FullName]bool) bool {
+	if md.FullName() == "google.protobuf.Any" {
+		return true
+	}
 	if seen[md.FullName()] {
 		return false
 	}
@@ -283,7 +311,9 @@ func messageSchema(
 			branches = append(branches, map[string]any{"required": []string{arm}})
 			armSet = append(armSet, map[string]any{"required": []string{arm}})
 		}
-		branches = append(branches, map[string]any{"not": map[string]any{"anyOf": armSet}})
+		if !oneofRequired(oo) || len(arms) < oo.Fields().Len() {
+			branches = append(branches, map[string]any{"not": map[string]any{"anyOf": armSet}})
+		}
 		allOf = append(allOf, map[string]any{"oneOf": branches})
 	}
 
@@ -675,6 +705,16 @@ func isRequired(fd protoreflect.FieldDescriptor) bool {
 		return true
 	}
 	return false
+}
+
+// oneofRequired reads (buf.validate.oneof).required on oo.
+func oneofRequired(oo protoreflect.OneofDescriptor) bool {
+	opts := oo.Options()
+	if opts == nil || !proto.HasExtension(opts, validate.E_Oneof) {
+		return false
+	}
+	rules, _ := proto.GetExtension(opts, validate.E_Oneof).(*validate.OneofRules)
+	return rules.GetRequired()
 }
 
 // fieldRules returns the buf.validate FieldRules on fd, or nil.

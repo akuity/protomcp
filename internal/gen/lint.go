@@ -32,19 +32,46 @@ func mutatingVerbPrefix(name string) (string, bool) {
 	return "", false
 }
 
+func mutatingVerbPrefixFold(name string) (string, bool) {
+	for _, v := range mutatingVerbs {
+		if len(name) < len(v) || !strings.EqualFold(name[:len(v)], v) {
+			continue
+		}
+		rest := name[len(v):]
+		if rest == "" {
+			return v, true
+		}
+		if c := rest[0]; c < 'a' || c > 'z' {
+			return v, true
+		}
+	}
+	return "", false
+}
+
 func validateReadOnlyHint(svc *protogen.Service, m *protogen.Method, to *protomcpv1.ToolOptions) error {
 	if !to.GetReadOnly() {
 		return nil
 	}
-	verb, ok := mutatingVerbPrefix(m.GoName)
-	if !ok {
-		return nil
+	if verb, ok := mutatingVerbPrefix(m.GoName); ok {
+		return fmt.Errorf(
+			"%s.%s: protomcp.v1.tool sets read_only: true on an RPC whose name "+
+				"starts with the mutating verb %q; a read-only hint on a mutating "+
+				"RPC misleads MCP clients into calling it without user consent "+
+				"(rename the RPC or drop read_only)",
+			svc.GoName, m.GoName, verb,
+		)
 	}
-	return fmt.Errorf(
-		"%s.%s: protomcp.v1.tool sets read_only: true on an RPC whose name "+
-			"starts with the mutating verb %q; a read-only hint on a mutating "+
-			"RPC misleads MCP clients into calling it without user consent "+
-			"(rename the RPC or drop read_only)",
-		svc.GoName, m.GoName, verb,
-	)
+	if name := to.GetName(); name != "" {
+		if verb, ok := mutatingVerbPrefixFold(name); ok {
+			return fmt.Errorf(
+				"%s.%s: protomcp.v1.tool sets read_only: true with the name "+
+					"override %q, which starts with the mutating verb %q; a "+
+					"read-only hint on a mutating tool name misleads MCP clients "+
+					"into calling it without user consent (rename the tool or "+
+					"drop read_only)",
+				svc.GoName, m.GoName, name, verb,
+			)
+		}
+	}
+	return nil
 }

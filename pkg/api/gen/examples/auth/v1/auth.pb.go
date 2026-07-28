@@ -11,6 +11,7 @@ import (
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -498,11 +499,71 @@ func (x *TestRepeatedOutputOnlyScalar) GetNames() []string {
 	return nil
 }
 
+type TestAnyHolder struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Payload       *anypb.Any             `protobuf:"bytes,1,opt,name=payload,proto3" json:"payload,omitempty"`
+	Items         []*anypb.Any           `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
+	ByKey         map[string]*anypb.Any  `protobuf:"bytes,3,rep,name=by_key,json=byKey,proto3" json:"by_key,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TestAnyHolder) Reset() {
+	*x = TestAnyHolder{}
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestAnyHolder) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestAnyHolder) ProtoMessage() {}
+
+func (x *TestAnyHolder) ProtoReflect() protoreflect.Message {
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestAnyHolder.ProtoReflect.Descriptor instead.
+func (*TestAnyHolder) Descriptor() ([]byte, []int) {
+	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *TestAnyHolder) GetPayload() *anypb.Any {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+func (x *TestAnyHolder) GetItems() []*anypb.Any {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *TestAnyHolder) GetByKey() map[string]*anypb.Any {
+	if x != nil {
+		return x.ByKey
+	}
+	return nil
+}
+
 var File_examples_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_examples_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
-	"\x1bexamples/auth/v1/auth.proto\x12\x19protomcp.examples.auth.v1\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1dprotomcp/v1/annotations.proto\"\x0f\n" +
+	"\x1bexamples/auth/v1/auth.proto\x12\x19protomcp.examples.auth.v1\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/protobuf/any.proto\x1a\x1dprotomcp/v1/annotations.proto\"\x0f\n" +
 	"\rWhoAmIRequest\"K\n" +
 	"\x0eWhoAmIResponse\x12\x1c\n" +
 	"\auser_id\x18\x01 \x01(\tB\x03\xe0A\x03R\x06userId\x12\x1b\n" +
@@ -531,7 +592,15 @@ const file_examples_auth_v1_auth_proto_rawDesc = "" +
 	"\x1cTestRepeatedOutputOnlyScalar\x12\"\n" +
 	"\n" +
 	"server_ids\x18\x01 \x03(\tB\x03\xe0A\x03R\tserverIds\x12\x14\n" +
-	"\x05names\x18\x02 \x03(\tR\x05names2\xb9\x01\n" +
+	"\x05names\x18\x02 \x03(\tR\x05names\"\x87\x02\n" +
+	"\rTestAnyHolder\x12.\n" +
+	"\apayload\x18\x01 \x01(\v2\x14.google.protobuf.AnyR\apayload\x12*\n" +
+	"\x05items\x18\x02 \x03(\v2\x14.google.protobuf.AnyR\x05items\x12J\n" +
+	"\x06by_key\x18\x03 \x03(\v23.protomcp.examples.auth.v1.TestAnyHolder.ByKeyEntryR\x05byKey\x1aN\n" +
+	"\n" +
+	"ByKeyEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12*\n" +
+	"\x05value\x18\x02 \x01(\v2\x14.google.protobuf.AnyR\x05value:\x028\x012\xb9\x01\n" +
 	"\aProfile\x12\xad\x01\n" +
 	"\x06WhoAmI\x12(.protomcp.examples.auth.v1.WhoAmIRequest\x1a).protomcp.examples.auth.v1.WhoAmIResponse\"N\x8a\xb5\x18J\x12\bWho Am I\x1a<Returns the caller identity propagated from HTTP middleware. \x01B\xf1\x01\n" +
 	"\x1dcom.protomcp.examples.auth.v1B\tAuthProtoP\x01Z>github.com/akuity/protomcp/pkg/api/gen/examples/auth/v1;authv1\xa2\x02\x03PEA\xaa\x02\x19Protomcp.Examples.Auth.V1\xca\x02\x19Protomcp\\Examples\\Auth\\V1\xe2\x02%Protomcp\\Examples\\Auth\\V1\\GPBMetadata\xea\x02\x1cProtomcp::Examples::Auth::V1b\x06proto3"
@@ -548,7 +617,7 @@ func file_examples_auth_v1_auth_proto_rawDescGZIP() []byte {
 	return file_examples_auth_v1_auth_proto_rawDescData
 }
 
-var file_examples_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_examples_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_examples_auth_v1_auth_proto_goTypes = []any{
 	(*WhoAmIRequest)(nil),                // 0: protomcp.examples.auth.v1.WhoAmIRequest
 	(*WhoAmIResponse)(nil),               // 1: protomcp.examples.auth.v1.WhoAmIResponse
@@ -559,21 +628,28 @@ var file_examples_auth_v1_auth_proto_goTypes = []any{
 	(*TestMapMessages)(nil),              // 6: protomcp.examples.auth.v1.TestMapMessages
 	(*TestOneofOutputOnly)(nil),          // 7: protomcp.examples.auth.v1.TestOneofOutputOnly
 	(*TestRepeatedOutputOnlyScalar)(nil), // 8: protomcp.examples.auth.v1.TestRepeatedOutputOnlyScalar
-	nil,                                  // 9: protomcp.examples.auth.v1.TestMapMessages.ItemsEntry
+	(*TestAnyHolder)(nil),                // 9: protomcp.examples.auth.v1.TestAnyHolder
+	nil,                                  // 10: protomcp.examples.auth.v1.TestMapMessages.ItemsEntry
+	nil,                                  // 11: protomcp.examples.auth.v1.TestAnyHolder.ByKeyEntry
+	(*anypb.Any)(nil),                    // 12: google.protobuf.Any
 }
 var file_examples_auth_v1_auth_proto_depIdxs = []int32{
-	2, // 0: protomcp.examples.auth.v1.TestNested.inner:type_name -> protomcp.examples.auth.v1.TestInner
-	2, // 1: protomcp.examples.auth.v1.TestOutputOnlyMessage.stripped:type_name -> protomcp.examples.auth.v1.TestInner
-	2, // 2: protomcp.examples.auth.v1.TestRepeatedMessages.items:type_name -> protomcp.examples.auth.v1.TestInner
-	9, // 3: protomcp.examples.auth.v1.TestMapMessages.items:type_name -> protomcp.examples.auth.v1.TestMapMessages.ItemsEntry
-	2, // 4: protomcp.examples.auth.v1.TestMapMessages.ItemsEntry.value:type_name -> protomcp.examples.auth.v1.TestInner
-	0, // 5: protomcp.examples.auth.v1.Profile.WhoAmI:input_type -> protomcp.examples.auth.v1.WhoAmIRequest
-	1, // 6: protomcp.examples.auth.v1.Profile.WhoAmI:output_type -> protomcp.examples.auth.v1.WhoAmIResponse
-	6, // [6:7] is the sub-list for method output_type
-	5, // [5:6] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	2,  // 0: protomcp.examples.auth.v1.TestNested.inner:type_name -> protomcp.examples.auth.v1.TestInner
+	2,  // 1: protomcp.examples.auth.v1.TestOutputOnlyMessage.stripped:type_name -> protomcp.examples.auth.v1.TestInner
+	2,  // 2: protomcp.examples.auth.v1.TestRepeatedMessages.items:type_name -> protomcp.examples.auth.v1.TestInner
+	10, // 3: protomcp.examples.auth.v1.TestMapMessages.items:type_name -> protomcp.examples.auth.v1.TestMapMessages.ItemsEntry
+	12, // 4: protomcp.examples.auth.v1.TestAnyHolder.payload:type_name -> google.protobuf.Any
+	12, // 5: protomcp.examples.auth.v1.TestAnyHolder.items:type_name -> google.protobuf.Any
+	11, // 6: protomcp.examples.auth.v1.TestAnyHolder.by_key:type_name -> protomcp.examples.auth.v1.TestAnyHolder.ByKeyEntry
+	2,  // 7: protomcp.examples.auth.v1.TestMapMessages.ItemsEntry.value:type_name -> protomcp.examples.auth.v1.TestInner
+	12, // 8: protomcp.examples.auth.v1.TestAnyHolder.ByKeyEntry.value:type_name -> google.protobuf.Any
+	0,  // 9: protomcp.examples.auth.v1.Profile.WhoAmI:input_type -> protomcp.examples.auth.v1.WhoAmIRequest
+	1,  // 10: protomcp.examples.auth.v1.Profile.WhoAmI:output_type -> protomcp.examples.auth.v1.WhoAmIResponse
+	10, // [10:11] is the sub-list for method output_type
+	9,  // [9:10] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_examples_auth_v1_auth_proto_init() }
@@ -591,7 +667,7 @@ func file_examples_auth_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_examples_auth_v1_auth_proto_rawDesc), len(file_examples_auth_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

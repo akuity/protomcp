@@ -2,9 +2,11 @@ package protomcp
 
 import (
 	"encoding/json"
+	"strings"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 
 	protomcpv1 "github.com/akuity/protomcp/pkg/api/gen/protomcp/v1"
 )
@@ -18,10 +20,12 @@ func ClearSchemaExcluded(m proto.Message) {
 
 // MarshalProtoMasked clears every (protomcp.v1.field_schema).exclude field
 // on a clone of m (so excluded values never reach protojson and m stays
-// intact for trusted result processors), serializes the clone like
-// MarshalProto, and then removes the excluded field names from the JSON
-// itself: clearing alone is not enough because EmitDefaultValues re-emits
-// cleared fields as zero values, leaking the field names the schema masks.
+// intact for trusted result processors) and serializes the clone like
+// MarshalProto. When the configured MarshalOptions emit unset fields
+// (EmitDefaultValues / EmitUnpopulated), the excluded field names are
+// additionally removed from the JSON itself: clearing alone is not enough
+// because those options re-emit cleared fields as zero values, leaking the
+// field names the schema masks.
 func (s *Server) MarshalProtoMasked(m proto.Message) ([]byte, error) {
 	if m == nil {
 		return s.MarshalProto(m)
@@ -32,17 +36,31 @@ func (s *Server) MarshalProtoMasked(m proto.Message) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if !s.protoMarshal.EmitDefaultValues && !s.protoMarshal.EmitUnpopulated {
+		return payload, nil
+	}
 	var decoded any
 	if err := json.Unmarshal(payload, &decoded); err != nil {
 		return nil, err
 	}
 	stripSchemaExcludedJSON(masked.ProtoReflect().Descriptor(), decoded)
+	if s.protoMarshal.Multiline || s.protoMarshal.Indent != "" {
+		indent := s.protoMarshal.Indent
+		if indent == "" {
+			indent = "  "
+		}
+		return json.MarshalIndent(decoded, "", indent)
+	}
 	return json.Marshal(decoded)
 }
 
 func stripSchemaExcludedJSON(md protoreflect.MessageDescriptor, decoded any) {
 	obj, ok := decoded.(map[string]any)
 	if !ok {
+		return
+	}
+	if md.FullName() == anyMessageName {
+		stripSchemaExcludedAnyJSON(md, obj)
 		return
 	}
 	fields := md.Fields()
@@ -60,6 +78,28 @@ func stripSchemaExcludedJSON(md protoreflect.MessageDescriptor, decoded any) {
 		if exists {
 			stripSchemaExcludedJSONValue(fd, value)
 		}
+	}
+}
+
+func stripSchemaExcludedAnyJSON(anyMD protoreflect.MessageDescriptor, obj map[string]any) {
+	typeURL, _ := obj["@type"].(string)
+	mt, err := protoregistry.GlobalTypes.FindMessageByURL(typeURL)
+	if err != nil {
+		for k := range obj {
+			if k != "@type" {
+				delete(obj, k)
+			}
+		}
+		return
+	}
+	md := mt.Descriptor()
+	switch {
+	case md.FullName() == anyMessageName:
+		stripSchemaExcludedJSON(anyMD, obj["value"])
+	case strings.HasPrefix(string(md.FullName()), "google.protobuf."):
+		return
+	default:
+		stripSchemaExcludedJSON(md, obj)
 	}
 }
 

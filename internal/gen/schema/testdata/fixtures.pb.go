@@ -1175,6 +1175,260 @@ func (*Oneofs_Reason) isOneofs_Fallback() {}
 
 func (*Oneofs_Silent) isOneofs_Fallback() {}
 
+type RequiredOneof struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Target:
+	//
+	//	*RequiredOneof_Id
+	//	*RequiredOneof_Name
+	Target        isRequiredOneof_Target `protobuf_oneof:"target"`
+	Note          string                 `protobuf:"bytes,3,opt,name=note,proto3" json:"note,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RequiredOneof) Reset() {
+	*x = RequiredOneof{}
+	mi := &file_fixtures_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RequiredOneof) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequiredOneof) ProtoMessage() {}
+
+func (x *RequiredOneof) ProtoReflect() protoreflect.Message {
+	mi := &file_fixtures_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequiredOneof.ProtoReflect.Descriptor instead.
+func (*RequiredOneof) Descriptor() ([]byte, []int) {
+	return file_fixtures_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *RequiredOneof) GetTarget() isRequiredOneof_Target {
+	if x != nil {
+		return x.Target
+	}
+	return nil
+}
+
+func (x *RequiredOneof) GetId() string {
+	if x != nil {
+		if x, ok := x.Target.(*RequiredOneof_Id); ok {
+			return x.Id
+		}
+	}
+	return ""
+}
+
+func (x *RequiredOneof) GetName() string {
+	if x != nil {
+		if x, ok := x.Target.(*RequiredOneof_Name); ok {
+			return x.Name
+		}
+	}
+	return ""
+}
+
+func (x *RequiredOneof) GetNote() string {
+	if x != nil {
+		return x.Note
+	}
+	return ""
+}
+
+type isRequiredOneof_Target interface {
+	isRequiredOneof_Target()
+}
+
+type RequiredOneof_Id struct {
+	Id string `protobuf:"bytes,1,opt,name=id,proto3,oneof"`
+}
+
+type RequiredOneof_Name struct {
+	Name string `protobuf:"bytes,2,opt,name=name,proto3,oneof"`
+}
+
+func (*RequiredOneof_Id) isRequiredOneof_Target() {}
+
+func (*RequiredOneof_Name) isRequiredOneof_Target() {}
+
+type RequiredOneofPartial struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Pick:
+	//
+	//	*RequiredOneofPartial_Visible
+	//	*RequiredOneofPartial_Hidden
+	Pick          isRequiredOneofPartial_Pick `protobuf_oneof:"pick"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RequiredOneofPartial) Reset() {
+	*x = RequiredOneofPartial{}
+	mi := &file_fixtures_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RequiredOneofPartial) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequiredOneofPartial) ProtoMessage() {}
+
+func (x *RequiredOneofPartial) ProtoReflect() protoreflect.Message {
+	mi := &file_fixtures_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequiredOneofPartial.ProtoReflect.Descriptor instead.
+func (*RequiredOneofPartial) Descriptor() ([]byte, []int) {
+	return file_fixtures_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *RequiredOneofPartial) GetPick() isRequiredOneofPartial_Pick {
+	if x != nil {
+		return x.Pick
+	}
+	return nil
+}
+
+func (x *RequiredOneofPartial) GetVisible() string {
+	if x != nil {
+		if x, ok := x.Pick.(*RequiredOneofPartial_Visible); ok {
+			return x.Visible
+		}
+	}
+	return ""
+}
+
+func (x *RequiredOneofPartial) GetHidden() string {
+	if x != nil {
+		if x, ok := x.Pick.(*RequiredOneofPartial_Hidden); ok {
+			return x.Hidden
+		}
+	}
+	return ""
+}
+
+type isRequiredOneofPartial_Pick interface {
+	isRequiredOneofPartial_Pick()
+}
+
+type RequiredOneofPartial_Visible struct {
+	Visible string `protobuf:"bytes,1,opt,name=visible,proto3,oneof"`
+}
+
+type RequiredOneofPartial_Hidden struct {
+	Hidden string `protobuf:"bytes,2,opt,name=hidden,proto3,oneof"`
+}
+
+func (*RequiredOneofPartial_Visible) isRequiredOneofPartial_Pick() {}
+
+func (*RequiredOneofPartial_Hidden) isRequiredOneofPartial_Pick() {}
+
+type RequiredOneofAllMasked struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Secret:
+	//
+	//	*RequiredOneofAllMasked_A
+	//	*RequiredOneofAllMasked_B
+	Secret        isRequiredOneofAllMasked_Secret `protobuf_oneof:"secret"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RequiredOneofAllMasked) Reset() {
+	*x = RequiredOneofAllMasked{}
+	mi := &file_fixtures_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RequiredOneofAllMasked) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequiredOneofAllMasked) ProtoMessage() {}
+
+func (x *RequiredOneofAllMasked) ProtoReflect() protoreflect.Message {
+	mi := &file_fixtures_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequiredOneofAllMasked.ProtoReflect.Descriptor instead.
+func (*RequiredOneofAllMasked) Descriptor() ([]byte, []int) {
+	return file_fixtures_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *RequiredOneofAllMasked) GetSecret() isRequiredOneofAllMasked_Secret {
+	if x != nil {
+		return x.Secret
+	}
+	return nil
+}
+
+func (x *RequiredOneofAllMasked) GetA() string {
+	if x != nil {
+		if x, ok := x.Secret.(*RequiredOneofAllMasked_A); ok {
+			return x.A
+		}
+	}
+	return ""
+}
+
+func (x *RequiredOneofAllMasked) GetB() string {
+	if x != nil {
+		if x, ok := x.Secret.(*RequiredOneofAllMasked_B); ok {
+			return x.B
+		}
+	}
+	return ""
+}
+
+type isRequiredOneofAllMasked_Secret interface {
+	isRequiredOneofAllMasked_Secret()
+}
+
+type RequiredOneofAllMasked_A struct {
+	A string `protobuf:"bytes,1,opt,name=a,proto3,oneof"`
+}
+
+type RequiredOneofAllMasked_B struct {
+	B string `protobuf:"bytes,2,opt,name=b,proto3,oneof"`
+}
+
+func (*RequiredOneofAllMasked_A) isRequiredOneofAllMasked_Secret() {}
+
+func (*RequiredOneofAllMasked_B) isRequiredOneofAllMasked_Secret() {}
+
 // Recursive tests the maxDepth cycle-breaker for direct recursion.
 type Recursive struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1186,7 +1440,7 @@ type Recursive struct {
 
 func (x *Recursive) Reset() {
 	*x = Recursive{}
-	mi := &file_fixtures_proto_msgTypes[10]
+	mi := &file_fixtures_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1198,7 +1452,7 @@ func (x *Recursive) String() string {
 func (*Recursive) ProtoMessage() {}
 
 func (x *Recursive) ProtoReflect() protoreflect.Message {
-	mi := &file_fixtures_proto_msgTypes[10]
+	mi := &file_fixtures_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1211,7 +1465,7 @@ func (x *Recursive) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Recursive.ProtoReflect.Descriptor instead.
 func (*Recursive) Descriptor() ([]byte, []int) {
-	return file_fixtures_proto_rawDescGZIP(), []int{10}
+	return file_fixtures_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Recursive) GetName() string {
@@ -1240,7 +1494,7 @@ type MutualA struct {
 
 func (x *MutualA) Reset() {
 	*x = MutualA{}
-	mi := &file_fixtures_proto_msgTypes[11]
+	mi := &file_fixtures_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1252,7 +1506,7 @@ func (x *MutualA) String() string {
 func (*MutualA) ProtoMessage() {}
 
 func (x *MutualA) ProtoReflect() protoreflect.Message {
-	mi := &file_fixtures_proto_msgTypes[11]
+	mi := &file_fixtures_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1265,7 +1519,7 @@ func (x *MutualA) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MutualA.ProtoReflect.Descriptor instead.
 func (*MutualA) Descriptor() ([]byte, []int) {
-	return file_fixtures_proto_rawDescGZIP(), []int{11}
+	return file_fixtures_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *MutualA) GetLabel() string {
@@ -1292,7 +1546,7 @@ type MutualB struct {
 
 func (x *MutualB) Reset() {
 	*x = MutualB{}
-	mi := &file_fixtures_proto_msgTypes[12]
+	mi := &file_fixtures_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1304,7 +1558,7 @@ func (x *MutualB) String() string {
 func (*MutualB) ProtoMessage() {}
 
 func (x *MutualB) ProtoReflect() protoreflect.Message {
-	mi := &file_fixtures_proto_msgTypes[12]
+	mi := &file_fixtures_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1317,7 +1571,7 @@ func (x *MutualB) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MutualB.ProtoReflect.Descriptor instead.
 func (*MutualB) Descriptor() ([]byte, []int) {
-	return file_fixtures_proto_rawDescGZIP(), []int{12}
+	return file_fixtures_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *MutualB) GetLabel() string {
@@ -1344,7 +1598,7 @@ type Deep struct {
 
 func (x *Deep) Reset() {
 	*x = Deep{}
-	mi := &file_fixtures_proto_msgTypes[13]
+	mi := &file_fixtures_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1356,7 +1610,7 @@ func (x *Deep) String() string {
 func (*Deep) ProtoMessage() {}
 
 func (x *Deep) ProtoReflect() protoreflect.Message {
-	mi := &file_fixtures_proto_msgTypes[13]
+	mi := &file_fixtures_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1369,7 +1623,7 @@ func (x *Deep) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Deep.ProtoReflect.Descriptor instead.
 func (*Deep) Descriptor() ([]byte, []int) {
-	return file_fixtures_proto_rawDescGZIP(), []int{13}
+	return file_fixtures_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *Deep) GetL1() *Deep_L1 {
@@ -1388,7 +1642,7 @@ type Deep_L1 struct {
 
 func (x *Deep_L1) Reset() {
 	*x = Deep_L1{}
-	mi := &file_fixtures_proto_msgTypes[19]
+	mi := &file_fixtures_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1400,7 +1654,7 @@ func (x *Deep_L1) String() string {
 func (*Deep_L1) ProtoMessage() {}
 
 func (x *Deep_L1) ProtoReflect() protoreflect.Message {
-	mi := &file_fixtures_proto_msgTypes[19]
+	mi := &file_fixtures_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1413,7 +1667,7 @@ func (x *Deep_L1) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Deep_L1.ProtoReflect.Descriptor instead.
 func (*Deep_L1) Descriptor() ([]byte, []int) {
-	return file_fixtures_proto_rawDescGZIP(), []int{13, 0}
+	return file_fixtures_proto_rawDescGZIP(), []int{16, 0}
 }
 
 func (x *Deep_L1) GetL2() *Deep_L1_L2 {
@@ -1432,7 +1686,7 @@ type Deep_L1_L2 struct {
 
 func (x *Deep_L1_L2) Reset() {
 	*x = Deep_L1_L2{}
-	mi := &file_fixtures_proto_msgTypes[20]
+	mi := &file_fixtures_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1444,7 +1698,7 @@ func (x *Deep_L1_L2) String() string {
 func (*Deep_L1_L2) ProtoMessage() {}
 
 func (x *Deep_L1_L2) ProtoReflect() protoreflect.Message {
-	mi := &file_fixtures_proto_msgTypes[20]
+	mi := &file_fixtures_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1457,7 +1711,7 @@ func (x *Deep_L1_L2) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Deep_L1_L2.ProtoReflect.Descriptor instead.
 func (*Deep_L1_L2) Descriptor() ([]byte, []int) {
-	return file_fixtures_proto_rawDescGZIP(), []int{13, 0, 0}
+	return file_fixtures_proto_rawDescGZIP(), []int{16, 0, 0}
 }
 
 func (x *Deep_L1_L2) GetL3() *Deep_L1_L2_L3 {
@@ -1476,7 +1730,7 @@ type Deep_L1_L2_L3 struct {
 
 func (x *Deep_L1_L2_L3) Reset() {
 	*x = Deep_L1_L2_L3{}
-	mi := &file_fixtures_proto_msgTypes[21]
+	mi := &file_fixtures_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1488,7 +1742,7 @@ func (x *Deep_L1_L2_L3) String() string {
 func (*Deep_L1_L2_L3) ProtoMessage() {}
 
 func (x *Deep_L1_L2_L3) ProtoReflect() protoreflect.Message {
-	mi := &file_fixtures_proto_msgTypes[21]
+	mi := &file_fixtures_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1501,7 +1755,7 @@ func (x *Deep_L1_L2_L3) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Deep_L1_L2_L3.ProtoReflect.Descriptor instead.
 func (*Deep_L1_L2_L3) Descriptor() ([]byte, []int) {
-	return file_fixtures_proto_rawDescGZIP(), []int{13, 0, 0, 0}
+	return file_fixtures_proto_rawDescGZIP(), []int{16, 0, 0, 0}
 }
 
 func (x *Deep_L1_L2_L3) GetLeaf() string {
@@ -1643,7 +1897,20 @@ const file_fixtures_proto_rawDesc = "" +
 	"\n" +
 	"\bfallbackB\r\n" +
 	"\v_maybe_noteB\x0e\n" +
-	"\f_maybe_count\"V\n" +
+	"\f_maybe_count\"\\\n" +
+	"\rRequiredOneof\x12\x10\n" +
+	"\x02id\x18\x01 \x01(\tH\x00R\x02id\x12\x14\n" +
+	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x12\x12\n" +
+	"\x04note\x18\x03 \x01(\tR\x04noteB\x0f\n" +
+	"\x06target\x12\x05\xbaH\x02\b\x01\"`\n" +
+	"\x14RequiredOneofPartial\x12\x1a\n" +
+	"\avisible\x18\x01 \x01(\tH\x00R\avisible\x12\x1d\n" +
+	"\x06hidden\x18\x02 \x01(\tB\x03\xe0A\x03H\x00R\x06hiddenB\r\n" +
+	"\x04pick\x12\x05\xbaH\x02\b\x01\"S\n" +
+	"\x16RequiredOneofAllMasked\x12\x13\n" +
+	"\x01a\x18\x01 \x01(\tB\x03\xe0A\x03H\x00R\x01a\x12\x13\n" +
+	"\x01b\x18\x02 \x01(\tB\x03\xe0A\x03H\x00R\x01bB\x0f\n" +
+	"\x06secret\x12\x05\xbaH\x02\b\x01\"V\n" +
 	"\tRecursive\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x125\n" +
 	"\x05child\x18\x02 \x01(\v2\x1f.protomcp.testdata.v1.RecursiveR\x05child\"R\n" +
@@ -1680,7 +1947,7 @@ func file_fixtures_proto_rawDescGZIP() []byte {
 }
 
 var file_fixtures_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_fixtures_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_fixtures_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_fixtures_proto_goTypes = []any{
 	(Status)(0),                    // 0: protomcp.testdata.v1.Status
 	(*Scalars)(nil),                // 1: protomcp.testdata.v1.Scalars
@@ -1693,35 +1960,38 @@ var file_fixtures_proto_goTypes = []any{
 	(*Bytesy)(nil),                 // 8: protomcp.testdata.v1.Bytesy
 	(*WellKnown)(nil),              // 9: protomcp.testdata.v1.WellKnown
 	(*Oneofs)(nil),                 // 10: protomcp.testdata.v1.Oneofs
-	(*Recursive)(nil),              // 11: protomcp.testdata.v1.Recursive
-	(*MutualA)(nil),                // 12: protomcp.testdata.v1.MutualA
-	(*MutualB)(nil),                // 13: protomcp.testdata.v1.MutualB
-	(*Deep)(nil),                   // 14: protomcp.testdata.v1.Deep
-	nil,                            // 15: protomcp.testdata.v1.Mapy.CountsEntry
-	nil,                            // 16: protomcp.testdata.v1.Mapy.ByIdEntry
-	nil,                            // 17: protomcp.testdata.v1.Mapy.ByI32Entry
-	nil,                            // 18: protomcp.testdata.v1.Mapy.ByU32ToEnumEntry
-	nil,                            // 19: protomcp.testdata.v1.Mapy.ByBoolEntry
-	(*Deep_L1)(nil),                // 20: protomcp.testdata.v1.Deep.L1
-	(*Deep_L1_L2)(nil),             // 21: protomcp.testdata.v1.Deep.L1.L2
-	(*Deep_L1_L2_L3)(nil),          // 22: protomcp.testdata.v1.Deep.L1.L2.L3
-	(*timestamppb.Timestamp)(nil),  // 23: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),    // 24: google.protobuf.Duration
-	(*structpb.Struct)(nil),        // 25: google.protobuf.Struct
-	(*structpb.Value)(nil),         // 26: google.protobuf.Value
-	(*structpb.ListValue)(nil),     // 27: google.protobuf.ListValue
-	(*fieldmaskpb.FieldMask)(nil),  // 28: google.protobuf.FieldMask
-	(*anypb.Any)(nil),              // 29: google.protobuf.Any
-	(*emptypb.Empty)(nil),          // 30: google.protobuf.Empty
-	(*wrapperspb.StringValue)(nil), // 31: google.protobuf.StringValue
-	(*wrapperspb.Int32Value)(nil),  // 32: google.protobuf.Int32Value
-	(*wrapperspb.Int64Value)(nil),  // 33: google.protobuf.Int64Value
-	(*wrapperspb.UInt32Value)(nil), // 34: google.protobuf.UInt32Value
-	(*wrapperspb.UInt64Value)(nil), // 35: google.protobuf.UInt64Value
-	(*wrapperspb.BoolValue)(nil),   // 36: google.protobuf.BoolValue
-	(*wrapperspb.DoubleValue)(nil), // 37: google.protobuf.DoubleValue
-	(*wrapperspb.FloatValue)(nil),  // 38: google.protobuf.FloatValue
-	(*wrapperspb.BytesValue)(nil),  // 39: google.protobuf.BytesValue
+	(*RequiredOneof)(nil),          // 11: protomcp.testdata.v1.RequiredOneof
+	(*RequiredOneofPartial)(nil),   // 12: protomcp.testdata.v1.RequiredOneofPartial
+	(*RequiredOneofAllMasked)(nil), // 13: protomcp.testdata.v1.RequiredOneofAllMasked
+	(*Recursive)(nil),              // 14: protomcp.testdata.v1.Recursive
+	(*MutualA)(nil),                // 15: protomcp.testdata.v1.MutualA
+	(*MutualB)(nil),                // 16: protomcp.testdata.v1.MutualB
+	(*Deep)(nil),                   // 17: protomcp.testdata.v1.Deep
+	nil,                            // 18: protomcp.testdata.v1.Mapy.CountsEntry
+	nil,                            // 19: protomcp.testdata.v1.Mapy.ByIdEntry
+	nil,                            // 20: protomcp.testdata.v1.Mapy.ByI32Entry
+	nil,                            // 21: protomcp.testdata.v1.Mapy.ByU32ToEnumEntry
+	nil,                            // 22: protomcp.testdata.v1.Mapy.ByBoolEntry
+	(*Deep_L1)(nil),                // 23: protomcp.testdata.v1.Deep.L1
+	(*Deep_L1_L2)(nil),             // 24: protomcp.testdata.v1.Deep.L1.L2
+	(*Deep_L1_L2_L3)(nil),          // 25: protomcp.testdata.v1.Deep.L1.L2.L3
+	(*timestamppb.Timestamp)(nil),  // 26: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),    // 27: google.protobuf.Duration
+	(*structpb.Struct)(nil),        // 28: google.protobuf.Struct
+	(*structpb.Value)(nil),         // 29: google.protobuf.Value
+	(*structpb.ListValue)(nil),     // 30: google.protobuf.ListValue
+	(*fieldmaskpb.FieldMask)(nil),  // 31: google.protobuf.FieldMask
+	(*anypb.Any)(nil),              // 32: google.protobuf.Any
+	(*emptypb.Empty)(nil),          // 33: google.protobuf.Empty
+	(*wrapperspb.StringValue)(nil), // 34: google.protobuf.StringValue
+	(*wrapperspb.Int32Value)(nil),  // 35: google.protobuf.Int32Value
+	(*wrapperspb.Int64Value)(nil),  // 36: google.protobuf.Int64Value
+	(*wrapperspb.UInt32Value)(nil), // 37: google.protobuf.UInt32Value
+	(*wrapperspb.UInt64Value)(nil), // 38: google.protobuf.UInt64Value
+	(*wrapperspb.BoolValue)(nil),   // 39: google.protobuf.BoolValue
+	(*wrapperspb.DoubleValue)(nil), // 40: google.protobuf.DoubleValue
+	(*wrapperspb.FloatValue)(nil),  // 41: google.protobuf.FloatValue
+	(*wrapperspb.BytesValue)(nil),  // 42: google.protobuf.BytesValue
 }
 var file_fixtures_proto_depIdxs = []int32{
 	0,  // 0: protomcp.testdata.v1.Enums.plain:type_name -> protomcp.testdata.v1.Status
@@ -1731,38 +2001,38 @@ var file_fixtures_proto_depIdxs = []int32{
 	0,  // 4: protomcp.testdata.v1.Enums.not_in:type_name -> protomcp.testdata.v1.Status
 	1,  // 5: protomcp.testdata.v1.Listy.nested_messages:type_name -> protomcp.testdata.v1.Scalars
 	0,  // 6: protomcp.testdata.v1.Listy.statuses:type_name -> protomcp.testdata.v1.Status
-	15, // 7: protomcp.testdata.v1.Mapy.counts:type_name -> protomcp.testdata.v1.Mapy.CountsEntry
-	16, // 8: protomcp.testdata.v1.Mapy.by_id:type_name -> protomcp.testdata.v1.Mapy.ByIdEntry
-	17, // 9: protomcp.testdata.v1.Mapy.by_i32:type_name -> protomcp.testdata.v1.Mapy.ByI32Entry
-	18, // 10: protomcp.testdata.v1.Mapy.by_u32_to_enum:type_name -> protomcp.testdata.v1.Mapy.ByU32ToEnumEntry
-	19, // 11: protomcp.testdata.v1.Mapy.by_bool:type_name -> protomcp.testdata.v1.Mapy.ByBoolEntry
-	23, // 12: protomcp.testdata.v1.WellKnown.ts:type_name -> google.protobuf.Timestamp
-	24, // 13: protomcp.testdata.v1.WellKnown.dur:type_name -> google.protobuf.Duration
-	25, // 14: protomcp.testdata.v1.WellKnown.obj:type_name -> google.protobuf.Struct
-	26, // 15: protomcp.testdata.v1.WellKnown.any_value:type_name -> google.protobuf.Value
-	27, // 16: protomcp.testdata.v1.WellKnown.lst:type_name -> google.protobuf.ListValue
-	28, // 17: protomcp.testdata.v1.WellKnown.mask:type_name -> google.protobuf.FieldMask
-	29, // 18: protomcp.testdata.v1.WellKnown.pkt:type_name -> google.protobuf.Any
-	30, // 19: protomcp.testdata.v1.WellKnown.empty:type_name -> google.protobuf.Empty
-	31, // 20: protomcp.testdata.v1.WellKnown.sv:type_name -> google.protobuf.StringValue
-	32, // 21: protomcp.testdata.v1.WellKnown.i32v:type_name -> google.protobuf.Int32Value
-	33, // 22: protomcp.testdata.v1.WellKnown.i64v:type_name -> google.protobuf.Int64Value
-	34, // 23: protomcp.testdata.v1.WellKnown.u32v:type_name -> google.protobuf.UInt32Value
-	35, // 24: protomcp.testdata.v1.WellKnown.u64v:type_name -> google.protobuf.UInt64Value
-	36, // 25: protomcp.testdata.v1.WellKnown.bv:type_name -> google.protobuf.BoolValue
-	37, // 26: protomcp.testdata.v1.WellKnown.dv:type_name -> google.protobuf.DoubleValue
-	38, // 27: protomcp.testdata.v1.WellKnown.fv:type_name -> google.protobuf.FloatValue
-	39, // 28: protomcp.testdata.v1.WellKnown.bytesv:type_name -> google.protobuf.BytesValue
+	18, // 7: protomcp.testdata.v1.Mapy.counts:type_name -> protomcp.testdata.v1.Mapy.CountsEntry
+	19, // 8: protomcp.testdata.v1.Mapy.by_id:type_name -> protomcp.testdata.v1.Mapy.ByIdEntry
+	20, // 9: protomcp.testdata.v1.Mapy.by_i32:type_name -> protomcp.testdata.v1.Mapy.ByI32Entry
+	21, // 10: protomcp.testdata.v1.Mapy.by_u32_to_enum:type_name -> protomcp.testdata.v1.Mapy.ByU32ToEnumEntry
+	22, // 11: protomcp.testdata.v1.Mapy.by_bool:type_name -> protomcp.testdata.v1.Mapy.ByBoolEntry
+	26, // 12: protomcp.testdata.v1.WellKnown.ts:type_name -> google.protobuf.Timestamp
+	27, // 13: protomcp.testdata.v1.WellKnown.dur:type_name -> google.protobuf.Duration
+	28, // 14: protomcp.testdata.v1.WellKnown.obj:type_name -> google.protobuf.Struct
+	29, // 15: protomcp.testdata.v1.WellKnown.any_value:type_name -> google.protobuf.Value
+	30, // 16: protomcp.testdata.v1.WellKnown.lst:type_name -> google.protobuf.ListValue
+	31, // 17: protomcp.testdata.v1.WellKnown.mask:type_name -> google.protobuf.FieldMask
+	32, // 18: protomcp.testdata.v1.WellKnown.pkt:type_name -> google.protobuf.Any
+	33, // 19: protomcp.testdata.v1.WellKnown.empty:type_name -> google.protobuf.Empty
+	34, // 20: protomcp.testdata.v1.WellKnown.sv:type_name -> google.protobuf.StringValue
+	35, // 21: protomcp.testdata.v1.WellKnown.i32v:type_name -> google.protobuf.Int32Value
+	36, // 22: protomcp.testdata.v1.WellKnown.i64v:type_name -> google.protobuf.Int64Value
+	37, // 23: protomcp.testdata.v1.WellKnown.u32v:type_name -> google.protobuf.UInt32Value
+	38, // 24: protomcp.testdata.v1.WellKnown.u64v:type_name -> google.protobuf.UInt64Value
+	39, // 25: protomcp.testdata.v1.WellKnown.bv:type_name -> google.protobuf.BoolValue
+	40, // 26: protomcp.testdata.v1.WellKnown.dv:type_name -> google.protobuf.DoubleValue
+	41, // 27: protomcp.testdata.v1.WellKnown.fv:type_name -> google.protobuf.FloatValue
+	42, // 28: protomcp.testdata.v1.WellKnown.bytesv:type_name -> google.protobuf.BytesValue
 	1,  // 29: protomcp.testdata.v1.Oneofs.nested:type_name -> protomcp.testdata.v1.Scalars
 	0,  // 30: protomcp.testdata.v1.Oneofs.label:type_name -> protomcp.testdata.v1.Status
-	11, // 31: protomcp.testdata.v1.Recursive.child:type_name -> protomcp.testdata.v1.Recursive
-	13, // 32: protomcp.testdata.v1.MutualA.peer:type_name -> protomcp.testdata.v1.MutualB
-	12, // 33: protomcp.testdata.v1.MutualB.peer:type_name -> protomcp.testdata.v1.MutualA
-	20, // 34: protomcp.testdata.v1.Deep.l1:type_name -> protomcp.testdata.v1.Deep.L1
+	14, // 31: protomcp.testdata.v1.Recursive.child:type_name -> protomcp.testdata.v1.Recursive
+	16, // 32: protomcp.testdata.v1.MutualA.peer:type_name -> protomcp.testdata.v1.MutualB
+	15, // 33: protomcp.testdata.v1.MutualB.peer:type_name -> protomcp.testdata.v1.MutualA
+	23, // 34: protomcp.testdata.v1.Deep.l1:type_name -> protomcp.testdata.v1.Deep.L1
 	1,  // 35: protomcp.testdata.v1.Mapy.ByI32Entry.value:type_name -> protomcp.testdata.v1.Scalars
 	0,  // 36: protomcp.testdata.v1.Mapy.ByU32ToEnumEntry.value:type_name -> protomcp.testdata.v1.Status
-	21, // 37: protomcp.testdata.v1.Deep.L1.l2:type_name -> protomcp.testdata.v1.Deep.L1.L2
-	22, // 38: protomcp.testdata.v1.Deep.L1.L2.l3:type_name -> protomcp.testdata.v1.Deep.L1.L2.L3
+	24, // 37: protomcp.testdata.v1.Deep.L1.l2:type_name -> protomcp.testdata.v1.Deep.L1.L2
+	25, // 38: protomcp.testdata.v1.Deep.L1.L2.l3:type_name -> protomcp.testdata.v1.Deep.L1.L2.L3
 	39, // [39:39] is the sub-list for method output_type
 	39, // [39:39] is the sub-list for method input_type
 	39, // [39:39] is the sub-list for extension type_name
@@ -1783,13 +2053,25 @@ func file_fixtures_proto_init() {
 		(*Oneofs_Reason)(nil),
 		(*Oneofs_Silent)(nil),
 	}
+	file_fixtures_proto_msgTypes[10].OneofWrappers = []any{
+		(*RequiredOneof_Id)(nil),
+		(*RequiredOneof_Name)(nil),
+	}
+	file_fixtures_proto_msgTypes[11].OneofWrappers = []any{
+		(*RequiredOneofPartial_Visible)(nil),
+		(*RequiredOneofPartial_Hidden)(nil),
+	}
+	file_fixtures_proto_msgTypes[12].OneofWrappers = []any{
+		(*RequiredOneofAllMasked_A)(nil),
+		(*RequiredOneofAllMasked_B)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fixtures_proto_rawDesc), len(file_fixtures_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   22,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

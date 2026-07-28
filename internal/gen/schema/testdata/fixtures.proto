@@ -186,6 +186,34 @@ message Oneofs {
   optional int32  maybe_count = 8;
 }
 
+message RequiredOneof {
+  oneof target {
+    option (buf.validate.oneof).required = true;
+
+    string id = 1;
+    string name = 2;
+  }
+  string note = 3;
+}
+
+message RequiredOneofPartial {
+  oneof pick {
+    option (buf.validate.oneof).required = true;
+
+    string visible = 1;
+    string hidden = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  }
+}
+
+message RequiredOneofAllMasked {
+  oneof secret {
+    option (buf.validate.oneof).required = true;
+
+    string a = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+    string b = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  }
+}
+
 // Recursive tests the maxDepth cycle-breaker for direct recursion.
 message Recursive {
   string name  = 1;

@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package protomcp.gen.testdata.badslimprojection.v1;
+
+import "protomcp/v1/annotations.proto";
+
+option go_package = "github.com/akuity/protomcp/internal/gen/testdata/badslimprojection;badslimprojectionv1";
+
+service BadSlimProjection {
+  rpc Enumerate(BadProjectionRequest) returns (BadProjectionReply) {
+    option (protomcp.v1.resource_list) = {
+      item_path: "items"
+      uri_template: "bad://{id}"
+      uri_bindings: [{placeholder: "id", field: "id"}]
+      name_field: "{{secret}}"
+    };
+  }
+}
+
+message BadProjectionRequest {
+  string filter = 1;
+}
+
+message BadProjectionReply {
+  repeated BadProjectionItem items = 1;
+}
+
+message BadProjectionItem {
+  string id = 1;
+  string secret = 2 [(protomcp.v1.field_schema).exclude = true];
+}

@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package protomcp.gen.testdata.badslim.v1;
+
+import "google/api/field_behavior.proto";
+import "protomcp/v1/annotations.proto";
+
+option go_package = "github.com/akuity/protomcp/internal/gen/testdata/badslim;badslimv1";
+
+service BadSlim {
+  rpc Describe(BadSlimRequest) returns (BadSlimReply) {
+    option (protomcp.v1.tool) = {
+      read_only: true
+    };
+  }
+}
+
+message BadSlimRequest {
+  string id = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (protomcp.v1.field_schema).exclude = true
+  ];
+}
+
+message BadSlimReply {
+  string summary = 1;
+}

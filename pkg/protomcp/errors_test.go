@@ -85,6 +85,95 @@ func TestDefaultErrorHandlerOtherGRPCStatus(t *testing.T) {
 	}
 }
 
+func TestDefaultErrorHandlerEscalatedCodesStayDistinguishable(t *testing.T) {
+	wantCodes := map[codes.Code]int64{
+		codes.Unauthenticated:  -32001,
+		codes.PermissionDenied: -32002,
+		codes.Canceled:         -32003,
+		codes.DeadlineExceeded: -32004,
+	}
+	for c, want := range wantCodes {
+		t.Run(c.String(), func(t *testing.T) {
+			_, gotErr := DefaultToolErrorHandler(context.Background(), &mcp.CallToolRequest{}, status.Error(c, "nope"))
+			var je *jsonrpc.Error
+			if !errors.As(gotErr, &je) {
+				t.Fatalf("err = %T, want *jsonrpc.Error", gotErr)
+			}
+			if je.Code != want {
+				t.Errorf("jsonrpc code for %s = %d, want %d", c, je.Code, want)
+			}
+		})
+	}
+}
+
+func TestDefaultErrorHandlerNotFoundInvalidArgumentDistinguishable(t *testing.T) {
+	wantCodes := map[codes.Code]float64{
+		codes.NotFound:        float64(codes.NotFound),
+		codes.InvalidArgument: float64(codes.InvalidArgument),
+	}
+	for c, want := range wantCodes {
+		t.Run(c.String(), func(t *testing.T) {
+			res, gotErr := DefaultToolErrorHandler(context.Background(), &mcp.CallToolRequest{}, status.Error(c, "boom"))
+			if gotErr != nil {
+				t.Fatalf("expected nil error, got %v", gotErr)
+			}
+			if res == nil || !res.IsError {
+				t.Fatalf("expected IsError result, got %+v", res)
+			}
+			tc, ok := res.Content[0].(*mcp.TextContent)
+			if !ok {
+				t.Fatalf("content[0] = %T, want *mcp.TextContent", res.Content[0])
+			}
+			if !strings.HasPrefix(tc.Text, c.String()+":") {
+				t.Errorf("text = %q, want prefix %q", tc.Text, c.String()+":")
+			}
+			raw, ok := res.StructuredContent.(json.RawMessage)
+			if !ok {
+				t.Fatalf("StructuredContent type = %T, want json.RawMessage", res.StructuredContent)
+			}
+			var st struct {
+				Code    float64 `json:"code"`
+				Message string  `json:"message"`
+			}
+			if err := json.Unmarshal(raw, &st); err != nil {
+				t.Fatalf("StructuredContent not valid JSON: %v", err)
+			}
+			if st.Code != want {
+				t.Errorf("google.rpc.Status code = %v, want %v", st.Code, want)
+			}
+			if st.Message != "boom" {
+				t.Errorf("google.rpc.Status message = %q, want %q", st.Message, "boom")
+			}
+		})
+	}
+}
+
+func TestGRPCErrorToJSONRPCDistinguishability(t *testing.T) {
+	toJE := func(c codes.Code) *jsonrpc.Error {
+		t.Helper()
+		err := grpcErrorToJSONRPC(status.Error(c, "boom"))
+		var je *jsonrpc.Error
+		if !errors.As(err, &je) {
+			t.Fatalf("grpcErrorToJSONRPC(%s) = %T, want *jsonrpc.Error", c, err)
+		}
+		return je
+	}
+	perm := toJE(codes.PermissionDenied)
+	notFound := toJE(codes.NotFound)
+	invalid := toJE(codes.InvalidArgument)
+
+	if perm.Code == notFound.Code || perm.Code == invalid.Code {
+		t.Errorf("PermissionDenied code %d collides with NotFound %d / InvalidArgument %d",
+			perm.Code, notFound.Code, invalid.Code)
+	}
+	if !strings.HasPrefix(notFound.Message, codes.NotFound.String()+":") {
+		t.Errorf("NotFound message = %q, want %q prefix", notFound.Message, codes.NotFound.String()+":")
+	}
+	if !strings.HasPrefix(invalid.Message, codes.InvalidArgument.String()+":") {
+		t.Errorf("InvalidArgument message = %q, want %q prefix", invalid.Message, codes.InvalidArgument.String()+":")
+	}
+}
+
 // TestDefaultErrorHandlerPlainError verifies plain Go errors become a
 // CallToolResult with IsError=true and the error message as text.
 func TestDefaultErrorHandlerPlainError(t *testing.T) {

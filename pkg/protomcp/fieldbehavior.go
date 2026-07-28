@@ -17,6 +17,10 @@ const clearOutputOnlyMaxDepth = 100
 // carries google.api.field_behavior = OUTPUT_ONLY (AIP-203). Recursion
 // is capped at clearOutputOnlyMaxDepth.
 func ClearOutputOnly(m proto.Message) {
+	clearFieldsMatching(m, hasOutputOnly)
+}
+
+func clearFieldsMatching(m proto.Message, match func(protoreflect.FieldDescriptor) bool) {
 	if m == nil {
 		return
 	}
@@ -24,12 +28,12 @@ func ClearOutputOnly(m proto.Message) {
 	if !r.IsValid() {
 		return
 	}
-	clearOutputOnlyReflect(r, 0)
+	clearFieldsMatchingReflect(r, 0, match)
 }
 
-// clearOutputOnlyReflect is the recursive worker; depth short-circuits
-// at clearOutputOnlyMaxDepth.
-func clearOutputOnlyReflect(r protoreflect.Message, depth int) {
+// clearFieldsMatchingReflect is the recursive worker; depth
+// short-circuits at clearOutputOnlyMaxDepth.
+func clearFieldsMatchingReflect(r protoreflect.Message, depth int, match func(protoreflect.FieldDescriptor) bool) {
 	if depth >= clearOutputOnlyMaxDepth {
 		return
 	}
@@ -37,7 +41,7 @@ func clearOutputOnlyReflect(r protoreflect.Message, depth int) {
 	for i := range fields.Len() {
 		fd := fields.Get(i)
 
-		if hasOutputOnly(fd) {
+		if match(fd) {
 			r.Clear(fd)
 			continue
 		}
@@ -58,16 +62,16 @@ func clearOutputOnlyReflect(r protoreflect.Message, depth int) {
 				continue
 			}
 			r.Get(fd).Map().Range(func(_ protoreflect.MapKey, v protoreflect.Value) bool {
-				clearOutputOnlyReflect(v.Message(), depth+1)
+				clearFieldsMatchingReflect(v.Message(), depth+1, match)
 				return true
 			})
 		case fd.IsList():
 			list := r.Get(fd).List()
 			for j := range list.Len() {
-				clearOutputOnlyReflect(list.Get(j).Message(), depth+1)
+				clearFieldsMatchingReflect(list.Get(j).Message(), depth+1, match)
 			}
 		default:
-			clearOutputOnlyReflect(r.Get(fd).Message(), depth+1)
+			clearFieldsMatchingReflect(r.Get(fd).Message(), depth+1, match)
 		}
 	}
 }

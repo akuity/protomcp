@@ -276,7 +276,7 @@ Multiple primitives on one RPC are legal and additive. A `GetTask` RPC annotated
 | `name` | optional | string | `<Service>_<Method>` | Override the generated tool name. Validated at codegen against MCP's `[a-zA-Z0-9_.-]{≤128}` rule. |
 | `title` | optional | string |, | Human-readable title shown to MCP clients. |
 | `description` | optional | string | *leading proto comment* | Tool description. Falls back to the RPC's leading `//` comment when absent. |
-| `read_only` | optional | bool | false | Emits `annotations.readOnlyHint: true`. Hints the LLM the tool is safe to call speculatively. |
+| `read_only` | optional | bool | false | Emits `annotations.readOnlyHint: true`. Hints the LLM the tool is safe to call speculatively. An RPC whose name starts with a mutating verb (`Create`/`Update`/`Delete`/`Apply`/…) may not carry it — codegen fails; if the heuristic misfires on a legitimately read-only RPC, disable it with the plugin opt `read_only_name_lint=false`. |
 | `idempotent` | optional | bool | false | Emits `annotations.idempotentHint: true`. Client knows retry is safe. |
 | `destructive` | optional | bool | false | Emits `annotations.destructiveHint: true`. Client may confirm before calling. |
 | `open_world` | optional | bool | false | Emits `annotations.openWorldHint: true`. Signals the tool reaches outside the local server (web fetch, third-party API, search) so clients can adjust consent UX. |
@@ -400,6 +400,22 @@ Hard codegen error when used without a companion `tool`, or on a streaming RPC.
 
 **Scope, confirm-only by design.** MCP's form and URL elicitation modes need stateful handshakes that do not map onto a unary gRPC call. If you need structured input from the user, collect it as tool arguments; they already become JSON Schema properties on `inputSchema`.
 
+### `protomcp.v1.field_schema`, field option (schema masking)
+
+| Field | Default | Effect |
+|---|---|---|
+| `exclude` | false | Masks the field from the generated tool input **and** output JSON Schemas, and zeroes it at runtime in both directions: client-supplied values are cleared after unmarshal (`protomcp.ClearSchemaExcluded`, recursive: nested, repeated, map) before the gRPC call, and server-set values are cleared from the response **and stripped from the serialized JSON** before it reaches the MCP client (clearing alone is not enough: `EmitDefaultValues` would re-emit the field name with a zero value). The response-side masking applies to every generated surface that marshals the RPC response: tool results, resource reads, resource-list items, and prompt rendering. Referencing an excluded field from a URI binding, `item_path`, `name_field`/`description_field`, `blob_field`, prompt template, or elicitation message is a codegen error, and excluded request fields are dropped from prompt arguments. Use it to slim tools generated from very large proto messages, or to keep internal-only fields out of LLM-visible schemas. Excluding a field that is required (`google.api.field_behavior = REQUIRED` or `buf.validate` `required`) is a codegen error, the upstream call could never succeed. |
+
+```proto
+message ApplySpec {
+  string name = 1;
+  // Too large / too internal for an LLM-facing schema:
+  InternalConfig raw_config = 2 [(protomcp.v1.field_schema).exclude = true];
+}
+```
+
+Pair with the plugin flag `max_tool_schema_bytes=N` (via `opt:` in `buf.gen.yaml`) to make CI fail when any single tool's combined input+output schema size exceeds `N` bytes; the error message points at `field_schema.exclude` as the fix. `0` (the default) disables the check.
+
 ### `protomcp.v1.service`, optional service-level options
 
 | Field | Default | Effect |
@@ -427,7 +443,7 @@ Each example is standalone, runnable, and has its own README.
 
 | Example | Shows |
 |---|---|
-| [`examples/greeter`](examples/greeter) | Tool primitive surface, unary + server-streaming RPCs, progress notifications with monotonic counter, **progress-token gRPC-metadata propagation**, `ToolErrorHandler`, `ToolResultProcessor` redaction, `ToolMiddleware` request mutation, SDK options pass-through |
+| [`examples/greeter`](examples/greeter) | Tool primitive surface, unary + server-streaming RPCs, progress notifications with monotonic counter, **progress-token gRPC-metadata propagation**, `ToolErrorHandler`, `ToolResultProcessor` redaction, `ToolMiddleware` request mutation, SDK options pass-through, **`field_schema.exclude` schema masking round-trip** |
 | [`examples/tasks`](examples/tasks) | **Every declarative MCP primitive end-to-end.** Tools with `read_only` / `idempotent` / `destructive` hints + `OUTPUT_ONLY` stripping, **two `resource_template` annotations (`tasks://{id}`, `tags://{id}`)**, **a single `resource_list` that enumerates both types via `{type}://{id}` with `OffsetPagination`**, **prompts (`tasks_review`)**, **elicitation (confirm `DeleteTask`)**, plus `@example` markers and `enumDescriptions` on `TaskStatus` |
 | [`examples/subscriptions`](examples/subscriptions) | **User-wired resource subscriptions** on top of the Tasks resource template. In-process `Hub` + `Manager` + `SubscribeHandler`/`UnsubscribeHandler` + `ss.Wait()` session-close watchdog. Race-tested. |
 | [`examples/auth`](examples/auth) | Two-layer auth: SDK-native bearer middleware **or** custom HTTP middleware, both writing gRPC metadata for the upstream |

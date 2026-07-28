@@ -47,9 +47,13 @@ type promptTemplateData struct {
 	QMetadataNewOut  string
 	QProtomcpGRPCReq string
 
+	QProtomcpClearSchemaExcluded string
+
 	InputTypeRef  string
 	OutputTypeRef string
 	ClientMethod  string
+
+	OutputHasExcluded bool
 }
 
 // promptArgument describes a single prompt argument (= request field).
@@ -160,9 +164,13 @@ func buildPromptTemplateData(
 		QMetadataNewOut:  metaPkg + ".NewOutgoingContext",
 		QProtomcpGRPCReq: q("GRPCData", importProtomcp),
 
+		QProtomcpClearSchemaExcluded: q("ClearSchemaExcluded", importProtomcp),
+
 		InputTypeRef:  g.QualifiedGoIdent(m.Input.GoIdent),
 		OutputTypeRef: g.QualifiedGoIdent(m.Output.GoIdent),
 		ClientMethod:  "client." + m.GoName,
+
+		OutputHasExcluded: schema.HasExclusions(m.Output.Desc),
 	}, nil
 }
 
@@ -188,6 +196,9 @@ func buildPromptArguments(g *protogen.GeneratedFile, in *protogen.Message) ([]pr
 	args := make([]promptArgument, 0, len(in.Fields))
 	for _, f := range in.Fields {
 		fd := f.Desc
+		if schema.IsExcluded(fd) {
+			continue
+		}
 		if fd.IsList() || fd.IsMap() {
 			return nil, fmt.Errorf("prompt arg %q on %s: repeated/map request fields are not supported; use a scalar or enum", fd.Name(), in.Desc.FullName())
 		}

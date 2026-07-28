@@ -233,6 +233,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		// wire format does not, so the upstream gRPC server must
 		// never see client-supplied values for server-computed fields.
 		protomcp.ClearOutputOnly(&in)
+		protomcp.ClearSchemaExcluded(&in)
 		// ToolMiddleware may mutate &in or replace the pointer; the
 		// final handler reads from g.Input so both forms propagate.
 		g := &protomcp.GRPCData{Input: &in, Metadata: metadata.MD{}}
@@ -252,8 +253,9 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 			if err != nil {
 				return nil, err
 			}
+			protomcp.ClearSchemaExcluded(resp)
 			g.Output = resp
-			outBytes, err := srv.MarshalProto(resp)
+			outBytes, err := srv.MarshalProtoMasked(resp)
 			if err != nil {
 				return nil, err
 			}

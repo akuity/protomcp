@@ -130,6 +130,10 @@ func ResolveItemMessage(md protoreflect.MessageDescriptor, itemPath string) (pro
 		if fd == nil {
 			return nil, fmt.Errorf("item_path segment %q not found on %s", seg, cur.FullName())
 		}
+		if isExcluded(fd) {
+			return nil, fmt.Errorf("item_path segment %q on %s is masked by "+
+				"(protomcp.v1.field_schema).exclude; the runtime clears it, so the list would always be empty", seg, cur.FullName())
+		}
 		isLast := i == len(segments)-1
 		if !isLast {
 			if fd.Kind() != protoreflect.MessageKind || fd.IsList() || fd.IsMap() {
@@ -176,6 +180,10 @@ func resolveFieldPath(path string, md protoreflect.MessageDescriptor) (protorefl
 		fd := findField(cur, seg)
 		if fd == nil {
 			return nil, fmt.Errorf("field %q not found on %s", seg, cur.FullName())
+		}
+		if isExcluded(fd) {
+			return nil, fmt.Errorf("field %q on %s is masked by (protomcp.v1.field_schema).exclude "+
+				"and cannot back a generated projection, template, or binding", seg, cur.FullName())
 		}
 		last = fd
 		isLast := i == len(segments)-1

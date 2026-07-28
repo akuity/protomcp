@@ -56,12 +56,19 @@
 			if err != nil {
 				return nil, err
 			}
+{{- if .OutputHasExcluded}}
+			{{.QProtomcpClearSchemaExcluded}}(resp)
+{{- end}}
 			g.Output = resp
 			// The Server's protojson.MarshalOptions (default
 			// EmitDefaultValues=true) controls how zero-valued
 			// scalars appear in the template context; see
 			// WithProtoJSONMarshal.
+{{- if .OutputHasExcluded}}
+			payload, mErr := srv.MarshalProtoMasked(resp)
+{{- else}}
 			payload, mErr := srv.MarshalProto(resp)
+{{- end}}
 			if mErr != nil {
 				return nil, mErr
 			}

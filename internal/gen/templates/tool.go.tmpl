@@ -21,6 +21,9 @@
 		// wire format does not, so the upstream gRPC server must
 		// never see client-supplied values for server-computed fields.
 		{{.QProtomcpClearOutputOnly}}(&in)
+{{- if .InputHasExcluded}}
+		{{.QProtomcpClearSchemaExcluded}}(&in)
+{{- end}}
 		// ToolMiddleware may mutate &in or replace the pointer; the
 		// final handler reads from g.Input so both forms propagate.
 		g := &{{.QProtomcpGRPCReq}}{Input: &in, Metadata: {{.QMetadataMD}}{}}
@@ -69,7 +72,12 @@
 				if rErr != nil {
 					return nil, rErr
 				}
+{{- if .OutputHasExcluded}}
+				{{.QProtomcpClearSchemaExcluded}}(msg)
+				payload, mErr := srv.MarshalProtoMasked(msg)
+{{- else}}
 				payload, mErr := srv.MarshalProto(msg)
+{{- end}}
 				if mErr != nil {
 					return nil, mErr
 				}
@@ -115,8 +123,15 @@
 			if err != nil {
 				return nil, err
 			}
+{{- if .OutputHasExcluded}}
+			{{.QProtomcpClearSchemaExcluded}}(resp)
+{{- end}}
 			g.Output = resp
+{{- if .OutputHasExcluded}}
+			outBytes, err := srv.MarshalProtoMasked(resp)
+{{- else}}
 			outBytes, err := srv.MarshalProto(resp)
+{{- end}}
 			if err != nil {
 				return nil, err
 			}

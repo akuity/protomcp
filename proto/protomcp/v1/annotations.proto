@@ -35,6 +35,14 @@ extend google.protobuf.ServiceOptions {
   ServiceOptions service = 50002;
 }
 
+extend google.protobuf.FieldOptions {
+  FieldSchemaOptions field_schema = 50009;
+}
+
+message FieldSchemaOptions {
+  bool exclude = 1;
+}
+
 // Method-level elicitation modifier. Requires a sibling
 // protomcp.v1.tool on the same RPC; the generated tool handler calls
 // session.Elicit before the upstream gRPC call, gating execution on

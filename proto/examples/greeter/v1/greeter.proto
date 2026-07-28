@@ -96,6 +96,7 @@ message EchoComplexRequest {
   Mood              mood      = 3;
   Address           address   = 4;
   map<string, int32> counters = 5;
+  string            internal_note = 6 [(protomcp.v1.field_schema).exclude = true];
 }
 
 message EchoComplexResponse {
@@ -104,6 +105,7 @@ message EchoComplexResponse {
   Mood              mood      = 3;
   Address           address   = 4;
   map<string, int32> counters = 5;
+  string            internal_note = 6 [(protomcp.v1.field_schema).exclude = true];
 }
 
 message HelloRequest {

@@ -16,6 +16,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
+
+	protomcpv1 "github.com/akuity/protomcp/pkg/api/gen/protomcp/v1"
 )
 
 // Options controls schema generation.
@@ -69,7 +71,12 @@ func ForInputE(md protoreflect.MessageDescriptor, opts Options) (_ map[string]an
 			panic(r)
 		}
 	}()
-	return messageSchema(md, opts, nil, isInputField), nil
+	if err := validateInputExclusions(md, make(map[protoreflect.FullName]bool)); err != nil {
+		return nil, err
+	}
+	return messageSchema(md, opts, nil, func(fd protoreflect.FieldDescriptor) bool {
+		return isInputField(fd) && !isExcluded(fd)
+	}), nil
 }
 
 // ForOutputE is like ForOutput but returns any comment-marker parse errors
@@ -84,7 +91,9 @@ func ForOutputE(md protoreflect.MessageDescriptor, opts Options) (_ map[string]a
 			panic(r)
 		}
 	}()
-	return messageSchema(md, opts, nil, includeAllFields), nil
+	return messageSchema(md, opts, nil, func(fd protoreflect.FieldDescriptor) bool {
+		return !isExcluded(fd)
+	}), nil
 }
 
 // commentError reports a structured-marker (e.g. @example) parse error
@@ -109,7 +118,85 @@ func (e *commentError) Error() string {
 
 func (e *commentError) Unwrap() error { return e.Inner }
 
-func includeAllFields(_ protoreflect.FieldDescriptor) bool { return true }
+// IsExcluded reports whether fd carries (protomcp.v1.field_schema).exclude = true.
+func IsExcluded(fd protoreflect.FieldDescriptor) bool {
+	return isExcluded(fd)
+}
+
+func isExcluded(fd protoreflect.FieldDescriptor) bool {
+	opts := fd.Options()
+	if opts == nil || !proto.HasExtension(opts, protomcpv1.E_FieldSchema) {
+		return false
+	}
+	fso, _ := proto.GetExtension(opts, protomcpv1.E_FieldSchema).(*protomcpv1.FieldSchemaOptions)
+	return fso.GetExclude()
+}
+
+func validateInputExclusions(md protoreflect.MessageDescriptor, seen map[protoreflect.FullName]bool) error {
+	if seen[md.FullName()] {
+		return nil
+	}
+	seen[md.FullName()] = true
+	fields := md.Fields()
+	for i := range fields.Len() {
+		fd := fields.Get(i)
+		if !isInputField(fd) {
+			continue
+		}
+		if isExcluded(fd) {
+			if isRequired(fd) {
+				return fmt.Errorf(
+					"field %s: (protomcp.v1.field_schema).exclude on a required field: "+
+						"the input schema would omit a field the upstream call requires; "+
+						"drop exclude or the required constraint", fd.FullName())
+			}
+			continue
+		}
+		switch {
+		case fd.IsMap():
+			if fd.MapValue().Kind() == protoreflect.MessageKind {
+				if err := validateInputExclusions(fd.MapValue().Message(), seen); err != nil {
+					return err
+				}
+			}
+		case fd.Kind() == protoreflect.MessageKind || fd.Kind() == protoreflect.GroupKind:
+			if err := validateInputExclusions(fd.Message(), seen); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// HasExclusions reports whether any field reachable from md carries (protomcp.v1.field_schema).exclude = true.
+func HasExclusions(md protoreflect.MessageDescriptor) bool {
+	return hasExclusions(md, make(map[protoreflect.FullName]bool))
+}
+
+func hasExclusions(md protoreflect.MessageDescriptor, seen map[protoreflect.FullName]bool) bool {
+	if seen[md.FullName()] {
+		return false
+	}
+	seen[md.FullName()] = true
+	fields := md.Fields()
+	for i := range fields.Len() {
+		fd := fields.Get(i)
+		if isExcluded(fd) {
+			return true
+		}
+		switch {
+		case fd.IsMap():
+			if fd.MapValue().Kind() == protoreflect.MessageKind && hasExclusions(fd.MapValue().Message(), seen) {
+				return true
+			}
+		case fd.Kind() == protoreflect.MessageKind || fd.Kind() == protoreflect.GroupKind:
+			if hasExclusions(fd.Message(), seen) {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // isInputField drops OUTPUT_ONLY fields (AIP-203) from input schemas.
 func isInputField(fd protoreflect.FieldDescriptor) bool {

@@ -200,6 +200,7 @@ type EchoComplexRequest struct {
 	Mood          Mood                   `protobuf:"varint,3,opt,name=mood,proto3,enum=protomcp.examples.greeter.v1.Mood" json:"mood,omitempty"`
 	Address       *Address               `protobuf:"bytes,4,opt,name=address,proto3" json:"address,omitempty"`
 	Counters      map[string]int32       `protobuf:"bytes,5,rep,name=counters,proto3" json:"counters,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	InternalNote  string                 `protobuf:"bytes,6,opt,name=internal_note,json=internalNote,proto3" json:"internal_note,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -269,6 +270,13 @@ func (x *EchoComplexRequest) GetCounters() map[string]int32 {
 	return nil
 }
 
+func (x *EchoComplexRequest) GetInternalNote() string {
+	if x != nil {
+		return x.InternalNote
+	}
+	return ""
+}
+
 type EchoComplexResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -276,6 +284,7 @@ type EchoComplexResponse struct {
 	Mood          Mood                   `protobuf:"varint,3,opt,name=mood,proto3,enum=protomcp.examples.greeter.v1.Mood" json:"mood,omitempty"`
 	Address       *Address               `protobuf:"bytes,4,opt,name=address,proto3" json:"address,omitempty"`
 	Counters      map[string]int32       `protobuf:"bytes,5,rep,name=counters,proto3" json:"counters,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	InternalNote  string                 `protobuf:"bytes,6,opt,name=internal_note,json=internalNote,proto3" json:"internal_note,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -343,6 +352,13 @@ func (x *EchoComplexResponse) GetCounters() map[string]int32 {
 		return x.Counters
 	}
 	return nil
+}
+
+func (x *EchoComplexResponse) GetInternalNote() string {
+	if x != nil {
+		return x.InternalNote
+	}
+	return ""
 }
 
 type HelloRequest struct {
@@ -496,22 +512,24 @@ const file_examples_greeter_v1_greeter_proto_rawDesc = "" +
 	"\aAddress\x12\x16\n" +
 	"\x06street\x18\x01 \x01(\tR\x06street\x12\x12\n" +
 	"\x04city\x18\x02 \x01(\tR\x04city\x12\x10\n" +
-	"\x03zip\x18\x03 \x01(\tR\x03zip\"\xd3\x02\n" +
+	"\x03zip\x18\x03 \x01(\tR\x03zip\"\x80\x03\n" +
 	"\x12EchoComplexRequest\x12\x17\n" +
 	"\x04name\x18\x01 \x01(\tB\x03\xe0A\x02R\x04name\x12\x12\n" +
 	"\x04tags\x18\x02 \x03(\tR\x04tags\x126\n" +
 	"\x04mood\x18\x03 \x01(\x0e2\".protomcp.examples.greeter.v1.MoodR\x04mood\x12?\n" +
 	"\aaddress\x18\x04 \x01(\v2%.protomcp.examples.greeter.v1.AddressR\aaddress\x12Z\n" +
-	"\bcounters\x18\x05 \x03(\v2>.protomcp.examples.greeter.v1.EchoComplexRequest.CountersEntryR\bcounters\x1a;\n" +
+	"\bcounters\x18\x05 \x03(\v2>.protomcp.examples.greeter.v1.EchoComplexRequest.CountersEntryR\bcounters\x12+\n" +
+	"\rinternal_note\x18\x06 \x01(\tB\x06ʵ\x18\x02\b\x01R\finternalNote\x1a;\n" +
 	"\rCountersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\xd0\x02\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\xfd\x02\n" +
 	"\x13EchoComplexResponse\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04tags\x18\x02 \x03(\tR\x04tags\x126\n" +
 	"\x04mood\x18\x03 \x01(\x0e2\".protomcp.examples.greeter.v1.MoodR\x04mood\x12?\n" +
 	"\aaddress\x18\x04 \x01(\v2%.protomcp.examples.greeter.v1.AddressR\aaddress\x12[\n" +
-	"\bcounters\x18\x05 \x03(\v2?.protomcp.examples.greeter.v1.EchoComplexResponse.CountersEntryR\bcounters\x1a;\n" +
+	"\bcounters\x18\x05 \x03(\v2?.protomcp.examples.greeter.v1.EchoComplexResponse.CountersEntryR\bcounters\x12+\n" +
+	"\rinternal_note\x18\x06 \x01(\tB\x06ʵ\x18\x02\b\x01R\finternalNote\x1a;\n" +
 	"\rCountersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"'\n" +

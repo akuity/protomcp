@@ -22,6 +22,50 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type FieldSchemaOptions struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Exclude       bool                   `protobuf:"varint,1,opt,name=exclude,proto3" json:"exclude,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FieldSchemaOptions) Reset() {
+	*x = FieldSchemaOptions{}
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FieldSchemaOptions) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FieldSchemaOptions) ProtoMessage() {}
+
+func (x *FieldSchemaOptions) ProtoReflect() protoreflect.Message {
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FieldSchemaOptions.ProtoReflect.Descriptor instead.
+func (*FieldSchemaOptions) Descriptor() ([]byte, []int) {
+	return file_protomcp_v1_annotations_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *FieldSchemaOptions) GetExclude() bool {
+	if x != nil {
+		return x.Exclude
+	}
+	return false
+}
+
 // ToolOptions controls how a single RPC is surfaced as an MCP tool.
 type ToolOptions struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -45,7 +89,7 @@ type ToolOptions struct {
 
 func (x *ToolOptions) Reset() {
 	*x = ToolOptions{}
-	mi := &file_protomcp_v1_annotations_proto_msgTypes[0]
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -57,7 +101,7 @@ func (x *ToolOptions) String() string {
 func (*ToolOptions) ProtoMessage() {}
 
 func (x *ToolOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_protomcp_v1_annotations_proto_msgTypes[0]
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -70,7 +114,7 @@ func (x *ToolOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolOptions.ProtoReflect.Descriptor instead.
 func (*ToolOptions) Descriptor() ([]byte, []int) {
-	return file_protomcp_v1_annotations_proto_rawDescGZIP(), []int{0}
+	return file_protomcp_v1_annotations_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ToolOptions) GetName() string {
@@ -134,7 +178,7 @@ type ServiceOptions struct {
 
 func (x *ServiceOptions) Reset() {
 	*x = ServiceOptions{}
-	mi := &file_protomcp_v1_annotations_proto_msgTypes[1]
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -146,7 +190,7 @@ func (x *ServiceOptions) String() string {
 func (*ServiceOptions) ProtoMessage() {}
 
 func (x *ServiceOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_protomcp_v1_annotations_proto_msgTypes[1]
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -159,7 +203,7 @@ func (x *ServiceOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceOptions.ProtoReflect.Descriptor instead.
 func (*ServiceOptions) Descriptor() ([]byte, []int) {
-	return file_protomcp_v1_annotations_proto_rawDescGZIP(), []int{1}
+	return file_protomcp_v1_annotations_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ServiceOptions) GetToolPrefix() string {
@@ -185,7 +229,7 @@ type PlaceholderBinding struct {
 
 func (x *PlaceholderBinding) Reset() {
 	*x = PlaceholderBinding{}
-	mi := &file_protomcp_v1_annotations_proto_msgTypes[2]
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -197,7 +241,7 @@ func (x *PlaceholderBinding) String() string {
 func (*PlaceholderBinding) ProtoMessage() {}
 
 func (x *PlaceholderBinding) ProtoReflect() protoreflect.Message {
-	mi := &file_protomcp_v1_annotations_proto_msgTypes[2]
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -210,7 +254,7 @@ func (x *PlaceholderBinding) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlaceholderBinding.ProtoReflect.Descriptor instead.
 func (*PlaceholderBinding) Descriptor() ([]byte, []int) {
-	return file_protomcp_v1_annotations_proto_rawDescGZIP(), []int{2}
+	return file_protomcp_v1_annotations_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *PlaceholderBinding) GetPlaceholder() string {
@@ -252,7 +296,7 @@ type ResourceTemplateOptions struct {
 
 func (x *ResourceTemplateOptions) Reset() {
 	*x = ResourceTemplateOptions{}
-	mi := &file_protomcp_v1_annotations_proto_msgTypes[3]
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -264,7 +308,7 @@ func (x *ResourceTemplateOptions) String() string {
 func (*ResourceTemplateOptions) ProtoMessage() {}
 
 func (x *ResourceTemplateOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_protomcp_v1_annotations_proto_msgTypes[3]
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -277,7 +321,7 @@ func (x *ResourceTemplateOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceTemplateOptions.ProtoReflect.Descriptor instead.
 func (*ResourceTemplateOptions) Descriptor() ([]byte, []int) {
-	return file_protomcp_v1_annotations_proto_rawDescGZIP(), []int{3}
+	return file_protomcp_v1_annotations_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ResourceTemplateOptions) GetUriTemplate() string {
@@ -350,7 +394,7 @@ type ResourceListOptions struct {
 
 func (x *ResourceListOptions) Reset() {
 	*x = ResourceListOptions{}
-	mi := &file_protomcp_v1_annotations_proto_msgTypes[4]
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -362,7 +406,7 @@ func (x *ResourceListOptions) String() string {
 func (*ResourceListOptions) ProtoMessage() {}
 
 func (x *ResourceListOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_protomcp_v1_annotations_proto_msgTypes[4]
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -375,7 +419,7 @@ func (x *ResourceListOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceListOptions.ProtoReflect.Descriptor instead.
 func (*ResourceListOptions) Descriptor() ([]byte, []int) {
-	return file_protomcp_v1_annotations_proto_rawDescGZIP(), []int{4}
+	return file_protomcp_v1_annotations_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ResourceListOptions) GetItemPath() string {
@@ -439,7 +483,7 @@ type PromptOptions struct {
 
 func (x *PromptOptions) Reset() {
 	*x = PromptOptions{}
-	mi := &file_protomcp_v1_annotations_proto_msgTypes[5]
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -451,7 +495,7 @@ func (x *PromptOptions) String() string {
 func (*PromptOptions) ProtoMessage() {}
 
 func (x *PromptOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_protomcp_v1_annotations_proto_msgTypes[5]
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -464,7 +508,7 @@ func (x *PromptOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromptOptions.ProtoReflect.Descriptor instead.
 func (*PromptOptions) Descriptor() ([]byte, []int) {
-	return file_protomcp_v1_annotations_proto_rawDescGZIP(), []int{5}
+	return file_protomcp_v1_annotations_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *PromptOptions) GetName() string {
@@ -512,7 +556,7 @@ type ResourceListChangedOptions struct {
 
 func (x *ResourceListChangedOptions) Reset() {
 	*x = ResourceListChangedOptions{}
-	mi := &file_protomcp_v1_annotations_proto_msgTypes[6]
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -524,7 +568,7 @@ func (x *ResourceListChangedOptions) String() string {
 func (*ResourceListChangedOptions) ProtoMessage() {}
 
 func (x *ResourceListChangedOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_protomcp_v1_annotations_proto_msgTypes[6]
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -537,7 +581,7 @@ func (x *ResourceListChangedOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceListChangedOptions.ProtoReflect.Descriptor instead.
 func (*ResourceListChangedOptions) Descriptor() ([]byte, []int) {
-	return file_protomcp_v1_annotations_proto_rawDescGZIP(), []int{6}
+	return file_protomcp_v1_annotations_proto_rawDescGZIP(), []int{7}
 }
 
 // ElicitationOptions controls the confirmation prompt shown before the
@@ -557,7 +601,7 @@ type ElicitationOptions struct {
 
 func (x *ElicitationOptions) Reset() {
 	*x = ElicitationOptions{}
-	mi := &file_protomcp_v1_annotations_proto_msgTypes[7]
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -569,7 +613,7 @@ func (x *ElicitationOptions) String() string {
 func (*ElicitationOptions) ProtoMessage() {}
 
 func (x *ElicitationOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_protomcp_v1_annotations_proto_msgTypes[7]
+	mi := &file_protomcp_v1_annotations_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -582,7 +626,7 @@ func (x *ElicitationOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ElicitationOptions.ProtoReflect.Descriptor instead.
 func (*ElicitationOptions) Descriptor() ([]byte, []int) {
-	return file_protomcp_v1_annotations_proto_rawDescGZIP(), []int{7}
+	return file_protomcp_v1_annotations_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ElicitationOptions) GetMessage() string {
@@ -642,6 +686,14 @@ var file_protomcp_v1_annotations_proto_extTypes = []protoimpl.ExtensionInfo{
 		Filename:      "protomcp/v1/annotations.proto",
 	},
 	{
+		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
+		ExtensionType: (*FieldSchemaOptions)(nil),
+		Field:         50009,
+		Name:          "protomcp.v1.field_schema",
+		Tag:           "bytes,50009,opt,name=field_schema",
+		Filename:      "protomcp/v1/annotations.proto",
+	},
+	{
 		ExtendedType:  (*descriptorpb.MethodOptions)(nil),
 		ExtensionType: (*ElicitationOptions)(nil),
 		Field:         50006,
@@ -676,7 +728,7 @@ var (
 	// optional protomcp.v1.ResourceListChangedOptions resource_list_changed = 50008;
 	E_ResourceListChanged = &file_protomcp_v1_annotations_proto_extTypes[4]
 	// optional protomcp.v1.ElicitationOptions elicitation = 50006;
-	E_Elicitation = &file_protomcp_v1_annotations_proto_extTypes[6]
+	E_Elicitation = &file_protomcp_v1_annotations_proto_extTypes[7]
 )
 
 // Extension fields to descriptorpb.ServiceOptions.
@@ -685,11 +737,19 @@ var (
 	E_Service = &file_protomcp_v1_annotations_proto_extTypes[5]
 )
 
+// Extension fields to descriptorpb.FieldOptions.
+var (
+	// optional protomcp.v1.FieldSchemaOptions field_schema = 50009;
+	E_FieldSchema = &file_protomcp_v1_annotations_proto_extTypes[6]
+)
+
 var File_protomcp_v1_annotations_proto protoreflect.FileDescriptor
 
 const file_protomcp_v1_annotations_proto_rawDesc = "" +
 	"\n" +
-	"\x1dprotomcp/v1/annotations.proto\x12\vprotomcp.v1\x1a google/protobuf/descriptor.proto\"\xd7\x01\n" +
+	"\x1dprotomcp/v1/annotations.proto\x12\vprotomcp.v1\x1a google/protobuf/descriptor.proto\".\n" +
+	"\x12FieldSchemaOptions\x12\x18\n" +
+	"\aexclude\x18\x01 \x01(\bR\aexclude\"\xd7\x01\n" +
 	"\vToolOptions\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -738,6 +798,7 @@ const file_protomcp_v1_annotations_proto_rawDesc = "" +
 	"\x06prompt\x12\x1e.google.protobuf.MethodOptions\x18Ն\x03 \x01(\v2\x1a.protomcp.v1.PromptOptionsR\x06prompt:}\n" +
 	"\x15resource_list_changed\x12\x1e.google.protobuf.MethodOptions\x18؆\x03 \x01(\v2'.protomcp.v1.ResourceListChangedOptionsR\x13resourceListChanged:X\n" +
 	"\aservice\x12\x1f.google.protobuf.ServiceOptions\x18҆\x03 \x01(\v2\x1b.protomcp.v1.ServiceOptionsR\aservice:c\n" +
+	"\ffield_schema\x12\x1d.google.protobuf.FieldOptions\x18ن\x03 \x01(\v2\x1f.protomcp.v1.FieldSchemaOptionsR\vfieldSchema:c\n" +
 	"\velicitation\x12\x1e.google.protobuf.MethodOptions\x18ֆ\x03 \x01(\v2\x1f.protomcp.v1.ElicitationOptionsR\velicitationB\xaf\x01\n" +
 	"\x0fcom.protomcp.v1B\x10AnnotationsProtoP\x01Z=github.com/akuity/protomcp/pkg/api/gen/protomcp/v1;protomcpv1\xa2\x02\x03PXX\xaa\x02\vProtomcp.V1\xca\x02\vProtomcp\\V1\xe2\x02\x17Protomcp\\V1\\GPBMetadata\xea\x02\fProtomcp::V1b\x06proto3"
 
@@ -753,40 +814,44 @@ func file_protomcp_v1_annotations_proto_rawDescGZIP() []byte {
 	return file_protomcp_v1_annotations_proto_rawDescData
 }
 
-var file_protomcp_v1_annotations_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_protomcp_v1_annotations_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_protomcp_v1_annotations_proto_goTypes = []any{
-	(*ToolOptions)(nil),                 // 0: protomcp.v1.ToolOptions
-	(*ServiceOptions)(nil),              // 1: protomcp.v1.ServiceOptions
-	(*PlaceholderBinding)(nil),          // 2: protomcp.v1.PlaceholderBinding
-	(*ResourceTemplateOptions)(nil),     // 3: protomcp.v1.ResourceTemplateOptions
-	(*ResourceListOptions)(nil),         // 4: protomcp.v1.ResourceListOptions
-	(*PromptOptions)(nil),               // 5: protomcp.v1.PromptOptions
-	(*ResourceListChangedOptions)(nil),  // 6: protomcp.v1.ResourceListChangedOptions
-	(*ElicitationOptions)(nil),          // 7: protomcp.v1.ElicitationOptions
-	(*descriptorpb.MethodOptions)(nil),  // 8: google.protobuf.MethodOptions
-	(*descriptorpb.ServiceOptions)(nil), // 9: google.protobuf.ServiceOptions
+	(*FieldSchemaOptions)(nil),          // 0: protomcp.v1.FieldSchemaOptions
+	(*ToolOptions)(nil),                 // 1: protomcp.v1.ToolOptions
+	(*ServiceOptions)(nil),              // 2: protomcp.v1.ServiceOptions
+	(*PlaceholderBinding)(nil),          // 3: protomcp.v1.PlaceholderBinding
+	(*ResourceTemplateOptions)(nil),     // 4: protomcp.v1.ResourceTemplateOptions
+	(*ResourceListOptions)(nil),         // 5: protomcp.v1.ResourceListOptions
+	(*PromptOptions)(nil),               // 6: protomcp.v1.PromptOptions
+	(*ResourceListChangedOptions)(nil),  // 7: protomcp.v1.ResourceListChangedOptions
+	(*ElicitationOptions)(nil),          // 8: protomcp.v1.ElicitationOptions
+	(*descriptorpb.MethodOptions)(nil),  // 9: google.protobuf.MethodOptions
+	(*descriptorpb.ServiceOptions)(nil), // 10: google.protobuf.ServiceOptions
+	(*descriptorpb.FieldOptions)(nil),   // 11: google.protobuf.FieldOptions
 }
 var file_protomcp_v1_annotations_proto_depIdxs = []int32{
-	2,  // 0: protomcp.v1.ResourceTemplateOptions.uri_bindings:type_name -> protomcp.v1.PlaceholderBinding
-	2,  // 1: protomcp.v1.ResourceListOptions.uri_bindings:type_name -> protomcp.v1.PlaceholderBinding
-	8,  // 2: protomcp.v1.tool:extendee -> google.protobuf.MethodOptions
-	8,  // 3: protomcp.v1.resource_template:extendee -> google.protobuf.MethodOptions
-	8,  // 4: protomcp.v1.resource_list:extendee -> google.protobuf.MethodOptions
-	8,  // 5: protomcp.v1.prompt:extendee -> google.protobuf.MethodOptions
-	8,  // 6: protomcp.v1.resource_list_changed:extendee -> google.protobuf.MethodOptions
-	9,  // 7: protomcp.v1.service:extendee -> google.protobuf.ServiceOptions
-	8,  // 8: protomcp.v1.elicitation:extendee -> google.protobuf.MethodOptions
-	0,  // 9: protomcp.v1.tool:type_name -> protomcp.v1.ToolOptions
-	3,  // 10: protomcp.v1.resource_template:type_name -> protomcp.v1.ResourceTemplateOptions
-	4,  // 11: protomcp.v1.resource_list:type_name -> protomcp.v1.ResourceListOptions
-	5,  // 12: protomcp.v1.prompt:type_name -> protomcp.v1.PromptOptions
-	6,  // 13: protomcp.v1.resource_list_changed:type_name -> protomcp.v1.ResourceListChangedOptions
-	1,  // 14: protomcp.v1.service:type_name -> protomcp.v1.ServiceOptions
-	7,  // 15: protomcp.v1.elicitation:type_name -> protomcp.v1.ElicitationOptions
-	16, // [16:16] is the sub-list for method output_type
-	16, // [16:16] is the sub-list for method input_type
-	9,  // [9:16] is the sub-list for extension type_name
-	2,  // [2:9] is the sub-list for extension extendee
+	3,  // 0: protomcp.v1.ResourceTemplateOptions.uri_bindings:type_name -> protomcp.v1.PlaceholderBinding
+	3,  // 1: protomcp.v1.ResourceListOptions.uri_bindings:type_name -> protomcp.v1.PlaceholderBinding
+	9,  // 2: protomcp.v1.tool:extendee -> google.protobuf.MethodOptions
+	9,  // 3: protomcp.v1.resource_template:extendee -> google.protobuf.MethodOptions
+	9,  // 4: protomcp.v1.resource_list:extendee -> google.protobuf.MethodOptions
+	9,  // 5: protomcp.v1.prompt:extendee -> google.protobuf.MethodOptions
+	9,  // 6: protomcp.v1.resource_list_changed:extendee -> google.protobuf.MethodOptions
+	10, // 7: protomcp.v1.service:extendee -> google.protobuf.ServiceOptions
+	11, // 8: protomcp.v1.field_schema:extendee -> google.protobuf.FieldOptions
+	9,  // 9: protomcp.v1.elicitation:extendee -> google.protobuf.MethodOptions
+	1,  // 10: protomcp.v1.tool:type_name -> protomcp.v1.ToolOptions
+	4,  // 11: protomcp.v1.resource_template:type_name -> protomcp.v1.ResourceTemplateOptions
+	5,  // 12: protomcp.v1.resource_list:type_name -> protomcp.v1.ResourceListOptions
+	6,  // 13: protomcp.v1.prompt:type_name -> protomcp.v1.PromptOptions
+	7,  // 14: protomcp.v1.resource_list_changed:type_name -> protomcp.v1.ResourceListChangedOptions
+	2,  // 15: protomcp.v1.service:type_name -> protomcp.v1.ServiceOptions
+	0,  // 16: protomcp.v1.field_schema:type_name -> protomcp.v1.FieldSchemaOptions
+	8,  // 17: protomcp.v1.elicitation:type_name -> protomcp.v1.ElicitationOptions
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	10, // [10:18] is the sub-list for extension type_name
+	2,  // [2:10] is the sub-list for extension extendee
 	0,  // [0:2] is the sub-list for field type_name
 }
 
@@ -801,8 +866,8 @@ func file_protomcp_v1_annotations_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_protomcp_v1_annotations_proto_rawDesc), len(file_protomcp_v1_annotations_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
-			NumExtensions: 7,
+			NumMessages:   9,
+			NumExtensions: 8,
 			NumServices:   0,
 		},
 		GoTypes:           file_protomcp_v1_annotations_proto_goTypes,

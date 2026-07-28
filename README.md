@@ -45,7 +45,7 @@ That's it. `protoc-gen-mcp` reads the annotation, emits an MCP tool handler boun
 - [Annotation reference](#annotation-reference)
 - [Examples](#examples)
 - [Authentication](#authentication)
-- [Runtime extension points](#runtime-extension-points), middleware, error handling, result processors, pagination
+- [Runtime extension points](#runtime-extension-points), middleware, error handling, result processors, pagination, registration
 - [Scope & limitations](#scope--limitations)
 - [Repository layout](#repository-layout)
 - [Development](#development)
@@ -57,7 +57,7 @@ That's it. `protoc-gen-mcp` reads the annotation, emits an MCP tool handler boun
 ## Why protomcp
 
 - **Protoc plugin.** `protoc-gen-mcp` drops in next to `protoc-gen-go` and `protoc-gen-go-grpc`. Works with `buf generate` and vanilla `protoc`.
-- **Covers the declarative MCP primitives.** Tools, resource templates, a single `resources/list` surface, prompts, and elicitation are first-class annotations on proto RPCs. One proto method can be simultaneously a tool and a resource template; tools can require an elicitation confirmation. Static resources (`srv.SDK().AddResource`) and resource subscriptions are user-wired against the MCP Go SDK, see the [annotation reference](#annotation-reference) and [Adding resource subscriptions](#resource-subscriptions-are-user-wired-not-an-annotation).
+- **Covers the declarative MCP primitives.** Tools, resource templates, a single `resources/list` surface, prompts, and elicitation are first-class annotations on proto RPCs. One proto method can be simultaneously a tool and a resource template; tools can require an elicitation confirmation. Static resources (`srv.AddResource`) and resource subscriptions are user-wired, see the [annotation reference](#annotation-reference) and [Adding resource subscriptions](#resource-subscriptions-are-user-wired-not-an-annotation).
 - **Thin runtime.** `pkg/protomcp` is a small layer over the MCP Go SDK with per-primitive composable middleware chains, pluggable error handling, response post-processors, pagination helpers (`OffsetPagination`, `PageTokenPagination`), and progress-token metadata propagation to upstream gRPC.
 - **`*protomcp.Server` is an `http.Handler`.** Drops into stdlib, chi, gin, echo, fiber the same way grpc-gateway's `runtime.ServeMux` does.
 - **Default-deny rendering.** An RPC is exposed only when it carries a primitive annotation. Unannotated stays private.
@@ -266,7 +266,7 @@ Full runnable version: [`examples/greeter/cmd/greeter/main.go`](examples/greeter
 
 Multiple primitives on one RPC are legal and additive. A `GetTask` RPC annotated with `tool` + `resource_template` becomes both a tool the LLM can invoke and a URI the user can attach.
 
-**Static resources.** protomcp only generates resource *templates* (URI patterns the client expands with request data) plus at most one `resources/list` handler that your gRPC service computes dynamically. For a fixed set of concrete resources known at startup (config, env, seed data), call `srv.SDK().AddResource(...)` after `protomcp.New(...)` returns. Static resources only appear in `resources/list` when there is no `resource_list` annotation in the build; a registered lister takes over `resources/list` entirely, so pick one model or the other per server.
+**Static resources.** protomcp only generates resource *templates* (URI patterns the client expands with request data) plus at most one `resources/list` handler that your gRPC service computes dynamically. For a fixed set of concrete resources known at startup (config, env, seed data), call `srv.AddResource(...)` after `protomcp.New(...)` returns — see [Registration](#registration-duplicate-keys-are-refused) for why not `srv.SDK().AddResource`. Static resources only appear in `resources/list` when there is no `resource_list` annotation in the build; a registered lister takes over `resources/list` entirely, so pick one model or the other per server.
 
 ### `protomcp.v1.tool`, method option
 
@@ -283,7 +283,7 @@ Multiple primitives on one RPC are legal and additive. A `GetTask` RPC annotated
 
 ### `protomcp.v1.resource_template`, method option (read side)
 
-Emits `srv.SDK().AddResourceTemplate(...)`. The template is advertised via `resources/templates/list`; clients resolve a URI against it and call `resources/read`, which dispatches to your gRPC method.
+Emits `srv.MustAddResourceTemplate(...)`. The template is advertised via `resources/templates/list`; clients resolve a URI against it and call `resources/read`, which dispatches to your gRPC method.
 
 | Field | Required? | Effect |
 |---|---|---|
@@ -625,6 +625,44 @@ srv := protomcp.New("svc", "0.1.0",
 
 Both options govern tools, resources, and prompts uniformly. `DefaultToolErrorHandler`'s `google.rpc.Status` serialization is not routed through these options so error detail slots do not balloon with zeroed placeholders.
 
+### Registration: duplicate keys are refused
+
+The MCP Go SDK's registries are maps keyed by tool name, resource URI, and
+URI template, and registering an existing key **replaces** the previous
+entry — handler included — with no error and no change to the wire-visible
+catalog. A server can end up serving one registrar's definition bound to
+another registrar's handler and look perfectly healthy.
+
+Register through protomcp instead, and the key is claimed first:
+
+```go
+// Returns *protomcp.DuplicateRegistrationError if the key is taken.
+if err := protomcp.AddTool(srv, tool, handler); err != nil { /* ... */ }   // generic handler
+if err := srv.AddTool(tool, handler); err != nil { /* ... */ }            // plain handler
+if err := srv.AddResource(res, handler); err != nil { /* ... */ }
+if err := srv.AddResourceTemplate(tmpl, handler); err != nil { /* ... */ }
+
+// Must* variants panic with that error. Generated registrars use these:
+// their signatures have no error return, and with proto-derived keys a
+// duplicate is a wiring bug that fails deterministically at startup.
+protomcp.MustAddTool(srv, tool, handler)
+srv.MustAddResourceTemplate(tmpl, handler)
+```
+
+Prefer the error-returning forms when a key comes from runtime data
+(one resource per tenant, a tool name built from an ID): there a duplicate
+depends on the data, so it can escape tests and must be handled rather
+than crash the process.
+
+`RegisteredToolNames`, `RegisteredResourceURIs`, and
+`RegisteredResourceTemplates` snapshot what has been claimed. Keys are only
+ever added, never replaced, so the difference between two snapshots is
+exactly what the registrations between them added — useful for binding
+primitives to an authorization scope without re-deriving the list.
+
+Primitives added via `SDK()` bypass all of this: no claim, no collision
+protection, and absent from the snapshots.
+
 ### SDK pass-through
 
 ```go
@@ -646,7 +684,7 @@ srv := protomcp.New("svc", "0.1.0",
 
 ### Supported
 
-- **MCP primitives via annotations:** tools, resource templates (multiple per server, advertised via `resources/templates/list`), a single flat `resources/list` surface (one annotation per server; multi-type enumeration via `{type}://{id}`-style URI templates), prompts, plus the elicitation modifier. Each is a first-class proto annotation; the generator emits the full `tools/*`, `resources/*`, `prompts/*` wiring with the right opt-in semantics. Static resources (`SDK().AddResource`) and resource subscriptions are **user-wired, not annotation-driven**, see [Adding resource subscriptions](#resource-subscriptions--user-wired-not-an-annotation) and [`examples/subscriptions`](examples/subscriptions).
+- **MCP primitives via annotations:** tools, resource templates (multiple per server, advertised via `resources/templates/list`), a single flat `resources/list` surface (one annotation per server; multi-type enumeration via `{type}://{id}`-style URI templates), prompts, plus the elicitation modifier. Each is a first-class proto annotation; the generator emits the full `tools/*`, `resources/*`, `prompts/*` wiring with the right opt-in semantics. Static resources (`srv.AddResource`) and resource subscriptions are **user-wired, not annotation-driven**, see [Adding resource subscriptions](#resource-subscriptions--user-wired-not-an-annotation) and [`examples/subscriptions`](examples/subscriptions).
 - `completion/complete` auto-wired for prompt arguments typed as an enum or constrained by `buf.validate.string.in`.
 - **proto3.** proto2 is not supported.
 - **Unary RPCs** (tools, resources, prompts) and **server-streaming RPCs** (tool progress notifications). Progress-token metadata is forwarded to upstream gRPC as `mcp-progress-token`.

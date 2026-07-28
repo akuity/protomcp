@@ -16,23 +16,27 @@ func ClearSchemaExcluded(m proto.Message) {
 	clearFieldsMatching(m, isSchemaExcluded)
 }
 
-// MarshalProtoMasked serializes m like MarshalProto and then removes every
-// (protomcp.v1.field_schema).exclude field from the JSON itself: clearing
-// alone is not enough because EmitDefaultValues re-emits cleared fields as
-// zero values, leaking the field names the schema masks.
+// MarshalProtoMasked clears every (protomcp.v1.field_schema).exclude field
+// on a clone of m (so excluded values never reach protojson and m stays
+// intact for trusted result processors), serializes the clone like
+// MarshalProto, and then removes the excluded field names from the JSON
+// itself: clearing alone is not enough because EmitDefaultValues re-emits
+// cleared fields as zero values, leaking the field names the schema masks.
 func (s *Server) MarshalProtoMasked(m proto.Message) ([]byte, error) {
-	payload, err := s.MarshalProto(m)
+	if m == nil {
+		return s.MarshalProto(m)
+	}
+	masked := proto.Clone(m)
+	ClearSchemaExcluded(masked)
+	payload, err := s.MarshalProto(masked)
 	if err != nil {
 		return nil, err
-	}
-	if m == nil {
-		return payload, nil
 	}
 	var decoded any
 	if err := json.Unmarshal(payload, &decoded); err != nil {
 		return nil, err
 	}
-	stripSchemaExcludedJSON(m.ProtoReflect().Descriptor(), decoded)
+	stripSchemaExcludedJSON(masked.ProtoReflect().Descriptor(), decoded)
 	return json.Marshal(decoded)
 }
 

@@ -59,3 +59,42 @@ func TestMarshalProtoMaskedStripsExcludedFieldNames(t *testing.T) {
 		t.Errorf("EmitDefaultValues zero fields must survive masking: %s", payload)
 	}
 }
+
+func TestMarshalProtoMaskedInvalidUTF8InExcludedField(t *testing.T) {
+	srv := protomcp.New("t", "0.0.1")
+	payload, err := srv.MarshalProtoMasked(&greeterv1.EchoComplexResponse{
+		Name:         "n",
+		InternalNote: "\xff\xfe",
+	})
+	if err != nil {
+		t.Fatalf("MarshalProtoMasked with invalid UTF-8 in excluded field: %v", err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if _, leaked := decoded["internalNote"]; leaked {
+		t.Errorf("internalNote key leaked into masked JSON: %s", payload)
+	}
+	if decoded["name"] != "n" {
+		t.Errorf("name = %v, want n", decoded["name"])
+	}
+}
+
+func TestMarshalProtoMaskedDoesNotMutateOriginal(t *testing.T) {
+	srv := protomcp.New("t", "0.0.1")
+	msg := &greeterv1.EchoComplexResponse{
+		Name:         "n",
+		InternalNote: "secret",
+		Address:      &greeterv1.Address{City: "c"},
+	}
+	if _, err := srv.MarshalProtoMasked(msg); err != nil {
+		t.Fatalf("MarshalProtoMasked: %v", err)
+	}
+	if msg.GetInternalNote() != "secret" {
+		t.Errorf("InternalNote = %q, want %q: masking must not mutate the original message", msg.GetInternalNote(), "secret")
+	}
+	if msg.GetAddress().GetCity() != "c" {
+		t.Errorf("Address.City = %q, want %q: masking must not mutate nested messages", msg.GetAddress().GetCity(), "c")
+	}
+}

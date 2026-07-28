@@ -22,7 +22,7 @@ var _Profile_WhoAmI_OutputSchema = protomcp.MustParseSchema(`{"properties":{"ten
 // MCP tool on srv, dispatching to the supplied gRPC client.
 func RegisterProfileMCPTools(srv *protomcp.Server, client ProfileClient) {
 
-	mcp.AddTool(srv.SDK(), &mcp.Tool{
+	protomcp.AddTool(srv, &mcp.Tool{
 		Name:         "Profile_WhoAmI",
 		Title:        "Who Am I",
 		Description:  "Returns the caller identity propagated from HTTP middleware.",

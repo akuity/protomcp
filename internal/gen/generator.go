@@ -46,8 +46,11 @@ func Generate(plugin *protogen.Plugin) error {
 // GenerateWithOptions is the configurable entry point.
 func GenerateWithOptions(plugin *protogen.Plugin, opts Options) error {
 	plugin.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
-	// mcp.AddTool silently replaces an existing tool with the same
-	// name, so cross-file collisions are caught here at codegen time.
+	// The SDK's registry replaces a tool with the same name silently,
+	// so cross-file collisions are caught here at codegen time; the
+	// generated code registers through protomcp.AddTool, which catches
+	// the collisions codegen cannot see (the same registrar invoked
+	// twice at runtime).
 	emitted := make(map[string]string) // toolName → "file.proto:Service.Method"
 
 	// At most one resource_list annotation per run: MCP `resources/list`
@@ -641,7 +644,7 @@ func buildToolTemplateData(
 		},
 		QMCPCallReq:                    mcpCallReq,
 		QMCPCallResult:                 mcpPkg + ".CallToolResult",
-		QMCPAddTool:                    mcpPkg + ".AddTool",
+		QMCPAddTool:                    q("MustAddTool", importProtomcp),
 		QMCPTool:                       mcpPkg + ".Tool",
 		QMCPContent:                    mcpPkg + ".Content",
 		QMCPTextContent:                mcpPkg + ".TextContent",

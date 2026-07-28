@@ -13,7 +13,10 @@ extend google.protobuf.MethodOptions {
 
   // ResourceTemplate exposes the RPC as a resource template advertised
   // via `resources/templates/list` and dispatched on `resources/read`.
-  // Static resources are not codegen'd; use srv.SDK().AddResource(...).
+  // Static resources are not codegen'd; register them with
+  // srv.MustAddResource(...), which claims the URI. Do not use
+  // srv.SDK().AddResource: it bypasses that claim, so a second
+  // registration of the same URI silently replaces the first.
   ResourceTemplateOptions resource_template = 50003;
 
   // ResourceList exposes the RPC as the server's single response for

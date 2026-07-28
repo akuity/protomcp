@@ -73,7 +73,6 @@
 					return nil, rErr
 				}
 {{- if .OutputHasExcluded}}
-				{{.QProtomcpClearSchemaExcluded}}(msg)
 				payload, mErr := srv.MarshalProtoMasked(msg)
 {{- else}}
 				payload, mErr := srv.MarshalProto(msg)
@@ -123,9 +122,6 @@
 			if err != nil {
 				return nil, err
 			}
-{{- if .OutputHasExcluded}}
-			{{.QProtomcpClearSchemaExcluded}}(resp)
-{{- end}}
 			g.Output = resp
 {{- if .OutputHasExcluded}}
 			outBytes, err := srv.MarshalProtoMasked(resp)

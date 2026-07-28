@@ -123,6 +123,11 @@ func IsExcluded(fd protoreflect.FieldDescriptor) bool {
 	return isExcluded(fd)
 }
 
+// ValidateInputExclusions rejects (protomcp.v1.field_schema).exclude on a required input field anywhere in md's reachable graph.
+func ValidateInputExclusions(md protoreflect.MessageDescriptor) error {
+	return validateInputExclusions(md, make(map[protoreflect.FullName]bool))
+}
+
 func isExcluded(fd protoreflect.FieldDescriptor) bool {
 	opts := fd.Options()
 	if opts == nil || !proto.HasExtension(opts, protomcpv1.E_FieldSchema) {
@@ -233,7 +238,7 @@ func messageSchema(
 
 	required := []string{}
 	properties := map[string]any{}
-	oneOfGroups := map[string][]map[string]any{}
+	oneOfGroups := map[string][]string{}
 
 	fields := md.Fields()
 	for i := range fields.Len() {
@@ -245,34 +250,41 @@ func messageSchema(
 		// protojson.Marshal produces on the response side.
 		name := fd.JSONName()
 
-		// Real oneofs → anyOf {oneOf:...}; synthetic oneofs
+		properties[name] = fieldSchema(fd, opts, seen, filter)
+
+		// Real oneofs → allOf {oneOf:...}; synthetic oneofs
 		// (proto3 `optional`) fall through as ordinary optional fields.
 		if oneof := fd.ContainingOneof(); oneof != nil && !oneof.IsSynthetic() {
 			key := string(oneof.Name())
-			oneOfGroups[key] = append(oneOfGroups[key], map[string]any{
-				"properties": map[string]any{name: fieldSchema(fd, opts, seen, filter)},
-				"required":   []string{name},
-			})
+			oneOfGroups[key] = append(oneOfGroups[key], name)
 			continue
 		}
 
-		properties[name] = fieldSchema(fd, opts, seen, filter)
 		if isRequired(fd) {
 			required = append(required, name)
 		}
 	}
 
 	// Declaration-order iteration for deterministic output.
-	var anyOf []map[string]any
+	var allOf []map[string]any
 	oneofs := md.Oneofs()
 	for i := range oneofs.Len() {
 		oo := oneofs.Get(i)
 		if oo.IsSynthetic() {
 			continue
 		}
-		if entries, ok := oneOfGroups[string(oo.Name())]; ok {
-			anyOf = append(anyOf, map[string]any{"oneOf": entries})
+		arms, ok := oneOfGroups[string(oo.Name())]
+		if !ok {
+			continue
 		}
+		branches := make([]map[string]any, 0, len(arms)+1)
+		armSet := make([]map[string]any, 0, len(arms))
+		for _, arm := range arms {
+			branches = append(branches, map[string]any{"required": []string{arm}})
+			armSet = append(armSet, map[string]any{"required": []string{arm}})
+		}
+		branches = append(branches, map[string]any{"not": map[string]any{"anyOf": armSet}})
+		allOf = append(allOf, map[string]any{"oneOf": branches})
 	}
 
 	result := map[string]any{
@@ -282,8 +294,8 @@ func messageSchema(
 	if len(required) > 0 {
 		result["required"] = required
 	}
-	if anyOf != nil {
-		result["anyOf"] = anyOf
+	if allOf != nil {
+		result["allOf"] = allOf
 	}
 	return result
 }

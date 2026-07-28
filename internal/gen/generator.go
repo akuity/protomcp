@@ -448,6 +448,10 @@ func buildFileTemplateData(g *protogen.GeneratedFile, f *protogen.File, opts Opt
 				)
 			}
 
+			if err := schema.ValidateInputExclusions(m.Input.Desc); err != nil {
+				return nil, fmt.Errorf("%s.%s: %w", svc.GoName, m.GoName, err)
+			}
+
 			if class.asTool {
 				to, _ := toolOptionsFor(m)
 				if !opts.DisableReadOnlyNameLint {

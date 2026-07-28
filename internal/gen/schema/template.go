@@ -132,7 +132,7 @@ func ResolveItemMessage(md protoreflect.MessageDescriptor, itemPath string) (pro
 		}
 		if isExcluded(fd) {
 			return nil, fmt.Errorf("item_path segment %q on %s is masked by "+
-				"(protomcp.v1.field_schema).exclude; the runtime clears it, so the list would always be empty", seg, cur.FullName())
+				"(protomcp.v1.field_schema).exclude and cannot back the resource list", seg, cur.FullName())
 		}
 		isLast := i == len(segments)-1
 		if !isLast {

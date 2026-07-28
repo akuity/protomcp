@@ -184,8 +184,8 @@ func TestGenerate_Slim(t *testing.T) {
 
 	cases := []substringCase{
 		{"input clears excluded fields", true, "protomcp.ClearSchemaExcluded(&in)"},
-		{"unary output clears excluded fields", true, "protomcp.ClearSchemaExcluded(resp)"},
-		{"streaming output clears excluded fields", true, "protomcp.ClearSchemaExcluded(msg)"},
+		{"output is never cleared; g.Output stays raw for result processors", false, "ClearSchemaExcluded(resp)"},
+		{"streaming output is never cleared", false, "ClearSchemaExcluded(msg)"},
 		{"kept input field stays in schema", true, `"id"`},
 		{"kept nested field stays in schema", true, `"keep"`},
 		{"kept output field stays in schema", true, `"summary"`},
@@ -195,13 +195,6 @@ func TestGenerate_Slim(t *testing.T) {
 	}
 	assertSubstrings(t, out, cases)
 
-	if got := strings.Count(out, "ClearSchemaExcluded(resp)"); got != 4 {
-		t.Errorf("ClearSchemaExcluded(resp) emitted %d times, want 4 "+
-			"(unary tool, resource read, resource list, prompt)\n--- file ---\n%s", got, out)
-	}
-	if got := strings.Count(out, "ClearSchemaExcluded(msg)"); got != 1 {
-		t.Errorf("ClearSchemaExcluded(msg) emitted %d times, want 1 (streaming tool)", got)
-	}
 	if got := strings.Count(out, "ClearSchemaExcluded(&in)"); got != 2 {
 		t.Errorf("ClearSchemaExcluded(&in) emitted %d times, want 2 (the two tools)", got)
 	}
@@ -272,17 +265,47 @@ func TestGenerate_NoExclusionsEmitsNoClearCall(t *testing.T) {
 }
 
 func TestGenerate_BadSlimRequired(t *testing.T) {
-	err := runGenerateExpectError(t, "bad_slim_required.proto")
-	if err == nil {
-		t.Fatal("want error, got nil")
+	cases := []struct {
+		name       string
+		protoName  string
+		wantField  string
+		wantMethod string
+	}{
+		{
+			name:       "tool",
+			protoName:  "bad_slim_required.proto",
+			wantField:  "protomcp.gen.testdata.badslim.v1.BadSlimRequest.id",
+			wantMethod: "BadSlim.Describe",
+		},
+		{
+			name:       "prompt only",
+			protoName:  "bad_slim_required_prompt.proto",
+			wantField:  "protomcp.gen.testdata.badslimprompt.v1.ReviewRequest.id",
+			wantMethod: "BadSlimPrompt.Review",
+		},
+		{
+			name:       "resource template only",
+			protoName:  "bad_slim_required_resource.proto",
+			wantField:  "protomcp.gen.testdata.badslimresource.v1.FetchRequest.tenant",
+			wantMethod: "BadSlimResource.Fetch",
+		},
 	}
-	for _, want := range []string{
-		"(protomcp.v1.field_schema).exclude on a required field",
-		"protomcp.gen.testdata.badslim.v1.BadSlimRequest.id",
-	} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("error missing %q\nerror: %v", want, err)
-		}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := runGenerateExpectError(t, tc.protoName)
+			if err == nil {
+				t.Fatal("want error, got nil")
+			}
+			for _, want := range []string{
+				"(protomcp.v1.field_schema).exclude on a required field",
+				tc.wantField,
+				tc.wantMethod,
+			} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error missing %q\nerror: %v", want, err)
+				}
+			}
+		})
 	}
 }
 

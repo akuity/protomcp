@@ -29,9 +29,6 @@
 			if err != nil {
 				return nil, err
 			}
-{{- if .OutputHasExcluded}}
-			{{$.F.ProtomcpPkg}}.ClearSchemaExcluded(resp)
-{{- end}}
 			g.Output = resp
 			contents := &{{$.F.MCPPkg}}.ResourceContents{
 				URI: req.Params.URI,

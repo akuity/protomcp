@@ -6,6 +6,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
@@ -312,23 +313,41 @@ func TestOneofs(t *testing.T) {
 	md := descByName(t, "protomcp.testdata.v1.Oneofs")
 	s := jsonRound(t, ForInput(md, Options{}))
 
-	// Two real oneofs (choice, fallback) produce two anyOf entries in declaration order.
-	anyOf, ok := s["anyOf"].([]any)
-	if !ok || len(anyOf) != 2 {
-		t.Fatalf("expected two anyOf entries (choice, fallback), got %d: %v", len(anyOf), s["anyOf"])
+	// Two real oneofs (choice, fallback) produce two allOf entries in declaration order.
+	allOf, ok := s["allOf"].([]any)
+	if !ok || len(allOf) != 2 {
+		t.Fatalf("expected two allOf entries (choice, fallback), got %d: %v", len(allOf), s["allOf"])
 	}
-	choiceOneOf := anyOf[0].(map[string]any)["oneOf"].([]any)
-	if len(choiceOneOf) != 4 {
-		t.Errorf("choice oneOf: want 4 branches (text,count,nested,label), got %d", len(choiceOneOf))
+	choiceOneOf := allOf[0].(map[string]any)["oneOf"].([]any)
+	if len(choiceOneOf) != 5 {
+		t.Errorf("choice oneOf: want 5 branches (text,count,nested,label + no-arm), got %d", len(choiceOneOf))
 	}
-	fallbackOneOf := anyOf[1].(map[string]any)["oneOf"].([]any)
-	if len(fallbackOneOf) != 2 {
-		t.Errorf("fallback oneOf: want 2 branches (reason,silent), got %d", len(fallbackOneOf))
+	fallbackOneOf := allOf[1].(map[string]any)["oneOf"].([]any)
+	if len(fallbackOneOf) != 3 {
+		t.Errorf("fallback oneOf: want 3 branches (reason,silent + no-arm), got %d", len(fallbackOneOf))
+	}
+	// The last branch of each group accepts "no arm set" and rejects any set arm.
+	noArm := choiceOneOf[len(choiceOneOf)-1].(map[string]any)
+	notAnyOf, ok := noArm["not"].(map[string]any)["anyOf"].([]any)
+	if !ok || len(notAnyOf) != 4 {
+		t.Fatalf("choice no-arm branch: want not.anyOf with 4 entries, got %v", noArm)
 	}
 
-	// Synthetic oneofs (proto3 `optional`) must NOT appear in anyOf; the fields
-	// should be regular optional properties.
+	// Arm value schemas live in top-level properties (branches are
+	// presence-only), so a wrong-typed arm fails even when another arm
+	// carries the oneOf match.
 	props := s["properties"].(map[string]any)
+	for _, name := range []string{"text", "count", "nested", "label", "reason", "silent"} {
+		if _, ok := props[name]; !ok {
+			t.Errorf("oneof arm %s missing from top-level properties", name)
+		}
+		if requiredSet(s)[name] {
+			t.Errorf("oneof arm %s wrongly in top-level required", name)
+		}
+	}
+
+	// Synthetic oneofs (proto3 `optional`) must NOT appear in allOf; the fields
+	// should be regular optional properties.
 	for _, name := range []string{"maybeNote", "maybeCount"} {
 		if _, ok := props[name]; !ok {
 			t.Errorf("%s should be a regular optional property (synthetic oneof)", name)
@@ -336,6 +355,47 @@ func TestOneofs(t *testing.T) {
 		if requiredSet(s)[name] {
 			t.Errorf("%s wrongly required", name)
 		}
+	}
+}
+
+func TestOneofs_ZeroOrOneValidation(t *testing.T) {
+	md := descByName(t, "protomcp.testdata.v1.Oneofs")
+	raw, err := json.Marshal(ForOutput(md, Options{}))
+	if err != nil {
+		t.Fatalf("marshal schema: %v", err)
+	}
+	sch := &jsonschema.Schema{}
+	if uErr := json.Unmarshal(raw, sch); uErr != nil {
+		t.Fatalf("unmarshal into jsonschema.Schema: %v", uErr)
+	}
+	resolved, err := sch.Resolve(nil)
+	if err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+
+	cases := []struct {
+		name     string
+		instance map[string]any
+		valid    bool
+	}{
+		{"no arm set validates", map[string]any{}, true},
+		{"one arm set validates", map[string]any{"text": "x"}, true},
+		{"one arm per oneof validates", map[string]any{"count": float64(2), "reason": "r"}, true},
+		{"two arms of the same oneof rejected", map[string]any{"text": "x", "count": float64(2)}, false},
+		{"second arm rejected even when wrong-typed", map[string]any{"text": "x", "count": "wrong-type"}, false},
+		{"single wrong-typed arm rejected", map[string]any{"count": "wrong-type"}, false},
+		{"second oneof over-set rejected even when first is valid", map[string]any{"text": "x", "reason": "r", "silent": true}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := resolved.Validate(tc.instance)
+			if tc.valid && err != nil {
+				t.Errorf("want valid, got %v", err)
+			}
+			if !tc.valid && err == nil {
+				t.Errorf("want validation failure, got none")
+			}
+		})
 	}
 }
 

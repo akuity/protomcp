@@ -47,8 +47,6 @@ type promptTemplateData struct {
 	QMetadataNewOut  string
 	QProtomcpGRPCReq string
 
-	QProtomcpClearSchemaExcluded string
-
 	InputTypeRef  string
 	OutputTypeRef string
 	ClientMethod  string
@@ -163,8 +161,6 @@ func buildPromptTemplateData(
 		QMetadataMD:      metaMD,
 		QMetadataNewOut:  metaPkg + ".NewOutgoingContext",
 		QProtomcpGRPCReq: q("GRPCData", importProtomcp),
-
-		QProtomcpClearSchemaExcluded: q("ClearSchemaExcluded", importProtomcp),
 
 		InputTypeRef:  g.QualifiedGoIdent(m.Input.GoIdent),
 		OutputTypeRef: g.QualifiedGoIdent(m.Output.GoIdent),

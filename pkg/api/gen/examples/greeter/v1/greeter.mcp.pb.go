@@ -253,7 +253,6 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 			if err != nil {
 				return nil, err
 			}
-			protomcp.ClearSchemaExcluded(resp)
 			g.Output = resp
 			outBytes, err := srv.MarshalProtoMasked(resp)
 			if err != nil {

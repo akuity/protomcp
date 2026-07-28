@@ -11,9 +11,6 @@
 			if err != nil {
 				return nil, err
 			}
-{{- if .OutputHasExcluded}}
-			{{$.F.ProtomcpPkg}}.ClearSchemaExcluded(resp)
-{{- end}}
 			g.Output = resp
 			items := {{.ItemFieldGetter}}
 			out := &{{$.F.MCPPkg}}.ListResourcesResult{Resources: make([]*{{$.F.MCPPkg}}.Resource, 0, len(items))}

@@ -31,23 +31,42 @@ func testResourceHandler(context.Context, *mcp.ReadResourceRequest) (*mcp.ReadRe
 	return &mcp.ReadResourceResult{}, nil
 }
 
-// recoverPanic runs fn and returns the panic value, or nil.
+func testPlainToolHandler(context.Context, *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return &mcp.CallToolResult{}, nil
+}
+
+// recoverPanic runs fn and returns the value it panicked with, or nil.
 func recoverPanic(fn func()) (recovered any) {
 	defer func() { recovered = recover() }()
 	fn()
 	return nil
 }
 
-// TestAddToolClaimsName verifies distinct names register cleanly and are
-// reported in sorted order.
-func TestAddToolClaimsName(t *testing.T) {
+// recoverDuplicate runs fn and returns the *DuplicateRegistrationError it
+// panicked with, failing the test if it did not panic with one.
+func recoverDuplicate(t *testing.T, fn func()) *DuplicateRegistrationError {
+	t.Helper()
+	recovered := recoverPanic(fn)
+	if recovered == nil {
+		t.Fatalf("expected a panic on duplicate registration")
+	}
+	err, ok := recovered.(error)
+	if !ok {
+		t.Fatalf("panic value = %#v, want error", recovered)
+	}
+	var duplicate *DuplicateRegistrationError
+	if !errors.As(err, &duplicate) {
+		t.Fatalf("panic value %#v is not a *DuplicateRegistrationError", err)
+	}
+	return duplicate
+}
+
+// TestMustAddToolClaimsName verifies distinct names register cleanly and
+// are reported in sorted order.
+func TestMustAddToolClaimsName(t *testing.T) {
 	s := New("test", "v0")
-	if err := AddTool(s, testTool("b_tool"), testToolHandler("b")); err != nil {
-		t.Fatalf("AddTool: %v", err)
-	}
-	if err := AddTool(s, testTool("a_tool"), testToolHandler("a")); err != nil {
-		t.Fatalf("AddTool: %v", err)
-	}
+	MustAddTool(s, testTool("b_tool"), testToolHandler("b"))
+	MustAddTool(s, testTool("a_tool"), testToolHandler("a"))
 
 	got := s.RegisteredToolNames()
 	if want := []string{"a_tool", "b_tool"}; !slices.Equal(got, want) {
@@ -55,33 +74,27 @@ func TestAddToolClaimsName(t *testing.T) {
 	}
 }
 
-// TestAddToolPanicsOnDuplicateName is the core guarantee: the SDK would
-// replace the first registration's handler silently, so protomcp refuses
-// the second. The definitions here are byte-identical and only the
+// TestMustAddToolPanicsOnDuplicateName is the core guarantee: the SDK
+// would replace the first registration's handler silently, so protomcp
+// refuses the second. The definitions here are byte-identical and only the
 // handler differs — the shape generated registrars produce when the same
 // registrar is invoked twice with different clients, and the one no
 // wire-visible catalog diff can detect.
-func TestAddToolRejectsDuplicateName(t *testing.T) {
+//
+// The panic carries the error value itself, so a caller that recovers can
+// errors.As it rather than matching on message text.
+func TestMustAddToolPanicsOnDuplicateName(t *testing.T) {
 	s := New("test", "v0")
-	mustAdd(t, s, "dup_tool", "first")
+	MustAddTool(s, testTool("dup_tool"), testToolHandler("first"))
 
-	// The definitions here are byte-identical and only the handler differs
-	// — the shape generated registrars produce when the same registrar is
-	// invoked twice with different clients, and the one no wire-visible
-	// catalog diff can detect.
-	err := AddTool(s, testTool("dup_tool"), testToolHandler("second"))
-	if err == nil {
-		t.Fatalf("expected an error on duplicate tool name")
+	duplicate := recoverDuplicate(t, func() {
+		MustAddTool(s, testTool("dup_tool"), testToolHandler("second"))
+	})
+	if duplicate.Kind != "tool" || duplicate.Key != "dup_tool" {
+		t.Fatalf("err = %+v, want kind=tool key=dup_tool", duplicate)
 	}
-	var dup *DuplicateRegistrationError
-	if !errors.As(err, &dup) {
-		t.Fatalf("err = %#v, want *DuplicateRegistrationError", err)
-	}
-	if dup.Kind != "tool" || dup.Key != "dup_tool" {
-		t.Fatalf("err = %+v, want kind=tool key=dup_tool", dup)
-	}
-	if !strings.Contains(err.Error(), "dup_tool") {
-		t.Fatalf("error %q does not name the offending tool", err)
+	if !strings.Contains(duplicate.Error(), "dup_tool") {
+		t.Fatalf("error %q does not name the offending tool", duplicate)
 	}
 
 	// The first registration is still the only one recorded.
@@ -90,45 +103,19 @@ func TestAddToolRejectsDuplicateName(t *testing.T) {
 	}
 }
 
-// TestMustAddToolPanicsWithTheError verifies the Must form panics with the
-// error value itself, so a caller that recovers can errors.As it rather
-// than matching on message text.
-func TestMustAddToolPanicsWithTheError(t *testing.T) {
+// TestMustAddToolPanicsOnEmptyName guards the registry key itself: an
+// unnamed tool is unaddressable and would collide with the next unnamed one.
+func TestMustAddToolPanicsOnEmptyName(t *testing.T) {
 	s := New("test", "v0")
-	MustAddTool(s, testTool("must_dup"), testToolHandler("first"))
-
-	recovered := recoverPanic(func() {
-		MustAddTool(s, testTool("must_dup"), testToolHandler("second"))
-	})
-	if recovered == nil {
-		t.Fatalf("expected a panic on duplicate tool name")
-	}
-	err, ok := recovered.(error)
-	if !ok {
-		t.Fatalf("panic value = %#v, want error", recovered)
-	}
-	var dup *DuplicateRegistrationError
-	if !errors.As(err, &dup) {
-		t.Fatalf("panic value %#v is not a *DuplicateRegistrationError", err)
-	}
-	if dup.Key != "must_dup" {
-		t.Fatalf("dup.Key = %q, want must_dup", dup.Key)
+	if recoverPanic(func() { MustAddTool(s, testTool(""), testToolHandler("x")) }) == nil {
+		t.Fatalf("expected a panic on an empty tool name")
 	}
 }
 
-// TestAddToolPanicsOnEmptyName guards the registry key itself: an unnamed
-// tool is unaddressable and would collide with the next unnamed one.
-func TestAddToolRejectsEmptyName(t *testing.T) {
+func TestMustAddToolPanicsOnNilTool(t *testing.T) {
 	s := New("test", "v0")
-	if err := AddTool(s, testTool(""), testToolHandler("x")); err == nil {
-		t.Fatalf("expected an error on an empty tool name")
-	}
-}
-
-func TestAddToolRejectsNilTool(t *testing.T) {
-	s := New("test", "v0")
-	if err := AddTool(s, nil, testToolHandler("x")); err == nil {
-		t.Fatalf("expected an error on a nil tool")
+	if recoverPanic(func() { MustAddTool(s, nil, testToolHandler("x")) }) == nil {
+		t.Fatalf("expected a panic on a nil tool")
 	}
 }
 
@@ -137,11 +124,11 @@ func TestAddToolRejectsNilTool(t *testing.T) {
 // difference of two snapshots is exactly what the batch registered.
 func TestSnapshotDiffYieldsBatchRegistrations(t *testing.T) {
 	s := New("test", "v0")
-	mustAdd(t, s, "existing_tool", "existing")
+	MustAddTool(s, testTool("existing_tool"), testToolHandler("existing"))
 
 	before := s.RegisteredToolNames()
-	mustAdd(t, s, "batch_tool_1", "1")
-	mustAdd(t, s, "batch_tool_2", "2")
+	MustAddTool(s, testTool("batch_tool_1"), testToolHandler("1"))
+	MustAddTool(s, testTool("batch_tool_2"), testToolHandler("2"))
 	after := s.RegisteredToolNames()
 
 	var added []string
@@ -166,40 +153,36 @@ func TestSDKBypassIsNotRegistered(t *testing.T) {
 		t.Fatalf("RegisteredToolNames() = %v, want empty", got)
 	}
 	// And the registry does not consider the name taken.
-	if err := AddTool(s, testTool("bypass_tool"), testToolHandler("claimed")); err != nil {
-		t.Fatalf("unexpected error claiming a name the SDK already holds: %v", err)
+	if recovered := recoverPanic(func() {
+		MustAddTool(s, testTool("bypass_tool"), testToolHandler("claimed"))
+	}); recovered != nil {
+		t.Fatalf("unexpected panic claiming a name the SDK already holds: %v", recovered)
 	}
 }
 
-func TestAddResourceRejectsDuplicateURI(t *testing.T) {
+func TestMustAddResourcePanicsOnDuplicateURI(t *testing.T) {
 	s := New("test", "v0")
-	if err := s.AddResource(testResource("test://x/1"), testResourceHandler); err != nil {
-		t.Fatalf("AddResource: %v", err)
-	}
+	s.MustAddResource(testResource("test://x/1"), testResourceHandler)
 
-	err := s.AddResource(testResource("test://x/1"), testResourceHandler)
-	var dup *DuplicateRegistrationError
-	if !errors.As(err, &dup) {
-		t.Fatalf("err = %#v, want *DuplicateRegistrationError", err)
-	}
-	if dup.Kind != "resource" || dup.Key != "test://x/1" {
-		t.Fatalf("err = %+v, want kind=resource key=test://x/1", dup)
+	duplicate := recoverDuplicate(t, func() {
+		s.MustAddResource(testResource("test://x/1"), testResourceHandler)
+	})
+	if duplicate.Kind != "resource" || duplicate.Key != "test://x/1" {
+		t.Fatalf("err = %+v, want kind=resource key=test://x/1", duplicate)
 	}
 	if got := s.RegisteredResourceURIs(); !slices.Equal(got, []string{"test://x/1"}) {
 		t.Fatalf("RegisteredResourceURIs() = %v, want [test://x/1]", got)
 	}
 }
 
-func TestAddResourceTemplateRejectsDuplicate(t *testing.T) {
+func TestMustAddResourceTemplatePanicsOnDuplicate(t *testing.T) {
 	s := New("test", "v0")
 	tmpl := &mcp.ResourceTemplate{URITemplate: "test://tenants/{tenant}/x", Name: "t", MIMEType: "text/plain"}
-	if err := s.AddResourceTemplate(tmpl, testResourceHandler); err != nil {
-		t.Fatalf("AddResourceTemplate: %v", err)
-	}
+	s.MustAddResourceTemplate(tmpl, testResourceHandler)
 
-	var dup *DuplicateRegistrationError
-	if err := s.AddResourceTemplate(tmpl, testResourceHandler); !errors.As(err, &dup) {
-		t.Fatalf("err = %#v, want *DuplicateRegistrationError", err)
+	duplicate := recoverDuplicate(t, func() { s.MustAddResourceTemplate(tmpl, testResourceHandler) })
+	if duplicate.Kind != "resource template" {
+		t.Fatalf("err = %+v, want kind=resource template", duplicate)
 	}
 	if got := s.RegisteredResourceTemplates(); !slices.Equal(got, []string{"test://tenants/{tenant}/x"}) {
 		t.Fatalf("RegisteredResourceTemplates() = %v, want one entry", got)
@@ -210,9 +193,11 @@ func TestAddResourceTemplateRejectsDuplicate(t *testing.T) {
 // key without colliding — the SDK keeps separate registries per primitive.
 func TestRegistriesAreIndependent(t *testing.T) {
 	s := New("test", "v0")
-	mustAdd(t, s, "shared_key", "tool")
-	if err := s.AddResource(testResource("shared_key"), testResourceHandler); err != nil {
-		t.Fatalf("unexpected cross-primitive collision: %v", err)
+	MustAddTool(s, testTool("shared_key"), testToolHandler("tool"))
+	if recovered := recoverPanic(func() {
+		s.MustAddResource(testResource("shared_key"), testResourceHandler)
+	}); recovered != nil {
+		t.Fatalf("unexpected cross-primitive collision: %v", recovered)
 	}
 }
 
@@ -229,41 +214,29 @@ func TestNotifyResourceListChangedDoesNotClaimKeys(t *testing.T) {
 	}
 }
 
-// mustAdd registers a marker tool, failing the test on error.
-func mustAdd(t *testing.T, s *Server, name, marker string) {
-	t.Helper()
-	if err := AddTool(s, testTool(name), testToolHandler(marker)); err != nil {
-		t.Fatalf("AddTool(%q): %v", name, err)
-	}
-}
-
-// TestServerAddToolClaimsSameRegistryAsPackageAddTool verifies the
+// TestServerMustAddToolSharesRegistryWithPackageForm verifies the
 // non-generic method and the generic function share one name space: a
 // hand-written tool cannot quietly displace a generated one.
-func TestServerAddToolClaimsSameRegistryAsPackageAddTool(t *testing.T) {
+func TestServerMustAddToolSharesRegistryWithPackageForm(t *testing.T) {
 	s := New("test", "v0")
-	mustAdd(t, s, "shared_name", "generic")
+	MustAddTool(s, testTool("shared_name"), testToolHandler("generic"))
 
-	err := s.AddTool(testTool("shared_name"), func(context.Context, *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return nil, nil
+	duplicate := recoverDuplicate(t, func() {
+		s.MustAddTool(testTool("shared_name"), testPlainToolHandler)
 	})
-	if err == nil {
-		t.Fatalf("expected an error: the generic AddTool already claimed the name")
+	if duplicate.Key != "shared_name" {
+		t.Fatalf("duplicate.Key = %q, want shared_name", duplicate.Key)
 	}
 	if got := s.RegisteredToolNames(); !slices.Equal(got, []string{"shared_name"}) {
 		t.Fatalf("RegisteredToolNames() = %v, want [shared_name]", got)
 	}
 }
 
-// TestServerAddToolIsSnapshotted verifies plain handlers are cataloged
+// TestServerMustAddToolIsSnapshotted verifies plain handlers are cataloged
 // like generic ones.
-func TestServerAddToolIsSnapshotted(t *testing.T) {
+func TestServerMustAddToolIsSnapshotted(t *testing.T) {
 	s := New("test", "v0")
-	if err := s.AddTool(testTool("plain_tool"), func(context.Context, *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return nil, nil
-	}); err != nil {
-		t.Fatalf("AddTool: %v", err)
-	}
+	s.MustAddTool(testTool("plain_tool"), testPlainToolHandler)
 	if got := s.RegisteredToolNames(); !slices.Equal(got, []string{"plain_tool"}) {
 		t.Fatalf("RegisteredToolNames() = %v, want [plain_tool]", got)
 	}

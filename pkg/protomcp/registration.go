@@ -1,7 +1,6 @@
 package protomcp
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 
@@ -26,22 +25,23 @@ import (
 // tools to the second client.
 //
 // The functions here are the write side of the registry: they claim the
-// key first and refuse it if already taken, naming both the primitive and
-// the key. Each comes in two forms, following this package's
-// MustParseSchema convention:
+// key first and panic if it is already taken. They carry the Must prefix
+// (as MustParseSchema does) because the panic is the contract, not a
+// surprise: generated registrars have no error return to use, and with
+// proto-derived keys a duplicate is a wiring bug that fails
+// deterministically at startup — the same binary always fails, so it
+// cannot reach production or depend on a request. Registration happens
+// before a server serves traffic.
 //
-//   - AddTool, AddResource, AddResourceTemplate return an error. Prefer
-//     these; a caller that can report or degrade should not be forced to
-//     recover a panic.
-//   - MustAddTool, MustAddResource, MustAddResourceTemplate panic with
-//     that same error. Generated registrars use these because their
-//     signatures have no error return, and registration runs at process
-//     start where a duplicate key is a wiring bug rather than a runtime
-//     condition.
+// The panic value is *DuplicateRegistrationError, so a caller that wraps
+// registration in a recover (to turn a duplicate into a startup error of
+// its own) can errors.As it rather than match on message text.
 //
-// A duplicate is reported as *DuplicateRegistrationError, so callers that
-// do recover from a Must call can errors.As it instead of matching on
-// message text.
+// One consequence to respect: this contract assumes keys are static. A key
+// derived from runtime data — one resource per tenant, a tool name built
+// from an ID — makes a duplicate data-dependent, so it can pass tests and
+// then crash the process on a particular row. Derive keys from code, not
+// data; use a URI template for the parameterized case.
 //
 // Callers that need to know what a batch of registrations added — for
 // example to bind primitives to an authorization scope — snapshot
@@ -56,7 +56,8 @@ import (
 
 // DuplicateRegistrationError reports a key already claimed on the server.
 // Kind names the primitive ("tool", "resource", "resource template") and
-// Key is the tool name, resource URI, or URI template.
+// Key is the tool name, resource URI, or URI template. It is the value the
+// MustAdd functions panic with.
 type DuplicateRegistrationError struct {
 	Kind string
 	Key  string
@@ -70,118 +71,79 @@ func (e *DuplicateRegistrationError) Error() string {
 		e.Kind, e.Key, e.Kind)
 }
 
-// AddTool registers a tool and its handler, claiming the tool's name.
-// Apart from the name claim it is a straight pass-through to mcp.AddTool,
-// including that function's schema inference and input validation.
-// Returns *DuplicateRegistrationError if the name is already registered.
-func AddTool[In, Out any](s *Server, tool *mcp.Tool, handler mcp.ToolHandlerFor[In, Out]) error {
-	if tool == nil {
-		return errors.New("protomcp: AddTool received a nil tool")
-	}
-	if err := s.claim(&s.toolNames, "tool", tool.Name); err != nil {
-		return err
-	}
-	mcp.AddTool(s.sdk, tool, handler)
-	return nil
-}
-
-// MustAddTool is AddTool, panicking with its error. Generated registrars
-// use this form because they have no error return.
+// MustAddTool registers a tool and its handler, claiming the tool's name
+// and panicking if it is already registered. Apart from the name claim it
+// is a straight pass-through to mcp.AddTool, including that function's
+// schema inference and input validation. Generated registrars use this.
 func MustAddTool[In, Out any](s *Server, tool *mcp.Tool, handler mcp.ToolHandlerFor[In, Out]) {
-	if err := AddTool(s, tool, handler); err != nil {
-		panic(err)
-	}
-}
-
-// AddTool registers a tool with a plain (non-generic) handler, claiming
-// the tool's name. It is the counterpart of mcp.Server.AddTool, for
-// hand-written tools that do their own argument decoding; generated code
-// uses the package-level AddTool, which cannot be a method because Go
-// methods take no type parameters.
-func (s *Server) AddTool(tool *mcp.Tool, handler mcp.ToolHandler) error {
 	if tool == nil {
-		return errors.New("protomcp: AddTool received a nil tool")
+		panic("protomcp: MustAddTool received a nil tool")
 	}
-	if err := s.claim(&s.toolNames, "tool", tool.Name); err != nil {
-		return err
-	}
-	s.sdk.AddTool(tool, handler)
-	return nil
+	s.mustClaim(&s.toolNames, "tool", tool.Name)
+	mcp.AddTool(s.sdk, tool, handler)
 }
 
-// MustAddTool is Server.AddTool, panicking with its error.
+// MustAddTool registers a tool with a plain (non-generic) handler,
+// claiming the tool's name and panicking if it is already registered. It
+// is the counterpart of mcp.Server.AddTool, for hand-written tools that
+// do their own argument decoding; generated code uses the package-level
+// MustAddTool, which cannot be a method because Go methods take no type
+// parameters.
 func (s *Server) MustAddTool(tool *mcp.Tool, handler mcp.ToolHandler) {
-	if err := s.AddTool(tool, handler); err != nil {
-		panic(err)
+	if tool == nil {
+		panic("protomcp: MustAddTool received a nil tool")
 	}
+	s.mustClaim(&s.toolNames, "tool", tool.Name)
+	s.sdk.AddTool(tool, handler)
 }
 
-// AddResource registers a static resource and its handler, claiming the
-// resource's URI.
-func (s *Server) AddResource(resource *mcp.Resource, handler mcp.ResourceHandler) error {
-	if resource == nil {
-		return errors.New("protomcp: AddResource received a nil resource")
-	}
-	if err := s.claim(&s.resourceURIs, "resource", resource.URI); err != nil {
-		return err
-	}
-	s.sdk.AddResource(resource, handler)
-	return nil
-}
-
-// MustAddResource is AddResource, panicking with its error.
+// MustAddResource registers a static resource and its handler, claiming
+// the resource's URI and panicking if it is already registered.
 func (s *Server) MustAddResource(resource *mcp.Resource, handler mcp.ResourceHandler) {
-	if err := s.AddResource(resource, handler); err != nil {
-		panic(err)
+	if resource == nil {
+		panic("protomcp: MustAddResource received a nil resource")
 	}
+	s.mustClaim(&s.resourceURIs, "resource", resource.URI)
+	s.sdk.AddResource(resource, handler)
 }
 
-// AddResourceTemplate registers a resource template and its handler,
-// claiming the URI template.
-func (s *Server) AddResourceTemplate(template *mcp.ResourceTemplate, handler mcp.ResourceHandler) error {
-	if template == nil {
-		return errors.New("protomcp: AddResourceTemplate received a nil resource template")
-	}
-	if err := s.claim(&s.resourceTemplates, "resource template", template.URITemplate); err != nil {
-		return err
-	}
-	s.sdk.AddResourceTemplate(template, handler)
-	return nil
-}
-
-// MustAddResourceTemplate is AddResourceTemplate, panicking with its
-// error. Generated resource registrars use this form.
+// MustAddResourceTemplate registers a resource template and its handler,
+// claiming the URI template and panicking if it is already registered.
+// Generated resource registrars use this.
 func (s *Server) MustAddResourceTemplate(template *mcp.ResourceTemplate, handler mcp.ResourceHandler) {
-	if err := s.AddResourceTemplate(template, handler); err != nil {
-		panic(err)
+	if template == nil {
+		panic("protomcp: MustAddResourceTemplate received a nil resource template")
 	}
+	s.mustClaim(&s.resourceTemplates, "resource template", template.URITemplate)
+	s.sdk.AddResourceTemplate(template, handler)
 }
 
-// RegisteredToolNames returns the tool names registered through AddTool,
-// sorted. Tools attached directly via SDK() are not included.
+// RegisteredToolNames returns the tool names registered through
+// MustAddTool, sorted. Tools attached directly via SDK() are not included.
 func (s *Server) RegisteredToolNames() []string {
 	return s.registered(&s.toolNames)
 }
 
 // RegisteredResourceURIs returns the resource URIs registered through
-// AddResource, sorted. Resources attached directly via SDK() are not
+// MustAddResource, sorted. Resources attached directly via SDK() are not
 // included.
 func (s *Server) RegisteredResourceURIs() []string {
 	return s.registered(&s.resourceURIs)
 }
 
 // RegisteredResourceTemplates returns the URI templates registered
-// through AddResourceTemplate, sorted. Templates attached directly via
+// through MustAddResourceTemplate, sorted. Templates attached directly via
 // SDK() are not included.
 func (s *Server) RegisteredResourceTemplates() []string {
 	return s.registered(&s.resourceTemplates)
 }
 
-// claim records key in the registry, refusing a key already present.
-// kind names the primitive in the error.
-func (s *Server) claim(registry *map[string]bool, kind, key string) error {
+// mustClaim records key in the registry, panicking with a
+// *DuplicateRegistrationError if it is already present. kind names the
+// primitive in the message.
+func (s *Server) mustClaim(registry *map[string]bool, kind, key string) {
 	if key == "" {
-		return fmt.Errorf("protomcp: %s registered with an empty key", kind)
+		panic(fmt.Sprintf("protomcp: %s registered with an empty key", kind))
 	}
 	s.registrationMu.Lock()
 	defer s.registrationMu.Unlock()
@@ -189,10 +151,9 @@ func (s *Server) claim(registry *map[string]bool, kind, key string) error {
 		*registry = map[string]bool{}
 	}
 	if (*registry)[key] {
-		return &DuplicateRegistrationError{Kind: kind, Key: key}
+		panic(&DuplicateRegistrationError{Kind: kind, Key: key})
 	}
 	(*registry)[key] = true
-	return nil
 }
 
 func (s *Server) registered(registry *map[string]bool) []string {

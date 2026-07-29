@@ -1,6 +1,6 @@
 {{define "resource_read.go.tmpl"}}
 {{- with .R}}
-	srv.SDK().AddResourceTemplate(&{{$.F.MCPPkg}}.ResourceTemplate{
+	srv.MustAddResourceTemplate(&{{$.F.MCPPkg}}.ResourceTemplate{
 		URITemplate: {{printf "%q" .URITemplate}},
 		Name: {{printf "%q" .UniqueName}},
 		MIMEType: {{printf "%q" .MIMEType}},

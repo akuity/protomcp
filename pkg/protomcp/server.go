@@ -33,6 +33,15 @@ type Server struct {
 	listerRegMu sync.Mutex
 	lister      ResourceLister
 
+	// Keys claimed through the MustAdd* registration functions, which panic
+	// on collision because the SDK's own registries replace silently.
+	// See registration.go.
+	registrationMu    sync.Mutex
+	toolNames         map[string]bool
+	resourceURIs      map[string]bool
+	resourceTemplates map[string]bool
+	promptNames       map[string]bool
+
 	progressTokenHeader string
 
 	promptCompletionsMu sync.RWMutex

@@ -717,7 +717,10 @@ var (
 	E_Tool = &file_protomcp_v1_annotations_proto_extTypes[0]
 	// ResourceTemplate exposes the RPC as a resource template advertised
 	// via `resources/templates/list` and dispatched on `resources/read`.
-	// Static resources are not codegen'd; use srv.SDK().AddResource(...).
+	// Static resources are not codegen'd; register them with
+	// srv.MustAddResource(...), which claims the URI. Do not use
+	// srv.SDK().AddResource: it bypasses that claim, so a second
+	// registration of the same URI silently replaces the first.
 	//
 	// optional protomcp.v1.ResourceTemplateOptions resource_template = 50003;
 	E_ResourceTemplate = &file_protomcp_v1_annotations_proto_extTypes[1]

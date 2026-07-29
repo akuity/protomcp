@@ -1,5 +1,5 @@
 {{define "tool.go.tmpl"}}
-	{{.QMCPAddTool}}(srv.SDK(), &{{.QMCPTool}}{
+	{{.QMCPAddTool}}(srv, &{{.QMCPTool}}{
 		Name: {{printf "%q" .ToolName}},
 {{- if .Title}}
 		Title: {{printf "%q" .Title}},

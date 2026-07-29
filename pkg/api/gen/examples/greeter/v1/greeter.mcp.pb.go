@@ -33,7 +33,7 @@ var _Greeter_Slow_OutputSchema = protomcp.MustParseSchema(`{"properties":{"messa
 // MCP tool on srv, dispatching to the supplied gRPC client.
 func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 
-	mcp.AddTool(srv.SDK(), &mcp.Tool{
+	protomcp.MustAddTool(srv, &mcp.Tool{
 		Name:         "Greeter_SayHello",
 		Title:        "Say Hello",
 		Description:  "Greets a caller by name.",
@@ -83,7 +83,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		return srv.FinishToolCall(ctx, req, g, result, err)
 	})
 
-	mcp.AddTool(srv.SDK(), &mcp.Tool{
+	protomcp.MustAddTool(srv, &mcp.Tool{
 		Name:         "Greeter_StreamGreetings",
 		Title:        "Stream Greetings",
 		Description:  "Emits a greeting for each turn, one per progress notification.",
@@ -168,7 +168,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		return srv.FinishToolCall(ctx, req, g, result, err)
 	})
 
-	mcp.AddTool(srv.SDK(), &mcp.Tool{
+	protomcp.MustAddTool(srv, &mcp.Tool{
 		Name:         "Greeter_FailWith",
 		Title:        "Fail With Code",
 		Description:  "Returns a gRPC status error with the requested code.",
@@ -217,7 +217,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		return srv.FinishToolCall(ctx, req, g, result, err)
 	})
 
-	mcp.AddTool(srv.SDK(), &mcp.Tool{
+	protomcp.MustAddTool(srv, &mcp.Tool{
 		Name:         "Greeter_EchoComplex",
 		Title:        "Echo Complex",
 		Description:  "Echoes a structured request to verify protojson round-trip fidelity.",
@@ -268,7 +268,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		return srv.FinishToolCall(ctx, req, g, result, err)
 	})
 
-	mcp.AddTool(srv.SDK(), &mcp.Tool{
+	protomcp.MustAddTool(srv, &mcp.Tool{
 		Name:         "Greeter_Slow",
 		Title:        "Slow",
 		Description:  "Blocks until ctx is cancelled; for testing cancellation propagation.",

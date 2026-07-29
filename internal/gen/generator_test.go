@@ -592,7 +592,8 @@ func TestGenerate_MultiService(t *testing.T) {
 // TestGenerate_Prompts covers the prompt annotation codegen path:
 //   - RegisterPromptSvcMCPPrompts register function is emitted
 //   - prompt name, title, description, and arguments appear
-//   - srv.SDK().AddPrompt is the SDK call (not AddTool)
+//   - srv.MustAddPrompt is the registration call (not a tool registration),
+//     routed through protomcp so the prompt name is claimed
 //   - enum argument completions are registered via
 //     RegisterPromptArgCompletions (enum value names minus _UNSPECIFIED)
 //   - buf.validate.string.in values are registered as completions too
@@ -606,8 +607,9 @@ func TestGenerate_Prompts(t *testing.T) {
 		{"prompt title emitted", true, `"Review an item"`},
 		{"prompt description emitted", true, `"Ask the LLM to review a single item."`},
 		{"prompt required arg", true, `Required: true`},
-		{"SDK AddPrompt", true, "srv.SDK().AddPrompt"},
-		{"no AddTool for prompt-only svc", false, "srv.SDK().AddTool"},
+		{"claiming AddPrompt", true, "srv.MustAddPrompt"},
+		{"prompt registration does not bypass the claim", false, "srv.SDK().AddPrompt"},
+		{"no tool registration for prompt-only svc", false, "MustAddTool"},
 		{"prompt final handler uses PromptChain", true, "srv.PromptChain(final)"},
 		{"prompt handler uses FinishPromptGet", true, "srv.FinishPromptGet"},
 		{"mustache render call", true, "mustache.Render"},

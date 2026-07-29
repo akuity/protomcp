@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package protomcp.gen.testdata.badslimresource.v1;
+
+import "google/api/field_behavior.proto";
+import "protomcp/v1/annotations.proto";
+
+option go_package = "github.com/akuity/protomcp/internal/gen/testdata/badslimresource;badslimresourcev1";
+
+service BadSlimResource {
+  rpc Fetch(FetchRequest) returns (FetchReply) {
+    option (protomcp.v1.resource_template) = {
+      uri_template: "bad://{id}"
+      uri_bindings: [{placeholder: "id", field: "id"}]
+      name_field: "{{summary}}"
+    };
+  }
+}
+
+message FetchRequest {
+  string id = 1;
+  string tenant = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (protomcp.v1.field_schema).exclude = true
+  ];
+}
+
+message FetchReply {
+  string summary = 1;
+}

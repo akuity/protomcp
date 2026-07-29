@@ -36,6 +36,10 @@ type Options struct {
 	// uses the library default (schema.defaultMaxRecursionDepth).
 	// Exposed as -max_recursion_depth=N on protoc-gen-mcp.
 	MaxRecursionDepth int
+
+	MaxToolSchemaBytes int
+
+	DisableReadOnlyNameLint bool
 }
 
 // Generate is the protogen entry point.
@@ -116,15 +120,14 @@ type toolTemplateData struct {
 
 	QProtomcpOutgoingContext string
 
-	// QProtomcpClearOutputOnly zeros OUTPUT_ONLY fields after
-	// protojson.Unmarshal.
-	QProtomcpClearOutputOnly string
-
 	// QProtomcpSanitizeMetadataValue strips CR/LF/NUL from
 	// client-controlled strings before they land in outgoing gRPC
 	// metadata, preventing log-line forgery and HPACK trips at the
 	// upstream hop.
 	QProtomcpSanitizeMetadataValue string
+
+	InputHasExcluded  bool
+	OutputHasExcluded bool
 
 	// Elicitation is non-nil when the method also carries a
 	// protomcp.v1.elicitation annotation; the tool template then emits
@@ -442,8 +445,17 @@ func buildFileTemplateData(g *protogen.GeneratedFile, f *protogen.File, opts Opt
 				)
 			}
 
+			if err := schema.ValidateInputExclusions(m.Input.Desc); err != nil {
+				return nil, fmt.Errorf("%s.%s: %w", svc.GoName, m.GoName, err)
+			}
+
 			if class.asTool {
 				to, _ := toolOptionsFor(m)
+				if !opts.DisableReadOnlyNameLint {
+					if err := validateReadOnlyHint(svc, svcOpts, m, to); err != nil {
+						return nil, err
+					}
+				}
 				tool, err := buildToolTemplateData(g, f, svc, svcOpts, m, to, protomcpPkg, opts)
 				if err != nil {
 					return nil, err
@@ -595,14 +607,31 @@ func buildToolTemplateData(
 
 	schemaOpts := schema.Options{MaxRecursionDepth: opts.MaxRecursionDepth}
 
-	// json.Marshal sorts object keys so output is stable run-to-run.
-	inSchemaJSON, err := marshalSchema(schema.ForInput(m.Input.Desc, schemaOpts))
+	inSchema, err := schema.ForInputE(m.Input.Desc, schemaOpts)
 	if err != nil {
 		return toolTemplateData{}, fmt.Errorf("build input schema for %s.%s: %w", svc.GoName, m.GoName, err)
 	}
-	outSchemaJSON, err := marshalSchema(schema.ForOutput(m.Output.Desc, schemaOpts))
+	outSchema, err := schema.ForOutputE(m.Output.Desc, schemaOpts)
 	if err != nil {
 		return toolTemplateData{}, fmt.Errorf("build output schema for %s.%s: %w", svc.GoName, m.GoName, err)
+	}
+	// json.Marshal sorts object keys so output is stable run-to-run.
+	inSchemaJSON, err := marshalSchema(inSchema)
+	if err != nil {
+		return toolTemplateData{}, fmt.Errorf("build input schema for %s.%s: %w", svc.GoName, m.GoName, err)
+	}
+	outSchemaJSON, err := marshalSchema(outSchema)
+	if err != nil {
+		return toolTemplateData{}, fmt.Errorf("build output schema for %s.%s: %w", svc.GoName, m.GoName, err)
+	}
+	if opts.MaxToolSchemaBytes > 0 {
+		if total := len(inSchemaJSON) + len(outSchemaJSON); total > opts.MaxToolSchemaBytes {
+			return toolTemplateData{}, fmt.Errorf(
+				"%s.%s: combined tool schema size %d bytes exceeds max_tool_schema_bytes=%d; "+
+					"mask large fields with (protomcp.v1.field_schema).exclude, lower "+
+					"max_recursion_depth, or raise the budget",
+				svc.GoName, m.GoName, total, opts.MaxToolSchemaBytes)
+		}
 	}
 
 	q := func(name string, path protogen.GoImportPath) string {
@@ -653,8 +682,9 @@ func buildToolTemplateData(
 		QMetadataMD:                    metaMD,
 		QProtomcpGRPCReq:               q("GRPCData", importProtomcp),
 		QProtomcpOutgoingContext:       q("OutgoingContext", importProtomcp),
-		QProtomcpClearOutputOnly:       q("ClearOutputOnly", importProtomcp),
 		QProtomcpSanitizeMetadataValue: q("SanitizeMetadataValue", importProtomcp),
+		InputHasExcluded:               schema.HasExclusions(m.Input.Desc),
+		OutputHasExcluded:              schema.HasExclusions(m.Output.Desc),
 	}, nil
 }
 

@@ -181,7 +181,7 @@ func TestCompletePromptArgPrefixMatch(t *testing.T) {
 
 	req := &mcp.CompleteRequest{
 		Params: &mcp.CompleteParams{
-			Ref: &mcp.CompleteReference{Type: "ref/prompt", Name: "tasks_review"},
+			Ref: &mcp.CompleteReference{Type: promptReferenceType, Name: "tasks_review"},
 			Argument: mcp.CompleteParamsArgument{
 				Name:  "status",
 				Value: "DO",
@@ -230,7 +230,7 @@ func TestCompletePromptArgCaps(t *testing.T) {
 
 	req := &mcp.CompleteRequest{
 		Params: &mcp.CompleteParams{
-			Ref:      &mcp.CompleteReference{Type: "ref/prompt", Name: "p"},
+			Ref:      &mcp.CompleteReference{Type: promptReferenceType, Name: "p"},
 			Argument: mcp.CompleteParamsArgument{Name: "a", Value: ""},
 		},
 	}
@@ -261,7 +261,7 @@ func TestCompletionHandlerIntegration(t *testing.T) {
 		t.Fatal("expected completion handler installed on sdkOpts")
 	}
 	req := &mcp.CompleteRequest{Params: &mcp.CompleteParams{
-		Ref:      &mcp.CompleteReference{Type: "ref/prompt", Name: "p"},
+		Ref:      &mcp.CompleteReference{Type: promptReferenceType, Name: "p"},
 		Argument: mcp.CompleteParamsArgument{Name: "arg", Value: "al"},
 	}}
 	res, err := s.sdkOpts.CompletionHandler(context.Background(), req)
@@ -296,7 +296,7 @@ func TestCompletionHandlerPreservesCallerHandler(t *testing.T) {
 	h := s.sdkOpts.CompletionHandler
 	// Dynamic path, user handler wins.
 	res, err := h(context.Background(), &mcp.CompleteRequest{Params: &mcp.CompleteParams{
-		Ref:      &mcp.CompleteReference{Type: "ref/prompt", Name: "dynamic"},
+		Ref:      &mcp.CompleteReference{Type: promptReferenceType, Name: "dynamic"},
 		Argument: mcp.CompleteParamsArgument{Name: "arg", Value: ""},
 	}})
 	if err != nil {
@@ -308,7 +308,7 @@ func TestCompletionHandlerPreservesCallerHandler(t *testing.T) {
 
 	// Static path, user handler returns empty, static table takes over.
 	res, err = h(context.Background(), &mcp.CompleteRequest{Params: &mcp.CompleteParams{
-		Ref:      &mcp.CompleteReference{Type: "ref/prompt", Name: "static"},
+		Ref:      &mcp.CompleteReference{Type: promptReferenceType, Name: "static"},
 		Argument: mcp.CompleteParamsArgument{Name: "arg", Value: ""},
 	}})
 	if err != nil {

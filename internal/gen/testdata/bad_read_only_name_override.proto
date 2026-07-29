@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package protomcp.gen.testdata.badronameoverride.v1;
+
+import "protomcp/v1/annotations.proto";
+
+option go_package = "github.com/akuity/protomcp/internal/gen/testdata/badronameoverride;badronameoverridev1";
+
+service BadReadOnlyNameOverride {
+  rpc GetWidget(GetWidgetRequest) returns (GetWidgetReply) {
+    option (protomcp.v1.tool) = {
+      name: "delete_widget"
+      read_only: true
+    };
+  }
+}
+
+message GetWidgetRequest {
+  string id = 1;
+}
+
+message GetWidgetReply {
+  string summary = 1;
+}

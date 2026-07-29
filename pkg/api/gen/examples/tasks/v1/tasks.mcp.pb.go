@@ -60,7 +60,7 @@ func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 		// Clear OUTPUT_ONLY fields: the schema hides them but the
 		// wire format does not, so the upstream gRPC server must
 		// never see client-supplied values for server-computed fields.
-		protomcp.ClearOutputOnly(&in)
+		srv.ClearOutputOnly(&in)
 		// ToolMiddleware may mutate &in or replace the pointer; the
 		// final handler reads from g.Input so both forms propagate.
 		g := &protomcp.GRPCData{Input: &in, Metadata: metadata.MD{}}
@@ -110,7 +110,7 @@ func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 		// Clear OUTPUT_ONLY fields: the schema hides them but the
 		// wire format does not, so the upstream gRPC server must
 		// never see client-supplied values for server-computed fields.
-		protomcp.ClearOutputOnly(&in)
+		srv.ClearOutputOnly(&in)
 		// ToolMiddleware may mutate &in or replace the pointer; the
 		// final handler reads from g.Input so both forms propagate.
 		g := &protomcp.GRPCData{Input: &in, Metadata: metadata.MD{}}
@@ -159,7 +159,7 @@ func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 		// Clear OUTPUT_ONLY fields: the schema hides them but the
 		// wire format does not, so the upstream gRPC server must
 		// never see client-supplied values for server-computed fields.
-		protomcp.ClearOutputOnly(&in)
+		srv.ClearOutputOnly(&in)
 		// ToolMiddleware may mutate &in or replace the pointer; the
 		// final handler reads from g.Input so both forms propagate.
 		g := &protomcp.GRPCData{Input: &in, Metadata: metadata.MD{}}
@@ -209,7 +209,7 @@ func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 		// Clear OUTPUT_ONLY fields: the schema hides them but the
 		// wire format does not, so the upstream gRPC server must
 		// never see client-supplied values for server-computed fields.
-		protomcp.ClearOutputOnly(&in)
+		srv.ClearOutputOnly(&in)
 		// ToolMiddleware may mutate &in or replace the pointer; the
 		// final handler reads from g.Input so both forms propagate.
 		g := &protomcp.GRPCData{Input: &in, Metadata: metadata.MD{}}
@@ -259,7 +259,7 @@ func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 		// Clear OUTPUT_ONLY fields: the schema hides them but the
 		// wire format does not, so the upstream gRPC server must
 		// never see client-supplied values for server-computed fields.
-		protomcp.ClearOutputOnly(&in)
+		srv.ClearOutputOnly(&in)
 		// ToolMiddleware may mutate &in or replace the pointer; the
 		// final handler reads from g.Input so both forms propagate.
 		g := &protomcp.GRPCData{Input: &in, Metadata: metadata.MD{}}
@@ -516,9 +516,17 @@ func RegisterTasksMCPPrompts(srv *protomcp.Server, client TasksClient) {
 		if req != nil && req.Params != nil {
 			args = req.Params.Arguments
 		}
+		inputArgs := map[string]string{}
 
 		if v, ok := args["id"]; ok {
-			in.Id = v
+			inputArgs["id"] = v
+		}
+		payload, mErr := json.Marshal(inputArgs)
+		if mErr != nil {
+			return srv.FinishPromptGet(ctx, req, nil, nil, mErr)
+		}
+		if uErr := srv.UnmarshalProto(payload, in); uErr != nil {
+			return srv.FinishPromptGet(ctx, req, nil, nil, fmt.Errorf("invalid prompt arguments: %w", uErr))
 		}
 		g := &protomcp.GRPCData{Input: in, Metadata: metadata.MD{}}
 		final := func(ctx context.Context, req *mcp.GetPromptRequest, g *protomcp.GRPCData) (*mcp.GetPromptResult, error) {

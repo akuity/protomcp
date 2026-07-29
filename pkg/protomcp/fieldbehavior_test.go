@@ -3,11 +3,21 @@
 package protomcp_test
 
 import (
+	"bytes"
 	"testing"
 
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/dynamicpb"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	authv1 "github.com/akuity/protomcp/pkg/api/gen/examples/auth/v1"
+	greeterv1 "github.com/akuity/protomcp/pkg/api/gen/examples/greeter/v1"
 	"github.com/akuity/protomcp/pkg/protomcp"
 )
 
@@ -221,6 +231,259 @@ func TestClearOutputOnly_EmptyCollectionsSkipped(t *testing.T) {
 	}
 	if len(mm.Items) != 0 {
 		t.Errorf("Map items mutated: %v", mm.Items)
+	}
+}
+
+func TestClearOutputOnly_NilListAndMapElements(t *testing.T) {
+	m := &authv1.TestRepeatedMessages{
+		Items: []*authv1.TestInner{nil, {ServerId: "s", UserName: "u"}},
+	}
+	protomcp.ClearOutputOnly(m)
+	if m.Items[1].ServerId != "" {
+		t.Errorf("Items[1].ServerId = %q, want empty", m.Items[1].ServerId)
+	}
+	if m.Items[1].UserName != "u" {
+		t.Errorf("Items[1].UserName = %q, want %q", m.Items[1].UserName, "u")
+	}
+
+	mm := &authv1.TestMapMessages{
+		Items: map[string]*authv1.TestInner{"a": nil, "b": {ServerId: "s", UserName: "u"}},
+	}
+	protomcp.ClearOutputOnly(mm)
+	if mm.Items["b"].ServerId != "" {
+		t.Errorf(`Items["b"].ServerId = %q, want empty`, mm.Items["b"].ServerId)
+	}
+
+	holder := &authv1.TestAnyHolder{Items: []*anypb.Any{nil}}
+	protomcp.ClearOutputOnly(holder)
+}
+
+func TestClearOutputOnly_AnyPayload(t *testing.T) {
+	packed, err := anypb.New(&authv1.TestInner{ServerId: "admin", UserName: "alice"})
+	if err != nil {
+		t.Fatalf("anypb.New: %v", err)
+	}
+	m := &authv1.TestAnyHolder{Payload: packed}
+	protomcp.ClearOutputOnly(m)
+	var got authv1.TestInner
+	if err := m.Payload.UnmarshalTo(&got); err != nil {
+		t.Fatalf("UnmarshalTo: %v", err)
+	}
+	if got.ServerId != "" {
+		t.Errorf("packed ServerId = %q, want empty (OUTPUT_ONLY leaked through Any)", got.ServerId)
+	}
+	if got.UserName != "alice" {
+		t.Errorf("packed UserName = %q, want alice", got.UserName)
+	}
+}
+
+func TestClearSchemaExcluded_AnyPayload(t *testing.T) {
+	packed, err := anypb.New(&greeterv1.EchoComplexRequest{Name: "n", InternalNote: "secret"})
+	if err != nil {
+		t.Fatalf("anypb.New: %v", err)
+	}
+	m := &authv1.TestAnyHolder{Payload: packed}
+	protomcp.ClearSchemaExcluded(m)
+	var got greeterv1.EchoComplexRequest
+	if err := m.Payload.UnmarshalTo(&got); err != nil {
+		t.Fatalf("UnmarshalTo: %v", err)
+	}
+	if got.GetInternalNote() != "" {
+		t.Errorf("packed InternalNote = %q, want empty (excluded field leaked through Any)", got.GetInternalNote())
+	}
+	if got.GetName() != "n" {
+		t.Errorf("packed Name = %q, want n", got.GetName())
+	}
+}
+
+func TestClearSchemaExcluded_AnyInListAndMap(t *testing.T) {
+	mk := func() *anypb.Any {
+		packed, err := anypb.New(&greeterv1.EchoComplexRequest{Name: "n", InternalNote: "secret"})
+		if err != nil {
+			t.Fatalf("anypb.New: %v", err)
+		}
+		return packed
+	}
+	m := &authv1.TestAnyHolder{
+		Items: []*anypb.Any{mk()},
+		ByKey: map[string]*anypb.Any{"k": mk()},
+	}
+	protomcp.ClearSchemaExcluded(m)
+	for name, packed := range map[string]*anypb.Any{"Items[0]": m.Items[0], `ByKey["k"]`: m.ByKey["k"]} {
+		var got greeterv1.EchoComplexRequest
+		if err := packed.UnmarshalTo(&got); err != nil {
+			t.Fatalf("%s UnmarshalTo: %v", name, err)
+		}
+		if got.GetInternalNote() != "" {
+			t.Errorf("%s InternalNote = %q, want empty", name, got.GetInternalNote())
+		}
+		if got.GetName() != "n" {
+			t.Errorf("%s Name = %q, want n", name, got.GetName())
+		}
+	}
+}
+
+func TestClearOutputOnly_AnyUnresolvableTypeCleared(t *testing.T) {
+	m := &authv1.TestAnyHolder{
+		Payload: &anypb.Any{TypeUrl: "type.googleapis.com/no.such.Type", Value: []byte{0x0a, 0x01, 0x78}},
+	}
+	protomcp.ClearOutputOnly(m)
+	if m.Payload.GetTypeUrl() != "" || len(m.Payload.GetValue()) != 0 {
+		t.Errorf("unresolvable Any not cleared: %+v", m.Payload)
+	}
+}
+
+func TestClearOutputOnly_AnyUntouchedWhenNoMatches(t *testing.T) {
+	packed, err := anypb.New(&greeterv1.HelloReply{Message: "hi"})
+	if err != nil {
+		t.Fatalf("anypb.New: %v", err)
+	}
+	origValue := append([]byte(nil), packed.GetValue()...)
+	origURL := packed.GetTypeUrl()
+	m := &authv1.TestAnyHolder{Payload: packed}
+	protomcp.ClearOutputOnly(m)
+	if m.Payload.GetTypeUrl() != origURL || !bytes.Equal(m.Payload.GetValue(), origValue) {
+		t.Errorf("Any with no matchable fields was rewritten: %+v", m.Payload)
+	}
+}
+
+func TestClearOutputOnly_AnyPreservesBytesWhenMatchingFieldsAreUnset(t *testing.T) {
+	payload := &authv1.TestMapMessages{Items: map[string]*authv1.TestInner{
+		"a": {UserName: "one"},
+		"b": {UserName: "two"},
+		"c": {UserName: "three"},
+		"d": {UserName: "four"},
+		"e": {UserName: "five"},
+		"f": {UserName: "six"},
+		"g": {UserName: "seven"},
+		"h": {UserName: "eight"},
+	}}
+	packed, err := anypb.New(payload)
+	if err != nil {
+		t.Fatalf("anypb.New: %v", err)
+	}
+	original := bytes.Clone(packed.GetValue())
+	for i := range 100 {
+		m := &authv1.TestAnyHolder{Payload: proto.Clone(packed).(*anypb.Any)}
+		protomcp.ClearOutputOnly(m)
+		if !bytes.Equal(m.Payload.GetValue(), original) {
+			t.Fatalf("iteration %d rewrote Any.Value even though no populated field was cleared", i)
+		}
+	}
+}
+
+func TestClearOutputOnly_AnyChangedPayloadUsesDeterministicEncoding(t *testing.T) {
+	payload := &authv1.TestMapMessages{Items: map[string]*authv1.TestInner{
+		"a": {ServerId: "1", UserName: "one"},
+		"b": {ServerId: "2", UserName: "two"},
+		"c": {ServerId: "3", UserName: "three"},
+		"d": {ServerId: "4", UserName: "four"},
+		"e": {ServerId: "5", UserName: "five"},
+		"f": {ServerId: "6", UserName: "six"},
+		"g": {ServerId: "7", UserName: "seven"},
+		"h": {ServerId: "8", UserName: "eight"},
+	}}
+	packed, err := anypb.New(payload)
+	if err != nil {
+		t.Fatalf("anypb.New: %v", err)
+	}
+	encodings := map[string]struct{}{}
+	for range 100 {
+		m := &authv1.TestAnyHolder{Payload: proto.Clone(packed).(*anypb.Any)}
+		protomcp.ClearOutputOnly(m)
+		encodings[string(m.Payload.GetValue())] = struct{}{}
+	}
+	if len(encodings) != 1 {
+		t.Fatalf("changed Any payload produced %d wire encodings, want 1", len(encodings))
+	}
+}
+
+// newDynamicAnyPayload builds a message type that exists only in the
+// returned local registry (never in protoregistry.GlobalTypes) and an
+// Any packing an instance of it, reproducing a caller that configures a
+// custom protojson Resolver for dynamically loaded types.
+func newDynamicAnyPayload(t *testing.T) (*protoregistry.Types, *anypb.Any) {
+	t.Helper()
+	fdp := &descriptorpb.FileDescriptorProto{
+		Name:    proto.String("protomcp/dynamictest/payload.proto"),
+		Package: proto.String("protomcp.dynamictest"),
+		Syntax:  proto.String("proto3"),
+		MessageType: []*descriptorpb.DescriptorProto{{
+			Name: proto.String("Payload"),
+			Field: []*descriptorpb.FieldDescriptorProto{{
+				Name:     proto.String("value"),
+				Number:   proto.Int32(1),
+				Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+				Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+				JsonName: proto.String("value"),
+			}},
+		}},
+	}
+	fd, err := protodesc.NewFile(fdp, nil)
+	if err != nil {
+		t.Fatalf("protodesc.NewFile: %v", err)
+	}
+	mt := dynamicpb.NewMessageType(fd.Messages().Get(0))
+	types := &protoregistry.Types{}
+	if rErr := types.RegisterMessage(mt); rErr != nil {
+		t.Fatalf("RegisterMessage: %v", rErr)
+	}
+	payload := mt.New()
+	payload.Set(mt.Descriptor().Fields().ByName("value"), protoreflect.ValueOfString("kept"))
+	raw, err := proto.Marshal(payload.Interface())
+	if err != nil {
+		t.Fatalf("marshal dynamic payload: %v", err)
+	}
+	return types, &anypb.Any{
+		TypeUrl: "type.googleapis.com/protomcp.dynamictest.Payload",
+		Value:   raw,
+	}
+}
+
+func TestServerClear_AnyUsesConfiguredResolver(t *testing.T) {
+	types, packed := newDynamicAnyPayload(t)
+	srv := protomcp.New("t", "0.0.1",
+		protomcp.WithProtoJSONUnmarshal(protojson.UnmarshalOptions{Resolver: types}))
+
+	origURL := packed.GetTypeUrl()
+	origValue := append([]byte(nil), packed.GetValue()...)
+	m := &authv1.TestAnyHolder{Payload: packed}
+	srv.ClearOutputOnly(m)
+	srv.ClearSchemaExcluded(m)
+	if m.Payload.GetTypeUrl() != origURL || !bytes.Equal(m.Payload.GetValue(), origValue) {
+		t.Errorf("Any resolvable via the configured resolver was cleared: %+v", m.Payload)
+	}
+
+	protomcp.ClearOutputOnly(m)
+	if m.Payload.GetTypeUrl() != "" || len(m.Payload.GetValue()) != 0 {
+		t.Errorf("package-level clear must stay conservative for types outside GlobalTypes: %+v", m.Payload)
+	}
+}
+
+// buildNodeChain returns a TestNode chain with links+1 nodes, every one
+// carrying an excluded secret.
+func buildNodeChain(links int) *authv1.TestNode {
+	head := &authv1.TestNode{Secret: "deep-secret", Data: "d"}
+	cur := head
+	for range links {
+		cur.Next = &authv1.TestNode{Secret: "deep-secret", Data: "d"}
+		cur = cur.Next
+	}
+	return head
+}
+
+func TestClearSchemaExcluded_DeepChainFailsClosed(t *testing.T) {
+	head := buildNodeChain(10050)
+	protomcp.ClearSchemaExcluded(head)
+	depth := 0
+	for n := head; n != nil; n = n.Next {
+		if n.GetSecret() != "" {
+			t.Fatalf("node at depth %d kept its excluded secret %q; deep nesting must fail closed", depth, n.GetSecret())
+		}
+		depth++
+	}
+	if head.GetData() != "d" {
+		t.Errorf("head.Data = %q, want untouched %q", head.GetData(), "d")
 	}
 }
 

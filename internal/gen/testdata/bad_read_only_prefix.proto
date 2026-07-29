@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package protomcp.gen.testdata.badroprefix.v1;
+
+import "protomcp/v1/annotations.proto";
+
+option go_package = "github.com/akuity/protomcp/internal/gen/testdata/badroprefix;badroprefixv1";
+
+service BadReadOnlyPrefix {
+  option (protomcp.v1.service) = {
+    tool_prefix: "delete_"
+  };
+
+  rpc GetWidget(GetWidgetRequest) returns (GetWidgetReply) {
+    option (protomcp.v1.tool) = {
+      read_only: true
+    };
+  }
+}
+
+message GetWidgetRequest {
+  string id = 1;
+}
+
+message GetWidgetReply {
+  string summary = 1;
+}

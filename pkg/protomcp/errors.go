@@ -10,6 +10,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
 // ToolErrorHandler decides how a Go error is surfaced to the MCP
@@ -43,7 +45,11 @@ func grpcCodeToJSONRPCCode(c codes.Code) int64 {
 // JSON-RPC protocol errors; any other gRPC status becomes a
 // CallToolResult{IsError: true} carrying the protojson-serialized
 // google.rpc.Status as StructuredContent; non-gRPC errors become an
-// IsError result with err.Error() as text.
+// IsError result with err.Error() as text. Status detail messages are
+// masked on a clone so (protomcp.v1.field_schema).exclude fields cannot
+// leak via error details; if the details cannot be verifiably masked
+// (unresolvable / corrupt Any, nesting past the depth bound) the
+// StructuredContent slot is omitted and only the text content is sent.
 func DefaultToolErrorHandler(ctx context.Context, req *mcp.CallToolRequest, err error) (*mcp.CallToolResult, error) {
 	if err == nil {
 		return nil, nil
@@ -56,7 +62,12 @@ func DefaultToolErrorHandler(ctx context.Context, req *mcp.CallToolRequest, err 
 				Message: fmt.Sprintf("%s: %s", st.Code(), st.Message()),
 			}
 		}
-		structured, mErr := protojson.Marshal(st.Proto())
+		masked := proto.Clone(st.Proto())
+		var structured []byte
+		mErr := clearFieldsMatchingMode(masked, protoregistry.GlobalTypes, clearFailLoud, isSchemaExcluded)
+		if mErr == nil {
+			structured, mErr = protojson.Marshal(masked)
+		}
 		result := &mcp.CallToolResult{
 			IsError: true,
 			Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("%s: %s", st.Code(), st.Message())}},

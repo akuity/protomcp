@@ -34,7 +34,7 @@ service Prefixed {
     };
   }
 
-  // AllHints sets every hint flag.
+  // AllHints sets all three hint flags.
   rpc AllHints(Empty) returns (Empty) {
     option (protomcp.v1.tool) = {
       read_only: true

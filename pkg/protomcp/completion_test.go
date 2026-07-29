@@ -27,7 +27,7 @@ func TestRegisterPromptArgCompletions_RaceSafe(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			_ = s.completePromptArg(&mcp.CompleteRequest{Params: &mcp.CompleteParams{
-				Ref:      &mcp.CompleteReference{Type: "ref/prompt", Name: "prompt"},
+				Ref:      &mcp.CompleteReference{Type: promptReferenceType, Name: "prompt"},
 				Argument: mcp.CompleteParamsArgument{Name: "arg", Value: ""},
 			}})
 		}()

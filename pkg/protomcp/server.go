@@ -9,6 +9,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
 // ProgressTokenHeader is the default gRPC metadata key generated tool
@@ -256,6 +257,26 @@ func (s *Server) MarshalProto(m proto.Message) ([]byte, error) {
 // UnmarshalProto parses data into m using the configured protojson.UnmarshalOptions.
 func (s *Server) UnmarshalProto(data []byte, m proto.Message) error {
 	return s.protoUnmarshal.Unmarshal(data, m)
+}
+
+// marshalResolver returns the Any type resolver protojson.Marshal will
+// use for outbound JSON, so masking sees the same types the serializer
+// does.
+func (s *Server) marshalResolver() anyTypeResolver {
+	if s.protoMarshal.Resolver != nil {
+		return s.protoMarshal.Resolver
+	}
+	return protoregistry.GlobalTypes
+}
+
+// unmarshalResolver returns the Any type resolver protojson.Unmarshal
+// used for inbound JSON, so input clearing sees the same types the
+// parser did.
+func (s *Server) unmarshalResolver() anyTypeResolver {
+	if s.protoUnmarshal.Resolver != nil {
+		return s.protoUnmarshal.Resolver
+	}
+	return protoregistry.GlobalTypes
 }
 
 // ServeStdio runs the server over the SDK's stdio transport. HTTP

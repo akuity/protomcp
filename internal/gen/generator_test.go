@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -179,6 +180,364 @@ func TestGenerate_BadElicitSection(t *testing.T) {
 	}
 }
 
+func TestGenerate_Slim(t *testing.T) {
+	out := runGenerate(t, "slim.proto")
+
+	cases := []substringCase{
+		{"input clears excluded fields", true, "srv.ClearSchemaExcluded(&in)"},
+		{"output is never cleared; g.Output stays raw for result processors", false, "ClearSchemaExcluded(resp)"},
+		{"streaming output is never cleared", false, "ClearSchemaExcluded(msg)"},
+		{"kept input field stays in schema", true, `"id"`},
+		{"kept nested field stays in schema", true, `"keep"`},
+		{"kept output field stays in schema", true, `"summary"`},
+		{"excluded input field masked from schema", false, "hugeSelector"},
+		{"excluded nested field masked from schema", false, `"omit"`},
+		{"excluded output field masked from schema", false, "debugBlob"},
+	}
+	assertSubstrings(t, out, cases)
+
+	if got := strings.Count(out, "ClearSchemaExcluded(&in)"); got != 2 {
+		t.Errorf("ClearSchemaExcluded(&in) emitted %d times, want 2 (the two tools)", got)
+	}
+	if got := strings.Count(out, "MarshalProtoMasked(resp)"); got != 3 {
+		t.Errorf("MarshalProtoMasked(resp) emitted %d times, want 3 "+
+			"(unary tool, resource read, prompt)\n--- file ---\n%s", got, out)
+	}
+	if got := strings.Count(out, "MarshalProtoMasked(msg)"); got != 1 {
+		t.Errorf("MarshalProtoMasked(msg) emitted %d times, want 1 (streaming tool)", got)
+	}
+	if got := strings.Count(out, "MarshalProtoMasked(item)"); got != 1 {
+		t.Errorf("MarshalProtoMasked(item) emitted %d times, want 1 (resource list)", got)
+	}
+
+	moreCases := []substringCase{
+		{"REQUIRED+OUTPUT_ONLY+exclude generates fine and stays masked", false, "serverRef"},
+		{"excluded prompt request field is not a prompt argument", false, `"trace"`},
+	}
+	assertSubstrings(t, out, moreCases)
+}
+
+func TestGenerate_BadSlimBinding(t *testing.T) {
+	err := runGenerateExpectError(t, "bad_slim_binding.proto")
+	want := `masked by (protomcp.v1.field_schema).exclude`
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("want error containing %q, got %v", want, err)
+	}
+}
+
+func TestGenerate_BadSlimProjection(t *testing.T) {
+	err := runGenerateExpectError(t, "bad_slim_projection.proto")
+	want := `masked by (protomcp.v1.field_schema).exclude`
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("want error containing %q, got %v", want, err)
+	}
+}
+
+func TestGenerate_BadSlimPromptVar(t *testing.T) {
+	err := runGenerateExpectError(t, "bad_slim_prompt_var.proto")
+	want := `masked by (protomcp.v1.field_schema).exclude`
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("want error containing %q, got %v", want, err)
+	}
+}
+
+func TestGenerate_ReadOnlyNameLintDisabled(t *testing.T) {
+	req := buildGenRequest(t, "bad_read_only_mutating.proto")
+	plugin, err := protogen.Options{}.New(req)
+	if err != nil {
+		t.Fatalf("protogen.New: %v", err)
+	}
+	if err := GenerateWithOptions(plugin, Options{DisableReadOnlyNameLint: true}); err != nil {
+		t.Fatalf("GenerateWithOptions: %v", err)
+	}
+	if resp := plugin.Response(); resp.Error != nil {
+		t.Fatalf("plugin error: %s", *resp.Error)
+	}
+}
+
+func TestGenerate_AnyMasking(t *testing.T) {
+	out := runGenerate(t, "any_masking.proto")
+
+	cases := []substringCase{
+		{"input containing Any clears excluded fields at runtime", true, "srv.ClearSchemaExcluded(&in)"},
+		{"output containing Any is masked at runtime", true, "MarshalProtoMasked(resp)"},
+	}
+	assertSubstrings(t, out, cases)
+}
+
+func TestGenerate_BadOneofRequired(t *testing.T) {
+	err := runGenerateExpectError(t, "bad_oneof_required.proto")
+	if err == nil {
+		t.Fatal("want error, got nil")
+	}
+	for _, want := range []string{
+		"BadOneof.Pick",
+		"PickRequest.target",
+		"every member is masked",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q\nerror: %v", want, err)
+		}
+	}
+}
+
+func TestGenerate_NoExclusionsEmitsNoClearCall(t *testing.T) {
+	out := runGenerate(t, "greeter.proto")
+	if strings.Contains(out, "ClearSchemaExcluded") {
+		t.Errorf("greeter fixture has no excluded fields; generated output must not call ClearSchemaExcluded")
+	}
+	if strings.Contains(out, "MarshalProtoMasked") {
+		t.Errorf("greeter fixture has no excluded fields; generated output must not call MarshalProtoMasked")
+	}
+}
+
+func TestGenerate_BadSlimRequired(t *testing.T) {
+	cases := []struct {
+		name       string
+		protoName  string
+		wantField  string
+		wantMethod string
+	}{
+		{
+			name:       "tool",
+			protoName:  "bad_slim_required.proto",
+			wantField:  "protomcp.gen.testdata.badslim.v1.BadSlimRequest.id",
+			wantMethod: "BadSlim.Describe",
+		},
+		{
+			name:       "prompt only",
+			protoName:  "bad_slim_required_prompt.proto",
+			wantField:  "protomcp.gen.testdata.badslimprompt.v1.ReviewRequest.id",
+			wantMethod: "BadSlimPrompt.Review",
+		},
+		{
+			name:       "resource template only",
+			protoName:  "bad_slim_required_resource.proto",
+			wantField:  "protomcp.gen.testdata.badslimresource.v1.FetchRequest.tenant",
+			wantMethod: "BadSlimResource.Fetch",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := runGenerateExpectError(t, tc.protoName)
+			if err == nil {
+				t.Fatal("want error, got nil")
+			}
+			for _, want := range []string{
+				"(protomcp.v1.field_schema).exclude on a required field",
+				tc.wantField,
+				tc.wantMethod,
+			} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error missing %q\nerror: %v", want, err)
+				}
+			}
+		})
+	}
+}
+
+func TestGenerate_SchemaBudget(t *testing.T) {
+	t.Run("exceeded", func(t *testing.T) {
+		err := runGenerateWithOptionsExpectError(t, "slim.proto", Options{MaxToolSchemaBytes: 50})
+		for _, want := range []string{
+			"max_tool_schema_bytes=50",
+			"(protomcp.v1.field_schema).exclude",
+			"Slim.Describe",
+		} {
+			if err == nil || !strings.Contains(err.Error(), want) {
+				t.Fatalf("want error containing %q, got %v", want, err)
+			}
+		}
+	})
+	t.Run("within limit", func(t *testing.T) {
+		req := buildGenRequest(t, "slim.proto")
+		plugin, err := protogen.Options{}.New(req)
+		if err != nil {
+			t.Fatalf("protogen.New: %v", err)
+		}
+		if err := GenerateWithOptions(plugin, Options{MaxToolSchemaBytes: 1 << 20}); err != nil {
+			t.Fatalf("GenerateWithOptions: %v", err)
+		}
+		if resp := plugin.Response(); resp.Error != nil {
+			t.Fatalf("plugin error: %s", *resp.Error)
+		}
+	})
+}
+
+func runGenerateWithOptionsExpectError(t *testing.T, protoName string, opts Options) error {
+	t.Helper()
+	req := buildGenRequest(t, protoName)
+	plugin, err := protogen.Options{}.New(req)
+	if err != nil {
+		t.Fatalf("protogen.New: %v", err)
+	}
+	genErr := GenerateWithOptions(plugin, opts)
+	if genErr != nil {
+		return genErr
+	}
+	if resp := plugin.Response(); resp.Error != nil {
+		return fmt.Errorf("%s", *resp.Error)
+	}
+	t.Fatalf("expected generator error for %q, got success", protoName)
+	return nil
+}
+
+func TestGenerate_BadReadOnlyMutating(t *testing.T) {
+	err := runGenerateExpectError(t, "bad_read_only_mutating.proto")
+	want := `BadReadOnly.DeleteWidget: protomcp.v1.tool sets read_only: true on an RPC whose name starts with the mutating verb "Delete"`
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("want error containing %q, got %v", want, err)
+	}
+}
+
+func TestGenerate_BadReadOnlyNameOverride(t *testing.T) {
+	err := runGenerateExpectError(t, "bad_read_only_name_override.proto")
+	if err == nil {
+		t.Fatal("want error, got nil")
+	}
+	for _, want := range []string{
+		"BadReadOnlyNameOverride.GetWidget",
+		`"delete_widget"`,
+		`mutating verb "Delete"`,
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q\nerror: %v", want, err)
+		}
+	}
+}
+
+func TestGenerate_BadReadOnlyPrefix(t *testing.T) {
+	err := runGenerateExpectError(t, "bad_read_only_prefix.proto")
+	if err == nil {
+		t.Fatal("want error, got nil")
+	}
+	for _, want := range []string{
+		"BadReadOnlyPrefix.GetWidget",
+		`"delete_BadReadOnlyPrefix_GetWidget"`,
+		`tool_prefix "delete_"`,
+		`mutating verb "Delete"`,
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q\nerror: %v", want, err)
+		}
+	}
+}
+
+func TestGenerate_BadReadOnlyDerivedName(t *testing.T) {
+	req := buildGenRequest(t, "read_only_names.proto")
+	for _, file := range req.ProtoFile {
+		if file.GetName() == "read_only_names.proto" {
+			file.Service[0].Name = proto.String("DeleteCatalog")
+		}
+	}
+	plugin, err := protogen.Options{}.New(req)
+	if err != nil {
+		t.Fatalf("protogen.New: %v", err)
+	}
+	err = Generate(plugin)
+	if err == nil {
+		if respErr := plugin.Response().Error; respErr != nil {
+			err = fmt.Errorf("%s", *respErr)
+		} else {
+			t.Fatal("want error, got nil")
+		}
+	}
+	for _, want := range []string{
+		"DeleteCatalog.GetWidget",
+		`"DeleteCatalog_GetWidget"`,
+		`mutating verb "Delete"`,
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q\nerror: %v", want, err)
+		}
+	}
+}
+
+func TestGenerate_ReadOnlyNames(t *testing.T) {
+	out := runGenerate(t, "read_only_names.proto")
+
+	cases := []substringCase{
+		{"GetWidget generated", true, `"ReadOnlyNames_GetWidget"`},
+		{"ListWidgets generated", true, `"ReadOnlyNames_ListWidgets"`},
+		{"SettingsInfo not flagged as Set-prefixed", true, `"ReadOnlyNames_SettingsInfo"`},
+		{"SetDifference generated via per-RPC lint opt-out", true, `"ReadOnlyNames_SetDifference"`},
+		{"read-only hint emitted", true, "&mcp.ToolAnnotations{ReadOnlyHint: true}"},
+	}
+	assertSubstrings(t, out, cases)
+}
+
+func TestGenerate_SlimZeroValueRule(t *testing.T) {
+	err := runGenerateExpectError(t, "slim_zero.proto")
+	if err == nil {
+		t.Fatal("want error, got nil")
+	}
+	for _, want := range []string{
+		"FetchZeroRequest.selector",
+		`buf.validate rule "string.min_len"`,
+		"cleared zero value always violates",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q\nerror: %v", want, err)
+		}
+	}
+}
+
+func TestMutatingVerbPrefix(t *testing.T) {
+	cases := []struct {
+		in      string
+		wantHit bool
+	}{
+		{"DeleteWidget", true},
+		{"Delete", true},
+		{"Set_Value", true},
+		{"Update2Widgets", true},
+		{"ApplyInstance", true},
+		{"GrantAccess", true},
+		{"SettingsInfo", false},
+		{"Address", false},
+		{"Removal", false},
+		{"GetWidget", false},
+	}
+	for _, tc := range cases {
+		verb, hit := mutatingVerbPrefix(tc.in)
+		if hit != tc.wantHit {
+			t.Errorf("mutatingVerbPrefix(%q) hit = %v, want %v", tc.in, hit, tc.wantHit)
+		}
+		if hit && !strings.HasPrefix(tc.in, verb) {
+			t.Errorf("mutatingVerbPrefix(%q) returned verb %q that is not a prefix", tc.in, verb)
+		}
+		if !hit && verb != "" {
+			t.Errorf("mutatingVerbPrefix(%q) returned verb %q without a hit", tc.in, verb)
+		}
+	}
+}
+
+func TestMutatingVerbPrefixFold(t *testing.T) {
+	cases := []struct {
+		in      string
+		wantHit bool
+	}{
+		{"delete_widget", true},
+		{"DeleteWidget", true},
+		{"DELETE_WIDGET", true},
+		{"delete", true},
+		{"update2widgets", true},
+		{"deletewidget", false},
+		{"settings_info", false},
+		{"get_widget", false},
+		{"removal", false},
+	}
+	for _, tc := range cases {
+		verb, hit := mutatingVerbPrefixFold(tc.in)
+		if hit != tc.wantHit {
+			t.Errorf("mutatingVerbPrefixFold(%q) hit = %v, want %v", tc.in, hit, tc.wantHit)
+		}
+		if hit && verb == "" {
+			t.Errorf("mutatingVerbPrefixFold(%q) hit without a verb", tc.in)
+		}
+	}
+}
+
 // TestGenerate_OptionsVariety covers service-level tool_prefix, explicit
 // tool name override (with prefix), every combination of hint flags, the
 // description-override vs. leading-comment fallback, and the server-
@@ -284,6 +643,68 @@ func TestGenerate_Prompts(t *testing.T) {
 		{"string.in values", true, `"alpha"`},
 	}
 	assertSubstrings(t, out, cases)
+}
+
+func TestGenerate_PromptRequiredness(t *testing.T) {
+	out := runGenerate(t, "prompt_requiredness.proto")
+	assertSubstrings(t, out, []substringCase{
+		{"prompt args decoded through protojson", true, "srv.UnmarshalProto(payload, in)"},
+		{"optional string is not assigned directly", false, "in.RequiredIgnoreZeroWithPresence = v"},
+	})
+	cases := []struct {
+		name     string
+		required bool
+	}{
+		{"apiRequired", true},
+		{"protovalidateRequired", true},
+		{"requiredIgnoreAlways", false},
+		{"requiredIgnoreZero", false},
+		{"requiredIgnoreZeroWithPresence", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			marker := `"` + tc.name + `"`
+			start := strings.Index(out, marker)
+			if start < 0 {
+				t.Fatalf("prompt argument %q not found\n--- file ---\n%s", tc.name, out)
+			}
+			block := out[start:]
+			if end := strings.Index(block, "},"); end >= 0 {
+				block = block[:end]
+			}
+			if got := strings.Contains(block, "Required: true"); got != tc.required {
+				t.Errorf("prompt argument %q required = %v, want %v\n--- block ---\n%s", tc.name, got, tc.required, block)
+			}
+		})
+	}
+}
+
+func TestGenerate_PromptOutputOnlyArgumentOmitted(t *testing.T) {
+	req := buildGenRequest(t, "prompt_requiredness.proto")
+	for _, file := range req.ProtoFile {
+		if file.GetName() != "prompt_requiredness.proto" {
+			continue
+		}
+		field := file.MessageType[0].Field[2]
+		proto.SetExtension(field.Options, annotations.E_FieldBehavior, []annotations.FieldBehavior{
+			annotations.FieldBehavior_OUTPUT_ONLY,
+		})
+	}
+	plugin, err := protogen.Options{}.New(req)
+	if err != nil {
+		t.Fatalf("protogen.New: %v", err)
+	}
+	if err := Generate(plugin); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	resp := plugin.Response()
+	if resp.Error != nil {
+		t.Fatalf("plugin error: %s", *resp.Error)
+	}
+	out := resp.File[0].GetContent()
+	if strings.Contains(out, `"requiredIgnoreAlways"`) {
+		t.Fatalf("OUTPUT_ONLY request field was exposed as a prompt argument\n--- file ---\n%s", out)
+	}
 }
 
 // TestGenerate_BadPromptStreams_Errors asserts the generator returns a

@@ -30,6 +30,8 @@ type resourceReadTemplateData struct {
 	OutputTypeRef string
 	ClientMethod  string
 
+	OutputHasExcluded bool
+
 	// UniqueName is the Service_Method identifier used to synthesize
 	// package-level var names.
 	UniqueName string
@@ -57,6 +59,8 @@ type resourceListTemplateData struct {
 	InputTypeRef  string
 	OutputTypeRef string
 	ClientMethod  string
+
+	OutputHasExcluded bool
 
 	UniqueName string
 }
@@ -175,7 +179,10 @@ func buildResourceReadTemplateData(
 		InputTypeRef:    g.QualifiedGoIdent(m.Input.GoIdent),
 		OutputTypeRef:   g.QualifiedGoIdent(m.Output.GoIdent),
 		ClientMethod:    "client." + m.GoName,
-		UniqueName:      unique,
+
+		OutputHasExcluded: schema.HasExclusions(m.Output.Desc),
+
+		UniqueName: unique,
 	}, nil
 }
 
@@ -273,7 +280,10 @@ func buildResourceListTemplateData(
 		InputTypeRef:    g.QualifiedGoIdent(m.Input.GoIdent),
 		OutputTypeRef:   g.QualifiedGoIdent(m.Output.GoIdent),
 		ClientMethod:    "client." + m.GoName,
-		UniqueName:      unique,
+
+		OutputHasExcluded: schema.HasExclusions(m.Output.Desc),
+
+		UniqueName: unique,
 	}, nil
 }
 

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -16,12 +17,14 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
+
+	protomcpv1 "github.com/akuity/protomcp/pkg/api/gen/protomcp/v1"
 )
 
 // Options controls schema generation.
 type Options struct {
 	// MaxRecursionDepth caps recursive message expansion per path
-	// before substituting a string placeholder. Zero uses the default
+	// before substituting a permissive object placeholder. Zero uses the default
 	// (3).
 	MaxRecursionDepth int
 }
@@ -69,7 +72,12 @@ func ForInputE(md protoreflect.MessageDescriptor, opts Options) (_ map[string]an
 			panic(r)
 		}
 	}()
-	return messageSchema(md, opts, nil, isInputField), nil
+	if err := validateInputExclusions(md, make(map[protoreflect.FullName]bool)); err != nil {
+		return nil, err
+	}
+	return messageSchema(md, opts, nil, func(fd protoreflect.FieldDescriptor) bool {
+		return isInputField(fd) && !isExcluded(fd)
+	}, true), nil
 }
 
 // ForOutputE is like ForOutput but returns any comment-marker parse errors
@@ -84,7 +92,9 @@ func ForOutputE(md protoreflect.MessageDescriptor, opts Options) (_ map[string]a
 			panic(r)
 		}
 	}()
-	return messageSchema(md, opts, nil, includeAllFields), nil
+	return messageSchema(md, opts, nil, func(fd protoreflect.FieldDescriptor) bool {
+		return !isExcluded(fd)
+	}, false), nil
 }
 
 // commentError reports a structured-marker (e.g. @example) parse error
@@ -109,7 +119,132 @@ func (e *commentError) Error() string {
 
 func (e *commentError) Unwrap() error { return e.Inner }
 
-func includeAllFields(_ protoreflect.FieldDescriptor) bool { return true }
+// IsExcluded reports whether fd carries (protomcp.v1.field_schema).exclude = true.
+func IsExcluded(fd protoreflect.FieldDescriptor) bool {
+	return isExcluded(fd)
+}
+
+// IsInputField reports whether clients may set fd. OUTPUT_ONLY fields are
+// server-computed and therefore absent from every generated input surface.
+func IsInputField(fd protoreflect.FieldDescriptor) bool {
+	return isInputField(fd)
+}
+
+// ValidateInputExclusions rejects (protomcp.v1.field_schema).exclude on a required input field anywhere in md's reachable graph.
+func ValidateInputExclusions(md protoreflect.MessageDescriptor) error {
+	return validateInputExclusions(md, make(map[protoreflect.FullName]bool))
+}
+
+func isExcluded(fd protoreflect.FieldDescriptor) bool {
+	opts := fd.Options()
+	if opts == nil || !proto.HasExtension(opts, protomcpv1.E_FieldSchema) {
+		return false
+	}
+	fso, _ := proto.GetExtension(opts, protomcpv1.E_FieldSchema).(*protomcpv1.FieldSchemaOptions)
+	return fso.GetExclude()
+}
+
+func validateInputExclusions(md protoreflect.MessageDescriptor, seen map[protoreflect.FullName]bool) error {
+	if seen[md.FullName()] {
+		return nil
+	}
+	seen[md.FullName()] = true
+	oneofs := md.Oneofs()
+	for i := range oneofs.Len() {
+		oo := oneofs.Get(i)
+		if oo.IsSynthetic() || !oneofRequired(oo) {
+			continue
+		}
+		visible := 0
+		members := oo.Fields()
+		for j := range members.Len() {
+			if fd := members.Get(j); isInputField(fd) && !isExcluded(fd) {
+				visible++
+			}
+		}
+		if visible == 0 {
+			return fmt.Errorf(
+				"oneof %s: (buf.validate.oneof).required = true but every member is "+
+					"masked from the input schema (field_schema.exclude or OUTPUT_ONLY); "+
+					"clients could never satisfy the oneof — unmask a member or drop required",
+				oo.FullName())
+		}
+	}
+	fields := md.Fields()
+	for i := range fields.Len() {
+		fd := fields.Get(i)
+		if !isInputField(fd) {
+			continue
+		}
+		if isExcluded(fd) {
+			if IsRequired(fd) {
+				return fmt.Errorf(
+					"field %s: (protomcp.v1.field_schema).exclude on a required field: "+
+						"the input schema would omit a field the upstream call requires; "+
+						"drop exclude or the required constraint", fd.FullName())
+			}
+			if rule, bad := zeroValueViolation(fd); bad {
+				return fmt.Errorf(
+					"field %s: (protomcp.v1.field_schema).exclude on a field whose "+
+						"cleared zero value always violates buf.validate rule %q: the "+
+						"generated handler clears excluded fields before the upstream "+
+						"call, so every request would be rejected; drop exclude or the "+
+						"rule, or set (buf.validate.field).ignore", fd.FullName(), rule)
+			}
+			continue
+		}
+		switch {
+		case fd.IsMap():
+			if fd.MapValue().Kind() == protoreflect.MessageKind {
+				if err := validateInputExclusions(fd.MapValue().Message(), seen); err != nil {
+					return err
+				}
+			}
+		case fd.Kind() == protoreflect.MessageKind || fd.Kind() == protoreflect.GroupKind:
+			if err := validateInputExclusions(fd.Message(), seen); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// HasExclusions reports whether any field reachable from md carries
+// (protomcp.v1.field_schema).exclude = true. A reachable
+// google.protobuf.Any counts as an exclusion: its payload type is
+// unknown until runtime, so the generated code must route through the
+// masking helpers, which inspect the packed message dynamically.
+func HasExclusions(md protoreflect.MessageDescriptor) bool {
+	return hasExclusions(md, make(map[protoreflect.FullName]bool))
+}
+
+func hasExclusions(md protoreflect.MessageDescriptor, seen map[protoreflect.FullName]bool) bool {
+	if md.FullName() == "google.protobuf.Any" {
+		return true
+	}
+	if seen[md.FullName()] {
+		return false
+	}
+	seen[md.FullName()] = true
+	fields := md.Fields()
+	for i := range fields.Len() {
+		fd := fields.Get(i)
+		if isExcluded(fd) {
+			return true
+		}
+		switch {
+		case fd.IsMap():
+			if fd.MapValue().Kind() == protoreflect.MessageKind && hasExclusions(fd.MapValue().Message(), seen) {
+				return true
+			}
+		case fd.Kind() == protoreflect.MessageKind || fd.Kind() == protoreflect.GroupKind:
+			if hasExclusions(fd.Message(), seen) {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // isInputField drops OUTPUT_ONLY fields (AIP-203) from input schemas.
 func isInputField(fd protoreflect.FieldDescriptor) bool {
@@ -127,6 +262,7 @@ func messageSchema(
 	opts Options,
 	seen map[protoreflect.FullName]int,
 	filter fieldFilter,
+	input bool,
 ) map[string]any {
 	if seen == nil {
 		seen = make(map[protoreflect.FullName]int)
@@ -137,8 +273,8 @@ func messageSchema(
 	}
 	if seen[md.FullName()] >= maxDepth {
 		return map[string]any{
-			"type":        "string",
-			"description": fmt.Sprintf("JSON-encoded %s. Provide a JSON object as a string.", md.Name()),
+			"type":        "object",
+			"description": fmt.Sprintf("Recursion truncated for %s. Provide a JSON object.", md.Name()),
 		}
 	}
 	seen[md.FullName()]++
@@ -146,7 +282,7 @@ func messageSchema(
 
 	required := []string{}
 	properties := map[string]any{}
-	oneOfGroups := map[string][]map[string]any{}
+	oneOfGroups := map[string][]string{}
 
 	fields := md.Fields()
 	for i := range fields.Len() {
@@ -158,34 +294,42 @@ func messageSchema(
 		// protojson.Marshal produces on the response side.
 		name := fd.JSONName()
 
-		// Real oneofs → anyOf {oneOf:...}; synthetic oneofs
+		properties[name] = fieldSchema(fd, opts, seen, filter, input)
+
+		if IsRequired(fd) {
+			required = append(required, name)
+		}
+
+		// Real oneofs → allOf {oneOf:...}; synthetic oneofs
 		// (proto3 `optional`) fall through as ordinary optional fields.
 		if oneof := fd.ContainingOneof(); oneof != nil && !oneof.IsSynthetic() {
 			key := string(oneof.Name())
-			oneOfGroups[key] = append(oneOfGroups[key], map[string]any{
-				"properties": map[string]any{name: fieldSchema(fd, opts, seen, filter)},
-				"required":   []string{name},
-			})
-			continue
-		}
-
-		properties[name] = fieldSchema(fd, opts, seen, filter)
-		if isRequired(fd) {
-			required = append(required, name)
+			oneOfGroups[key] = append(oneOfGroups[key], name)
 		}
 	}
 
 	// Declaration-order iteration for deterministic output.
-	var anyOf []map[string]any
+	var allOf []map[string]any
 	oneofs := md.Oneofs()
 	for i := range oneofs.Len() {
 		oo := oneofs.Get(i)
 		if oo.IsSynthetic() {
 			continue
 		}
-		if entries, ok := oneOfGroups[string(oo.Name())]; ok {
-			anyOf = append(anyOf, map[string]any{"oneOf": entries})
+		arms, ok := oneOfGroups[string(oo.Name())]
+		if !ok {
+			continue
 		}
+		branches := make([]map[string]any, 0, len(arms)+1)
+		armSet := make([]map[string]any, 0, len(arms))
+		for _, arm := range arms {
+			branches = append(branches, map[string]any{"required": []string{arm}})
+			armSet = append(armSet, map[string]any{"required": []string{arm}})
+		}
+		if !oneofRequired(oo) || (!input && len(arms) < oo.Fields().Len()) {
+			branches = append(branches, map[string]any{"not": map[string]any{"anyOf": armSet}})
+		}
+		allOf = append(allOf, map[string]any{"oneOf": branches})
 	}
 
 	result := map[string]any{
@@ -195,8 +339,8 @@ func messageSchema(
 	if len(required) > 0 {
 		result["required"] = required
 	}
-	if anyOf != nil {
-		result["anyOf"] = anyOf
+	if allOf != nil {
+		result["allOf"] = allOf
 	}
 	return result
 }
@@ -208,9 +352,10 @@ func fieldSchema(
 	opts Options,
 	seen map[protoreflect.FullName]int,
 	filter fieldFilter,
+	input bool,
 ) map[string]any {
 	if fd.IsMap() {
-		m := mapFieldSchema(fd, opts, seen, filter)
+		m := mapFieldSchema(fd, opts, seen, filter, input)
 		decorateFieldSchema(fd, m)
 		return m
 	}
@@ -218,7 +363,7 @@ func fieldSchema(
 	var schema map[string]any
 	switch fd.Kind() {
 	case protoreflect.MessageKind, protoreflect.GroupKind:
-		schema = messageFieldSchema(fd, opts, seen, filter)
+		schema = messageFieldSchema(fd, opts, seen, filter, input)
 	case protoreflect.EnumKind:
 		schema = enumFieldSchema(fd)
 	default:
@@ -364,9 +509,10 @@ func mapFieldSchema(
 	opts Options,
 	seen map[protoreflect.FullName]int,
 	filter fieldFilter,
+	input bool,
 ) map[string]any {
 	keySchema := keyConstraints(fd.MapKey())
-	valueSchema := fieldSchema(fd.MapValue(), opts, seen, filter)
+	valueSchema := fieldSchema(fd.MapValue(), opts, seen, filter, input)
 
 	// buf.validate map.keys / map.values overlays
 	if rules := fieldRules(fd); rules != nil {
@@ -409,6 +555,7 @@ func messageFieldSchema(
 	opts Options,
 	seen map[protoreflect.FullName]int,
 	filter fieldFilter,
+	input bool,
 ) map[string]any {
 	switch string(fd.Message().FullName()) {
 	case "google.protobuf.Timestamp":
@@ -449,7 +596,7 @@ func messageFieldSchema(
 	case "google.protobuf.Empty":
 		return map[string]any{"type": "object"}
 	default:
-		return messageSchema(fd.Message(), opts, seen, filter)
+		return messageSchema(fd.Message(), opts, seen, filter, input)
 	}
 }
 
@@ -563,19 +710,281 @@ func kindToJSONType(k protoreflect.Kind) string {
 	}
 }
 
-// isRequired reads google.api.field_behavior=REQUIRED (AIP-203) and
-// buf.validate.field.required.
-func isRequired(fd protoreflect.FieldDescriptor) bool {
+// IsRequired reports whether fd is required by
+// google.api.field_behavior=REQUIRED (AIP-203) or
+// buf.validate.field.required. IGNORE_ALWAYS disables the latter;
+// IGNORE_IF_ZERO_VALUE also disables it for fields without presence.
+func IsRequired(fd protoreflect.FieldDescriptor) bool {
 	if proto.HasExtension(fd.Options(), annotations.E_FieldBehavior) {
 		behaviors, _ := proto.GetExtension(fd.Options(), annotations.E_FieldBehavior).([]annotations.FieldBehavior)
 		if slices.Contains(behaviors, annotations.FieldBehavior_REQUIRED) {
 			return true
 		}
 	}
-	if rules := fieldRules(fd); rules != nil && rules.GetRequired() {
+	rules := fieldRules(fd)
+	if rules == nil || !rules.GetRequired() {
+		return false
+	}
+	switch rules.GetIgnore() {
+	case validate.Ignore_IGNORE_ALWAYS:
+		return false
+	case validate.Ignore_IGNORE_IF_ZERO_VALUE:
+		return fd.HasPresence()
+	default:
 		return true
 	}
-	return false
+}
+
+// zeroValueViolation reports a buf.validate rule that the field's zero
+// value is guaranteed to violate, for fields protovalidate always
+// evaluates (no presence: proto3 implicit scalars, repeated, maps).
+// Detection is best-effort over deterministic rules; CEL expressions are
+// not analyzed.
+func zeroValueViolation(fd protoreflect.FieldDescriptor) (string, bool) {
+	if fd.HasPresence() {
+		return "", false
+	}
+	rules := fieldRules(fd)
+	if rules == nil {
+		return "", false
+	}
+	switch rules.GetIgnore() {
+	case validate.Ignore_IGNORE_ALWAYS, validate.Ignore_IGNORE_IF_ZERO_VALUE:
+		return "", false
+	}
+	switch {
+	case fd.IsList():
+		if rules.GetRepeated().GetMinItems() > 0 {
+			return "repeated.min_items", true
+		}
+		return "", false
+	case fd.IsMap():
+		if rules.GetMap().GetMinPairs() > 0 {
+			return "map.min_pairs", true
+		}
+		return "", false
+	}
+	if s := rules.GetString(); s != nil {
+		return stringZeroViolation(s)
+	}
+	if b := rules.GetBytes(); b != nil {
+		return bytesZeroViolation(b)
+	}
+	if b := rules.GetBool(); b != nil && b.HasConst() && b.GetConst() {
+		return "bool.const", true
+	}
+	if e := rules.GetEnum(); e != nil {
+		return enumZeroViolation(fd, e)
+	}
+	return numericZeroViolation(rules)
+}
+
+func stringZeroViolation(s *validate.StringRules) (string, bool) {
+	switch {
+	case s.HasConst() && s.GetConst() != "":
+		return "string.const", true
+	case s.HasLen() && s.GetLen() > 0:
+		return "string.len", true
+	case s.HasLenBytes() && s.GetLenBytes() > 0:
+		return "string.len_bytes", true
+	case s.HasMinLen() && s.GetMinLen() > 0:
+		return "string.min_len", true
+	case s.HasMinBytes() && s.GetMinBytes() > 0:
+		return "string.min_bytes", true
+	case s.GetPrefix() != "":
+		return "string.prefix", true
+	case s.GetSuffix() != "":
+		return "string.suffix", true
+	case s.GetContains() != "":
+		return "string.contains", true
+	case s.HasNotContains() && s.GetNotContains() == "":
+		return "string.not_contains", true
+	case len(s.GetIn()) > 0 && !slices.Contains(s.GetIn(), ""):
+		return "string.in", true
+	case slices.Contains(s.GetNotIn(), ""):
+		return "string.not_in", true
+	}
+	if s.HasPattern() {
+		if re, err := regexp.Compile(s.GetPattern()); err == nil && !re.MatchString("") {
+			return "string.pattern", true
+		}
+	}
+	return stringWellKnownZeroViolation(s)
+}
+
+func stringWellKnownZeroViolation(s *validate.StringRules) (string, bool) {
+	r := s.ProtoReflect()
+	wellKnown := r.Descriptor().Oneofs().ByName("well_known")
+	fd := r.WhichOneof(wellKnown)
+	if fd == nil {
+		return "", false
+	}
+	switch fd.Name() {
+	case "email", "hostname", "ip", "ipv4", "ipv6", "uri", "address", "uuid", "tuuid",
+		"ip_with_prefixlen", "ipv4_with_prefixlen", "ipv6_with_prefixlen", "ip_prefix",
+		"ipv4_prefix", "ipv6_prefix", "host_and_port", "ulid", "protobuf_fqn", "protobuf_dot_fqn":
+		if r.Get(fd).Bool() {
+			return "string." + string(fd.Name()), true
+		}
+	case "well_known_regex":
+		if validate.KnownRegex(r.Get(fd).Enum()) == validate.KnownRegex_KNOWN_REGEX_HTTP_HEADER_NAME {
+			return "string.well_known_regex", true
+		}
+	case "uri_ref":
+		// The empty string is a valid relative URI reference.
+	}
+	return "", false
+}
+
+func bytesZeroViolation(b *validate.BytesRules) (string, bool) {
+	emptyIn := func(vals [][]byte) bool {
+		return slices.ContainsFunc(vals, func(v []byte) bool { return len(v) == 0 })
+	}
+	switch {
+	case b.HasConst() && len(b.GetConst()) > 0:
+		return "bytes.const", true
+	case b.HasLen() && b.GetLen() > 0:
+		return "bytes.len", true
+	case b.HasMinLen() && b.GetMinLen() > 0:
+		return "bytes.min_len", true
+	case len(b.GetPrefix()) > 0:
+		return "bytes.prefix", true
+	case len(b.GetSuffix()) > 0:
+		return "bytes.suffix", true
+	case len(b.GetContains()) > 0:
+		return "bytes.contains", true
+	case len(b.GetIn()) > 0 && !emptyIn(b.GetIn()):
+		return "bytes.in", true
+	case emptyIn(b.GetNotIn()):
+		return "bytes.not_in", true
+	case b.GetIp():
+		return "bytes.ip", true
+	case b.GetIpv4():
+		return "bytes.ipv4", true
+	case b.GetIpv6():
+		return "bytes.ipv6", true
+	case b.GetUuid():
+		return "bytes.uuid", true
+	}
+	if b.HasPattern() {
+		if re, err := regexp.Compile(b.GetPattern()); err == nil && !re.Match(nil) {
+			return "bytes.pattern", true
+		}
+	}
+	return "", false
+}
+
+func enumZeroViolation(fd protoreflect.FieldDescriptor, e *validate.EnumRules) (string, bool) {
+	switch {
+	case e.HasConst() && e.GetConst() != 0:
+		return "enum.const", true
+	case len(e.GetIn()) > 0 && !slices.Contains(e.GetIn(), 0):
+		return "enum.in", true
+	case slices.Contains(e.GetNotIn(), 0):
+		return "enum.not_in", true
+	case e.GetDefinedOnly() && fd.Enum().Values().ByNumber(0) == nil:
+		return "enum.defined_only", true
+	}
+	return "", false
+}
+
+// numericZero applies the shared zero-vs-bounds logic; all 12 numeric
+// rule messages funnel through it with their bounds widened to float64
+// (sign comparisons against zero survive the conversion).
+func numericZero(kind string, hasC bool, c float64, hasGt bool, gt float64, hasGte bool, gte float64,
+	hasLt bool, lt float64, hasLte bool, lte float64, inNoZero, notInZero bool,
+) (string, bool) {
+	switch {
+	case hasC && c != 0:
+		return kind + ".const", true
+	case hasGt && gt >= 0:
+		return kind + ".gt", true
+	case hasGte && gte > 0:
+		return kind + ".gte", true
+	case hasLt && lt <= 0:
+		return kind + ".lt", true
+	case hasLte && lte < 0:
+		return kind + ".lte", true
+	case inNoZero:
+		return kind + ".in", true
+	case notInZero:
+		return kind + ".not_in", true
+	}
+	return "", false
+}
+
+func numericZeroViolation(rules *validate.FieldRules) (string, bool) {
+	if r := rules.GetInt32(); r != nil {
+		return numericZero("int32", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
+			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
+			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
+	}
+	if r := rules.GetInt64(); r != nil {
+		return numericZero("int64", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
+			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
+			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
+	}
+	if r := rules.GetUint32(); r != nil {
+		return numericZero("uint32", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
+			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
+			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
+	}
+	if r := rules.GetUint64(); r != nil {
+		return numericZero("uint64", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
+			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
+			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
+	}
+	if r := rules.GetSint32(); r != nil {
+		return numericZero("sint32", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
+			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
+			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
+	}
+	if r := rules.GetSint64(); r != nil {
+		return numericZero("sint64", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
+			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
+			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
+	}
+	if r := rules.GetFixed32(); r != nil {
+		return numericZero("fixed32", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
+			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
+			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
+	}
+	if r := rules.GetFixed64(); r != nil {
+		return numericZero("fixed64", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
+			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
+			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
+	}
+	if r := rules.GetSfixed32(); r != nil {
+		return numericZero("sfixed32", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
+			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
+			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
+	}
+	if r := rules.GetSfixed64(); r != nil {
+		return numericZero("sfixed64", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
+			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
+			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
+	}
+	if r := rules.GetFloat(); r != nil {
+		return numericZero("float", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
+			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
+			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
+	}
+	if r := rules.GetDouble(); r != nil {
+		return numericZero("double", r.HasConst(), r.GetConst(), r.HasGt(), r.GetGt(),
+			r.HasGte(), r.GetGte(), r.HasLt(), r.GetLt(), r.HasLte(), r.GetLte(),
+			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
+	}
+	return "", false
+}
+
+// oneofRequired reads (buf.validate.oneof).required on oo.
+func oneofRequired(oo protoreflect.OneofDescriptor) bool {
+	opts := oo.Options()
+	if opts == nil || !proto.HasExtension(opts, validate.E_Oneof) {
+		return false
+	}
+	rules, _ := proto.GetExtension(opts, validate.E_Oneof).(*validate.OneofRules)
+	return rules.GetRequired()
 }
 
 // fieldRules returns the buf.validate FieldRules on fd, or nil.

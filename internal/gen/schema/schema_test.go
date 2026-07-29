@@ -4,13 +4,19 @@ import (
 	"encoding/json"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
+	"github.com/google/jsonschema-go/jsonschema"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/dynamicpb"
 
 	_ "github.com/akuity/protomcp/internal/gen/schema/testdata"
+	protomcpv1 "github.com/akuity/protomcp/pkg/api/gen/protomcp/v1"
 )
 
 // descByName looks up a message descriptor registered in the global protoregistry.
@@ -162,6 +168,15 @@ func TestRequiredAndOutputOnly(t *testing.T) {
 	if req["optionalField"] {
 		t.Error("optional_field wrongly listed as required")
 	}
+	if req["requiredIgnoreAlways"] {
+		t.Error("required_ignore_always wrongly listed as required")
+	}
+	if req["requiredIgnoreZero"] {
+		t.Error("required_ignore_zero wrongly listed as required")
+	}
+	if !req["requiredIgnoreZeroWithPresence"] {
+		t.Error("required_ignore_zero_with_presence not in required[]")
+	}
 
 	// Output schema includes server_computed (no stripping).
 	out := jsonRound(t, ForOutput(md, Options{}))
@@ -312,23 +327,41 @@ func TestOneofs(t *testing.T) {
 	md := descByName(t, "protomcp.testdata.v1.Oneofs")
 	s := jsonRound(t, ForInput(md, Options{}))
 
-	// Two real oneofs (choice, fallback) produce two anyOf entries in declaration order.
-	anyOf, ok := s["anyOf"].([]any)
-	if !ok || len(anyOf) != 2 {
-		t.Fatalf("expected two anyOf entries (choice, fallback), got %d: %v", len(anyOf), s["anyOf"])
+	// Two real oneofs (choice, fallback) produce two allOf entries in declaration order.
+	allOf, ok := s["allOf"].([]any)
+	if !ok || len(allOf) != 2 {
+		t.Fatalf("expected two allOf entries (choice, fallback), got %d: %v", len(allOf), s["allOf"])
 	}
-	choiceOneOf := anyOf[0].(map[string]any)["oneOf"].([]any)
-	if len(choiceOneOf) != 4 {
-		t.Errorf("choice oneOf: want 4 branches (text,count,nested,label), got %d", len(choiceOneOf))
+	choiceOneOf := allOf[0].(map[string]any)["oneOf"].([]any)
+	if len(choiceOneOf) != 5 {
+		t.Errorf("choice oneOf: want 5 branches (text,count,nested,label + no-arm), got %d", len(choiceOneOf))
 	}
-	fallbackOneOf := anyOf[1].(map[string]any)["oneOf"].([]any)
-	if len(fallbackOneOf) != 2 {
-		t.Errorf("fallback oneOf: want 2 branches (reason,silent), got %d", len(fallbackOneOf))
+	fallbackOneOf := allOf[1].(map[string]any)["oneOf"].([]any)
+	if len(fallbackOneOf) != 3 {
+		t.Errorf("fallback oneOf: want 3 branches (reason,silent + no-arm), got %d", len(fallbackOneOf))
+	}
+	// The last branch of each group accepts "no arm set" and rejects any set arm.
+	noArm := choiceOneOf[len(choiceOneOf)-1].(map[string]any)
+	notAnyOf, ok := noArm["not"].(map[string]any)["anyOf"].([]any)
+	if !ok || len(notAnyOf) != 4 {
+		t.Fatalf("choice no-arm branch: want not.anyOf with 4 entries, got %v", noArm)
 	}
 
-	// Synthetic oneofs (proto3 `optional`) must NOT appear in anyOf; the fields
-	// should be regular optional properties.
+	// Arm value schemas live in top-level properties (branches are
+	// presence-only), so a wrong-typed arm fails even when another arm
+	// carries the oneOf match.
 	props := s["properties"].(map[string]any)
+	for _, name := range []string{"text", "count", "nested", "label", "reason", "silent"} {
+		if _, ok := props[name]; !ok {
+			t.Errorf("oneof arm %s missing from top-level properties", name)
+		}
+		if requiredSet(s)[name] {
+			t.Errorf("oneof arm %s wrongly in top-level required", name)
+		}
+	}
+
+	// Synthetic oneofs (proto3 `optional`) must NOT appear in allOf; the fields
+	// should be regular optional properties.
 	for _, name := range []string{"maybeNote", "maybeCount"} {
 		if _, ok := props[name]; !ok {
 			t.Errorf("%s should be a regular optional property (synthetic oneof)", name)
@@ -336,6 +369,326 @@ func TestOneofs(t *testing.T) {
 		if requiredSet(s)[name] {
 			t.Errorf("%s wrongly required", name)
 		}
+	}
+}
+
+func TestHasExclusions_Any(t *testing.T) {
+	if !HasExclusions(descByName(t, "protomcp.testdata.v1.WellKnown")) {
+		t.Error("HasExclusions(WellKnown) = false; a reachable google.protobuf.Any must count as an exclusion")
+	}
+	if HasExclusions(descByName(t, "protomcp.testdata.v1.Scalars")) {
+		t.Error("HasExclusions(Scalars) = true, want false")
+	}
+}
+
+func TestRequiredOneof_NoEmptyBranch(t *testing.T) {
+	md := descByName(t, "protomcp.testdata.v1.RequiredOneof")
+	s := jsonRound(t, ForInput(md, Options{}))
+
+	allOf, ok := s["allOf"].([]any)
+	if !ok || len(allOf) != 1 {
+		t.Fatalf("expected one allOf entry, got %v", s["allOf"])
+	}
+	oneOf := allOf[0].(map[string]any)["oneOf"].([]any)
+	if len(oneOf) != 2 {
+		t.Fatalf("required oneof: want 2 branches (id, name) and no no-arm branch, got %d: %v", len(oneOf), oneOf)
+	}
+	for _, b := range oneOf {
+		if _, hasNot := b.(map[string]any)["not"]; hasNot {
+			t.Errorf("required oneof must not carry a no-arm branch: %v", b)
+		}
+	}
+
+	raw, err := json.Marshal(ForInput(md, Options{}))
+	if err != nil {
+		t.Fatalf("marshal schema: %v", err)
+	}
+	sch := &jsonschema.Schema{}
+	if uErr := json.Unmarshal(raw, sch); uErr != nil {
+		t.Fatalf("unmarshal into jsonschema.Schema: %v", uErr)
+	}
+	resolved, err := sch.Resolve(nil)
+	if err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+	cases := []struct {
+		name     string
+		instance map[string]any
+		valid    bool
+	}{
+		{"no arm rejected", map[string]any{}, false},
+		{"no arm rejected even with other fields", map[string]any{"note": "x"}, false},
+		{"one arm validates", map[string]any{"id": "x"}, true},
+		{"other arm validates", map[string]any{"name": "y"}, true},
+		{"two arms rejected", map[string]any{"id": "x", "name": "y"}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := resolved.Validate(tc.instance)
+			if tc.valid && err != nil {
+				t.Errorf("want valid, got %v", err)
+			}
+			if !tc.valid && err == nil {
+				t.Errorf("want validation failure, got none")
+			}
+		})
+	}
+}
+
+func TestRequiredOneofPartial_InputRequiresVisibleArm(t *testing.T) {
+	md := descByName(t, "protomcp.testdata.v1.RequiredOneofPartial")
+
+	in := jsonRound(t, ForInput(md, Options{}))
+	inOneOf := in["allOf"].([]any)[0].(map[string]any)["oneOf"].([]any)
+	if len(inOneOf) != 1 {
+		t.Fatalf("input oneOf: want 1 branch (visible only), got %d: %v", len(inOneOf), inOneOf)
+	}
+	for _, b := range inOneOf {
+		if _, hasNot := b.(map[string]any)["not"]; hasNot {
+			t.Errorf("input schema of a required oneof must not accept the no-arm case: %v", inOneOf)
+		}
+	}
+
+	raw, err := json.Marshal(ForInput(md, Options{}))
+	if err != nil {
+		t.Fatalf("marshal schema: %v", err)
+	}
+	sch := &jsonschema.Schema{}
+	if uErr := json.Unmarshal(raw, sch); uErr != nil {
+		t.Fatalf("unmarshal into jsonschema.Schema: %v", uErr)
+	}
+	resolved, err := sch.Resolve(nil)
+	if err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+	if vErr := resolved.Validate(map[string]any{}); vErr == nil {
+		t.Error("empty input validated; a required oneof with a visible arm must demand that arm")
+	}
+	if vErr := resolved.Validate(map[string]any{"visible": "x"}); vErr != nil {
+		t.Errorf("visible arm rejected: %v", vErr)
+	}
+	if vErr := resolved.Validate(map[string]any{"hidden": "y"}); vErr == nil {
+		t.Error("masked arm validated; hidden is OUTPUT_ONLY and cannot satisfy the oneof")
+	}
+
+	out := jsonRound(t, ForOutput(md, Options{}))
+	outOneOf := out["allOf"].([]any)[0].(map[string]any)["oneOf"].([]any)
+	if len(outOneOf) != 2 {
+		t.Fatalf("output oneOf: want 2 branches (visible, hidden), got %d: %v", len(outOneOf), outOneOf)
+	}
+	for _, b := range outOneOf {
+		if _, hasNot := b.(map[string]any)["not"]; hasNot {
+			t.Errorf("output schema sees every arm; no-arm branch must be dropped: %v", outOneOf)
+		}
+	}
+}
+
+func TestRequiredOneofPartial_FilteredOutputKeepsEmptyBranch(t *testing.T) {
+	md := descByName(t, "protomcp.testdata.v1.RequiredOneofPartial")
+
+	s := jsonRound(t, messageSchema(md, Options{}, nil, func(fd protoreflect.FieldDescriptor) bool {
+		return fd.Name() != "hidden"
+	}, false))
+	oneOf := s["allOf"].([]any)[0].(map[string]any)["oneOf"].([]any)
+	if len(oneOf) != 2 {
+		t.Fatalf("output oneOf: want 2 branches (visible + no-arm), got %d: %v", len(oneOf), oneOf)
+	}
+	if _, hasNot := oneOf[1].(map[string]any)["not"]; !hasNot {
+		t.Errorf("output schema with a filtered arm must keep the no-arm branch: %v", oneOf)
+	}
+}
+
+func TestOneofArmRequired_ArmInTopLevelRequired(t *testing.T) {
+	md := descByName(t, "protomcp.testdata.v1.OneofArmRequired")
+	s := jsonRound(t, ForInput(md, Options{}))
+	if !requiredSet(s)["id"] {
+		t.Fatalf("required oneof arm id missing from top-level required: %v", s["required"])
+	}
+	if requiredSet(s)["name"] {
+		t.Fatalf("non-required arm name wrongly in top-level required: %v", s["required"])
+	}
+
+	raw, err := json.Marshal(ForInput(md, Options{}))
+	if err != nil {
+		t.Fatalf("marshal schema: %v", err)
+	}
+	sch := &jsonschema.Schema{}
+	if uErr := json.Unmarshal(raw, sch); uErr != nil {
+		t.Fatalf("unmarshal into jsonschema.Schema: %v", uErr)
+	}
+	resolved, err := sch.Resolve(nil)
+	if err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+	cases := []struct {
+		name     string
+		instance map[string]any
+		valid    bool
+	}{
+		{"no arm rejected", map[string]any{}, false},
+		{"other arm alone rejected", map[string]any{"name": "x"}, false},
+		{"required arm validates", map[string]any{"id": "x"}, true},
+		{"both arms rejected", map[string]any{"id": "x", "name": "y"}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := resolved.Validate(tc.instance)
+			if tc.valid && err != nil {
+				t.Errorf("want valid, got %v", err)
+			}
+			if !tc.valid && err == nil {
+				t.Errorf("want validation failure, got none")
+			}
+		})
+	}
+}
+
+func TestZeroValueViolation(t *testing.T) {
+	md := descByName(t, "protomcp.testdata.v1.ZeroBreakers")
+	cases := map[string]string{
+		"min_len_s":            "string.min_len",
+		"min_items_r":          "repeated.min_items",
+		"min_pairs_m":          "map.min_pairs",
+		"gt_i":                 "int32.gt",
+		"gt_u":                 "uint64.gt",
+		"lte_neg":              "double.lte",
+		"const_b":              "bool.const",
+		"pattern_s":            "string.pattern",
+		"email_s":              "string.email",
+		"enum_in":              "enum.in",
+		"len_bytes_s":          "string.len_bytes",
+		"not_contains_empty_s": "string.not_contains",
+		"ok_pattern":           "",
+		"ok_max":               "",
+		"ok_presence":          "",
+		"ok_ignore_always":     "",
+		"ok_ignore_zero":       "",
+		"ok_email_disabled":    "",
+		"ok_uri_ref":           "",
+		"ok_http_header_value": "",
+	}
+	for name, want := range cases {
+		t.Run(name, func(t *testing.T) {
+			fd := md.Fields().ByName(protoreflect.Name(name))
+			if fd == nil {
+				t.Fatalf("field %s not found", name)
+			}
+			rule, bad := zeroValueViolation(fd)
+			if want == "" && bad {
+				t.Errorf("zeroValueViolation = %q, want none", rule)
+			}
+			if want != "" && (!bad || rule != want) {
+				t.Errorf("zeroValueViolation = (%q, %v), want (%q, true)", rule, bad, want)
+			}
+		})
+	}
+	if IsRequired(md.Fields().ByName("req_ignore_always")) {
+		t.Error("required=true with ignore=IGNORE_ALWAYS must not count as required")
+	}
+}
+
+func TestValidateInputExclusions_StringZeroValueRules(t *testing.T) {
+	tests := []struct {
+		name        string
+		fields      []string
+		wantErrRule string
+	}{
+		{name: "len bytes rejects empty", fields: []string{"len_bytes_s"}, wantErrRule: "string.len_bytes"},
+		{name: "not contains empty rejects empty", fields: []string{"not_contains_empty_s"}, wantErrRule: "string.not_contains"},
+		{name: "empty accepted", fields: []string{"ok_email_disabled", "ok_uri_ref", "ok_http_header_value"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			md := messageWithExcludedFields(t, "protomcp.testdata.v1.ZeroBreakers", tt.fields...)
+			err := ValidateInputExclusions(md)
+			if tt.wantErrRule == "" {
+				if err != nil {
+					t.Fatalf("ValidateInputExclusions: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantErrRule) {
+				t.Fatalf("ValidateInputExclusions error = %v, want rule %q", err, tt.wantErrRule)
+			}
+		})
+	}
+}
+
+func messageWithExcludedFields(t *testing.T, name string, fieldNames ...string) protoreflect.MessageDescriptor {
+	t.Helper()
+	md := descByName(t, name)
+	fileProto := protodesc.ToFileDescriptorProto(md.ParentFile())
+	fileProto.Name = proto.String("excluded_zero_value_fixtures.proto")
+	fileProto.Dependency = append(fileProto.Dependency, "protomcp/v1/annotations.proto")
+	messageProto := fileProto.MessageType[md.Index()]
+	wanted := make(map[string]bool, len(fieldNames))
+	for _, fieldName := range fieldNames {
+		wanted[fieldName] = true
+	}
+	for _, field := range messageProto.Field {
+		if wanted[field.GetName()] {
+			proto.SetExtension(field.Options, protomcpv1.E_FieldSchema, &protomcpv1.FieldSchemaOptions{Exclude: true})
+			delete(wanted, field.GetName())
+		}
+	}
+	if len(wanted) != 0 {
+		t.Fatalf("fields not found: %v", wanted)
+	}
+	file, err := protodesc.NewFile(fileProto, protoregistry.GlobalFiles)
+	if err != nil {
+		t.Fatalf("build descriptor: %v", err)
+	}
+	return file.Messages().ByName(md.Name())
+}
+
+func TestRequiredOneofAllMasked_InputErrors(t *testing.T) {
+	md := descByName(t, "protomcp.testdata.v1.RequiredOneofAllMasked")
+	if _, err := ForInputE(md, Options{}); err == nil || !strings.Contains(err.Error(), "every member is masked") {
+		t.Fatalf("ForInputE: want required-oneof masking error, got %v", err)
+	}
+	if _, err := ForOutputE(md, Options{}); err != nil {
+		t.Fatalf("ForOutputE: %v", err)
+	}
+}
+
+func TestOneofs_ZeroOrOneValidation(t *testing.T) {
+	md := descByName(t, "protomcp.testdata.v1.Oneofs")
+	raw, err := json.Marshal(ForOutput(md, Options{}))
+	if err != nil {
+		t.Fatalf("marshal schema: %v", err)
+	}
+	sch := &jsonschema.Schema{}
+	if uErr := json.Unmarshal(raw, sch); uErr != nil {
+		t.Fatalf("unmarshal into jsonschema.Schema: %v", uErr)
+	}
+	resolved, err := sch.Resolve(nil)
+	if err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+
+	cases := []struct {
+		name     string
+		instance map[string]any
+		valid    bool
+	}{
+		{"no arm set validates", map[string]any{}, true},
+		{"one arm set validates", map[string]any{"text": "x"}, true},
+		{"one arm per oneof validates", map[string]any{"count": float64(2), "reason": "r"}, true},
+		{"two arms of the same oneof rejected", map[string]any{"text": "x", "count": float64(2)}, false},
+		{"second arm rejected even when wrong-typed", map[string]any{"text": "x", "count": "wrong-type"}, false},
+		{"single wrong-typed arm rejected", map[string]any{"count": "wrong-type"}, false},
+		{"second oneof over-set rejected even when first is valid", map[string]any{"text": "x", "reason": "r", "silent": true}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := resolved.Validate(tc.instance)
+			if tc.valid && err != nil {
+				t.Errorf("want valid, got %v", err)
+			}
+			if !tc.valid && err == nil {
+				t.Errorf("want validation failure, got none")
+			}
+		})
 	}
 }
 
@@ -352,10 +705,43 @@ func TestRecursionCap(t *testing.T) {
 	if names := propertyNames(child1); !reflect.DeepEqual(names, []string{"child", "name"}) {
 		t.Fatalf("child1 properties: %v", names)
 	}
-	// Third level = placeholder string with the JSON-encoded hint.
+	// Third level remains an object so the schema accepts the same JSON
+	// shape that protojson requires for a message field.
 	child2 := get(t, child1, "properties", "child").(map[string]any)
-	if child2["type"] != "string" {
-		t.Errorf("recursion cap: expected string placeholder at max depth, got %v", child2["type"])
+	if child2["type"] != "object" {
+		t.Errorf("recursion cap: expected object placeholder at max depth, got %v", child2["type"])
+	}
+
+	rawSchema, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("marshal schema: %v", err)
+	}
+	sch := &jsonschema.Schema{}
+	if unmarshalErr := json.Unmarshal(rawSchema, sch); unmarshalErr != nil {
+		t.Fatalf("unmarshal schema: %v", unmarshalErr)
+	}
+	resolved, err := sch.Resolve(nil)
+	if err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+	instance := map[string]any{
+		"name": "root",
+		"child": map[string]any{
+			"name": "level-one",
+			"child": map[string]any{
+				"name": "level-two",
+			},
+		},
+	}
+	if validateErr := resolved.Validate(instance); validateErr != nil {
+		t.Fatalf("schema rejected protojson-compatible recursive object: %v", validateErr)
+	}
+	rawInstance, err := json.Marshal(instance)
+	if err != nil {
+		t.Fatalf("marshal instance: %v", err)
+	}
+	if err := protojson.Unmarshal(rawInstance, dynamicpb.NewMessage(md)); err != nil {
+		t.Fatalf("protojson rejected schema-compatible recursive object: %v", err)
 	}
 }
 

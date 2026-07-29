@@ -39,7 +39,11 @@
 			_ = Out
 			contents.Blob = {{.BlobFieldGetter}}
 		{{- else}}
+		{{- if .OutputHasExcluded}}
+			payload, mErr := srv.MarshalProtoMasked(resp)
+		{{- else}}
 			payload, mErr := srv.MarshalProto(resp)
+		{{- end}}
 			if mErr != nil {
 				return nil, mErr
 			}

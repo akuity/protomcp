@@ -133,3 +133,113 @@ var Profile_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "examples/auth/v1/auth.proto",
 }
+
+const (
+	TestPromptBinding_Render_FullMethodName = "/protomcp.examples.auth.v1.TestPromptBinding/Render"
+)
+
+// TestPromptBindingClient is the client API for TestPromptBinding service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// TestPromptBinding exists only to ensure generated prompt bindings compile
+// for presence-tracking scalars and real oneofs.
+type TestPromptBindingClient interface {
+	// Render exercises prompt argument decoding without direct Go field assignment.
+	Render(ctx context.Context, in *TestPromptBindingRequest, opts ...grpc.CallOption) (*TestPromptBindingReply, error)
+}
+
+type testPromptBindingClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewTestPromptBindingClient(cc grpc.ClientConnInterface) TestPromptBindingClient {
+	return &testPromptBindingClient{cc}
+}
+
+func (c *testPromptBindingClient) Render(ctx context.Context, in *TestPromptBindingRequest, opts ...grpc.CallOption) (*TestPromptBindingReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TestPromptBindingReply)
+	err := c.cc.Invoke(ctx, TestPromptBinding_Render_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TestPromptBindingServer is the server API for TestPromptBinding service.
+// All implementations must embed UnimplementedTestPromptBindingServer
+// for forward compatibility.
+//
+// TestPromptBinding exists only to ensure generated prompt bindings compile
+// for presence-tracking scalars and real oneofs.
+type TestPromptBindingServer interface {
+	// Render exercises prompt argument decoding without direct Go field assignment.
+	Render(context.Context, *TestPromptBindingRequest) (*TestPromptBindingReply, error)
+	mustEmbedUnimplementedTestPromptBindingServer()
+}
+
+// UnimplementedTestPromptBindingServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedTestPromptBindingServer struct{}
+
+func (UnimplementedTestPromptBindingServer) Render(context.Context, *TestPromptBindingRequest) (*TestPromptBindingReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method Render not implemented")
+}
+func (UnimplementedTestPromptBindingServer) mustEmbedUnimplementedTestPromptBindingServer() {}
+func (UnimplementedTestPromptBindingServer) testEmbeddedByValue()                           {}
+
+// UnsafeTestPromptBindingServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to TestPromptBindingServer will
+// result in compilation errors.
+type UnsafeTestPromptBindingServer interface {
+	mustEmbedUnimplementedTestPromptBindingServer()
+}
+
+func RegisterTestPromptBindingServer(s grpc.ServiceRegistrar, srv TestPromptBindingServer) {
+	// If the following call panics, it indicates UnimplementedTestPromptBindingServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&TestPromptBinding_ServiceDesc, srv)
+}
+
+func _TestPromptBinding_Render_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TestPromptBindingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TestPromptBindingServer).Render(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TestPromptBinding_Render_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TestPromptBindingServer).Render(ctx, req.(*TestPromptBindingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// TestPromptBinding_ServiceDesc is the grpc.ServiceDesc for TestPromptBinding service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var TestPromptBinding_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "protomcp.examples.auth.v1.TestPromptBinding",
+	HandlerType: (*TestPromptBindingServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Render",
+			Handler:    _TestPromptBinding_Render_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "examples/auth/v1/auth.proto",
+}

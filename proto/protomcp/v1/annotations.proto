@@ -38,6 +38,14 @@ extend google.protobuf.ServiceOptions {
   ServiceOptions service = 50002;
 }
 
+extend google.protobuf.FieldOptions {
+  FieldSchemaOptions field_schema = 50009;
+}
+
+message FieldSchemaOptions {
+  bool exclude = 1;
+}
+
 // Method-level elicitation modifier. Requires a sibling
 // protomcp.v1.tool on the same RPC; the generated tool handler calls
 // session.Elicit before the upstream gRPC call, gating execution on
@@ -65,6 +73,8 @@ message ToolOptions {
   // open_world signals the tool reaches outside the local server
   // (web fetch, third-party API, search).
   bool open_world  = 7;
+
+  bool disable_read_only_name_lint = 8;
 }
 
 // ServiceOptions applies to every annotated method on the service.

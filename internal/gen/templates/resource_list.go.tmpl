@@ -26,7 +26,11 @@
 				}
 				// Mustache resolves variables by protojson camelCase
 				// names for consistency with tool / resource surfaces.
+{{- if .OutputHasExcluded}}
+				itemJSON, iErr := srv.MarshalProtoMasked(item)
+{{- else}}
 				itemJSON, iErr := srv.MarshalProto(item)
+{{- end}}
 				if iErr != nil {
 					return nil, {{$.F.QFmtErrorf}}("protomcp: marshal item for %q: %w", uri, iErr)
 				}

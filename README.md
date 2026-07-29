@@ -276,10 +276,11 @@ Multiple primitives on one RPC are legal and additive. A `GetTask` RPC annotated
 | `name` | optional | string | `<Service>_<Method>` | Override the generated tool name. Validated at codegen against MCP's `[a-zA-Z0-9_.-]{≤128}` rule. |
 | `title` | optional | string |, | Human-readable title shown to MCP clients. |
 | `description` | optional | string | *leading proto comment* | Tool description. Falls back to the RPC's leading `//` comment when absent. |
-| `read_only` | optional | bool | false | Emits `annotations.readOnlyHint: true`. Hints the LLM the tool is safe to call speculatively. |
+| `read_only` | optional | bool | false | Emits `annotations.readOnlyHint: true`. Hints the LLM the tool is safe to call speculatively. An RPC (or final tool name, after `tool_prefix` / `name` override) that starts with a mutating verb (`Create`/`Update`/`Delete`/`Replace`/`Apply`/…) may not carry it — codegen fails. The check is a word-boundary heuristic: it catches `DeleteWidget` / `delete_widget`, not concatenations like `deletewidget`, and it cannot know semantics — a genuinely read-only `SetDifference` is a false positive. Escape hatches: per-RPC `disable_read_only_name_lint: true`, or the global plugin opt `read_only_name_lint=false`. |
 | `idempotent` | optional | bool | false | Emits `annotations.idempotentHint: true`. Client knows retry is safe. |
-| `destructive` | optional | bool | false | Emits `annotations.destructiveHint: true`. Client may confirm before calling. |
+| `destructive` | optional | bool | false | Emits `annotations.destructiveHint: true`. Client may confirm before calling; MCP clients ignore this hint when `read_only` is true. |
 | `open_world` | optional | bool | false | Emits `annotations.openWorldHint: true`. Signals the tool reaches outside the local server (web fetch, third-party API, search) so clients can adjust consent UX. |
+| `disable_read_only_name_lint` | optional | bool | false | Suppresses the mutating-verb name lint for this RPC only. Use for false positives (`SetDifference`, `ApplyTheorem`). |
 
 ### `protomcp.v1.resource_template`, method option (read side)
 
@@ -400,6 +401,26 @@ Hard codegen error when used without a companion `tool`, or on a streaming RPC.
 
 **Scope, confirm-only by design.** MCP's form and URL elicitation modes need stateful handshakes that do not map onto a unary gRPC call. If you need structured input from the user, collect it as tool arguments; they already become JSON Schema properties on `inputSchema`.
 
+### `protomcp.v1.field_schema`, field option (schema masking)
+
+| Field | Default | Effect |
+|---|---|---|
+| `exclude` | false | Masks the field from the generated tool input **and** output JSON Schemas, and masks it at runtime in both directions: client-supplied values are cleared after unmarshal (`protomcp.ClearSchemaExcluded`, recursive: nested, repeated, map) before the gRPC call, and server-set values are stripped from the serialized response JSON before it reaches the MCP client (`MarshalProtoMasked`; the proto message in `GRPCData.Output` is left untouched so trusted result processors, e.g. pagination, can still read backend-only fields). The response-side masking applies to every generated surface that marshals the RPC response: tool results, resource reads, resource-list items, and prompt rendering. Referencing an excluded field from a URI binding, `item_path`, `name_field`/`description_field`, `blob_field`, prompt template, or elicitation message is a codegen error, and excluded request fields are dropped from prompt arguments. Use it to slim tools generated from very large proto messages, or to keep internal-only fields out of LLM-visible schemas. Excluding a required field is a codegen error because the upstream call could never succeed. Required fields are identified by `google.api.field_behavior = REQUIRED` or `buf.validate` `required`; `IGNORE_ALWAYS`, and `IGNORE_IF_ZERO_VALUE` on fields without presence, make the latter constraint inert. |
+
+```proto
+message ApplySpec {
+  string name = 1;
+  // Too large / too internal for an LLM-facing schema:
+  InternalConfig raw_config = 2 [(protomcp.v1.field_schema).exclude = true];
+}
+```
+
+Pair with the plugin flag `max_tool_schema_bytes=N` (via `opt:` in `buf.gen.yaml`) to make CI fail when any single tool's combined input+output schema size exceeds `N` bytes; the error message points at `field_schema.exclude` as the fix. `0` (the default) disables the check.
+
+**Not an authorization boundary.** `exclude` shapes the LLM-visible surface and clears values best-effort; it does not enforce access control. In particular, `google.protobuf.FieldMask` fields pass through verbatim: a client can still name an excluded field in an `update_mask` path (the sibling field's cleared zero value may then be applied upstream, effectively letting the client blank a hidden field), and masks the server returns can leak excluded field *names*. protomcp cannot filter mask paths because which message a mask targets is an upstream convention (AIP-134), not something the proto declares. If an excluded field must be genuinely untouchable or unreadable, enforce that in the upstream service.
+
+**Masking failure semantics.** Input clearing (`Server.ClearOutputOnly` / `Server.ClearSchemaExcluded`, run on every parsed request) fails closed: an `Any` payload it cannot resolve or parse, and any content nested beyond the depth bound (10 000 levels, matching protojson's default unmarshal recursion limit), is cleared rather than forwarded upstream. Output masking (`MarshalProtoMasked`, used for tool results, resource reads, list items, prompt renders) fails loud: the same conditions return an error instead of serializing content the masking walk could not verify — a masked response is never silently truncated. `DefaultToolErrorHandler` applies the same rule to `google.rpc.Status` details and omits the structured error payload (keeping the text content) when the details cannot be verifiably masked.
+
 ### `protomcp.v1.service`, optional service-level options
 
 | Field | Default | Effect |
@@ -427,7 +448,7 @@ Each example is standalone, runnable, and has its own README.
 
 | Example | Shows |
 |---|---|
-| [`examples/greeter`](examples/greeter) | Tool primitive surface, unary + server-streaming RPCs, progress notifications with monotonic counter, **progress-token gRPC-metadata propagation**, `ToolErrorHandler`, `ToolResultProcessor` redaction, `ToolMiddleware` request mutation, SDK options pass-through |
+| [`examples/greeter`](examples/greeter) | Tool primitive surface, unary + server-streaming RPCs, progress notifications with monotonic counter, **progress-token gRPC-metadata propagation**, `ToolErrorHandler`, `ToolResultProcessor` redaction, `ToolMiddleware` request mutation, SDK options pass-through, **`field_schema.exclude` schema masking round-trip** |
 | [`examples/tasks`](examples/tasks) | **Every declarative MCP primitive end-to-end.** Tools with `read_only` / `idempotent` / `destructive` hints + `OUTPUT_ONLY` stripping, **two `resource_template` annotations (`tasks://{id}`, `tags://{id}`)**, **a single `resource_list` that enumerates both types via `{type}://{id}` with `OffsetPagination`**, **prompts (`tasks_review`)**, **elicitation (confirm `DeleteTask`)**, plus `@example` markers and `enumDescriptions` on `TaskStatus` |
 | [`examples/subscriptions`](examples/subscriptions) | **User-wired resource subscriptions** on top of the Tasks resource template. In-process `Hub` + `Manager` + `SubscribeHandler`/`UnsubscribeHandler` + `ss.Wait()` session-close watchdog. Race-tested. |
 | [`examples/auth`](examples/auth) | Two-layer auth: SDK-native bearer middleware **or** custom HTTP middleware, both writing gRPC metadata for the upstream |
@@ -623,7 +644,9 @@ srv := protomcp.New("svc", "0.1.0",
 )
 ```
 
-Both options govern tools, resources, and prompts uniformly. `DefaultToolErrorHandler`'s `google.rpc.Status` serialization is not routed through these options so error detail slots do not balloon with zeroed placeholders.
+Both options govern tools, resources, and prompts uniformly. A custom `Resolver` set on either option is also honored by the runtime masking helpers: generated handlers clear `OUTPUT_ONLY` / excluded input fields via `Server.ClearOutputOnly` / `Server.ClearSchemaExcluded` (which resolve `google.protobuf.Any` payloads through the unmarshal `Resolver`), and `MarshalProtoMasked` resolves `Any` payloads through the marshal `Resolver`, so dynamically registered types are masked rather than dropped. The package-level `protomcp.ClearOutputOnly` / `protomcp.ClearSchemaExcluded` only consult `protoregistry.GlobalTypes` and conservatively clear any `Any` they cannot resolve.
+
+`DefaultToolErrorHandler`'s `google.rpc.Status` serialization is not routed through these options so error detail slots do not balloon with zeroed placeholders; its detail messages are masked on a clone (resolving `Any` via `protoregistry.GlobalTypes`) so `field_schema.exclude` fields cannot leak through error details, and the structured payload is omitted entirely when the details cannot be verifiably masked.
 
 ### Registration: duplicate keys are refused
 
@@ -705,7 +728,7 @@ srv := protomcp.New("svc", "0.1.0",
 - **Unary RPCs** (tools, resources, prompts) and **server-streaming RPCs** (tool progress notifications). Progress-token metadata is forwarded to upstream gRPC as `mcp-progress-token`.
 - JSON Schema built from the proto descriptor following protojson conventions: int64/uint64 as string, enums as string names (with `enumDescriptions` from enum value comments), wrapper types as nullable primitives.
 - Every `google.protobuf.*` well-known type (Timestamp, Duration, Any, Empty, Struct, Value, ListValue, FieldMask, all 9 wrappers), all scalar kinds, enums, maps, repeated, nested messages (with a cycle-breaking recursion cap).
-- Proto3 `optional` (synthetic oneofs) as regular optional fields; real oneofs as JSON Schema `anyOf`.
+- Proto3 `optional` (synthetic oneofs) as regular optional fields; real oneofs as JSON Schema `allOf`/`oneOf` groups enforcing at most one arm set. Zero arms is valid (matching proto oneof semantics) unless the oneof carries `(buf.validate.oneof).required = true`: the input schema then demands exactly one settable arm (arms masked by `OUTPUT_ONLY` or `field_schema.exclude` don't count; masking every arm of a required oneof is a codegen error), while the output schema keeps accepting "no visible arm" when a masked arm may be the one the server set. An individual arm carrying `(buf.validate.field).required = true` (or `field_behavior = REQUIRED`) lands in top-level `required` — protovalidate demands that specific arm be populated, so the schema does too.
 - `buf.validate` / protovalidate constraints → JSON Schema keywords (see [annotation reference](#annotation-reference)).
 - `google.api.field_behavior`, `REQUIRED` and `OUTPUT_ONLY` (recursive stripping and runtime zeroing).
 - Schema hints from comments: field descriptions from leading `//` comments, `@example <json>` lines, enum-value `enumDescriptions`, `buf:lint:ignore` / `@ignore-comment` pragma stripping.

@@ -9,7 +9,10 @@ import (
 
 // mcpCompletionLimit is the MCP spec cap of 100 completion values per
 // response.
-const mcpCompletionLimit = 100
+const (
+	mcpCompletionLimit  = 100
+	promptReferenceType = "ref/prompt"
+)
 
 type promptArgKey struct {
 	prompt string
@@ -65,7 +68,7 @@ func (s *Server) completePromptArg(req *mcp.CompleteRequest) *mcp.CompleteResult
 	if req == nil || req.Params == nil || req.Params.Ref == nil {
 		return empty
 	}
-	if req.Params.Ref.Type != "ref/prompt" {
+	if req.Params.Ref.Type != promptReferenceType {
 		return empty
 	}
 	s.promptCompletionsMu.RLock()

@@ -112,6 +112,151 @@ func (x *WhoAmIResponse) GetTenant() string {
 	return ""
 }
 
+// TestPromptBindingRequest covers every string field representation used by
+// prompt arguments, plus an OUTPUT_ONLY field that must stay hidden.
+type TestPromptBindingRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Topic *string                `protobuf:"bytes,1,opt,name=topic,proto3,oneof" json:"topic,omitempty"`
+	// Types that are valid to be assigned to Identity:
+	//
+	//	*TestPromptBindingRequest_Alias
+	//	*TestPromptBindingRequest_Handle
+	Identity      isTestPromptBindingRequest_Identity `protobuf_oneof:"identity"`
+	ServerToken   string                              `protobuf:"bytes,4,opt,name=server_token,json=serverToken,proto3" json:"server_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TestPromptBindingRequest) Reset() {
+	*x = TestPromptBindingRequest{}
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestPromptBindingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestPromptBindingRequest) ProtoMessage() {}
+
+func (x *TestPromptBindingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestPromptBindingRequest.ProtoReflect.Descriptor instead.
+func (*TestPromptBindingRequest) Descriptor() ([]byte, []int) {
+	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *TestPromptBindingRequest) GetTopic() string {
+	if x != nil && x.Topic != nil {
+		return *x.Topic
+	}
+	return ""
+}
+
+func (x *TestPromptBindingRequest) GetIdentity() isTestPromptBindingRequest_Identity {
+	if x != nil {
+		return x.Identity
+	}
+	return nil
+}
+
+func (x *TestPromptBindingRequest) GetAlias() string {
+	if x != nil {
+		if x, ok := x.Identity.(*TestPromptBindingRequest_Alias); ok {
+			return x.Alias
+		}
+	}
+	return ""
+}
+
+func (x *TestPromptBindingRequest) GetHandle() string {
+	if x != nil {
+		if x, ok := x.Identity.(*TestPromptBindingRequest_Handle); ok {
+			return x.Handle
+		}
+	}
+	return ""
+}
+
+func (x *TestPromptBindingRequest) GetServerToken() string {
+	if x != nil {
+		return x.ServerToken
+	}
+	return ""
+}
+
+type isTestPromptBindingRequest_Identity interface {
+	isTestPromptBindingRequest_Identity()
+}
+
+type TestPromptBindingRequest_Alias struct {
+	Alias string `protobuf:"bytes,2,opt,name=alias,proto3,oneof"`
+}
+
+type TestPromptBindingRequest_Handle struct {
+	Handle string `protobuf:"bytes,3,opt,name=handle,proto3,oneof"`
+}
+
+func (*TestPromptBindingRequest_Alias) isTestPromptBindingRequest_Identity() {}
+
+func (*TestPromptBindingRequest_Handle) isTestPromptBindingRequest_Identity() {}
+
+// TestPromptBindingReply provides the template context for TestPromptBinding.
+type TestPromptBindingReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Text          string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TestPromptBindingReply) Reset() {
+	*x = TestPromptBindingReply{}
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestPromptBindingReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestPromptBindingReply) ProtoMessage() {}
+
+func (x *TestPromptBindingReply) ProtoReflect() protoreflect.Message {
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestPromptBindingReply.ProtoReflect.Descriptor instead.
+func (*TestPromptBindingReply) Descriptor() ([]byte, []int) {
+	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *TestPromptBindingReply) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
 // TestInner is a leaf with a mix of OUTPUT_ONLY and regular fields so
 // tests can assert the former gets cleared and the latter survives.
 type TestInner struct {
@@ -124,7 +269,7 @@ type TestInner struct {
 
 func (x *TestInner) Reset() {
 	*x = TestInner{}
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[2]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -136,7 +281,7 @@ func (x *TestInner) String() string {
 func (*TestInner) ProtoMessage() {}
 
 func (x *TestInner) ProtoReflect() protoreflect.Message {
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[2]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -149,7 +294,7 @@ func (x *TestInner) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestInner.ProtoReflect.Descriptor instead.
 func (*TestInner) Descriptor() ([]byte, []int) {
-	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{2}
+	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *TestInner) GetServerId() string {
@@ -178,7 +323,7 @@ type TestNested struct {
 
 func (x *TestNested) Reset() {
 	*x = TestNested{}
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[3]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -190,7 +335,7 @@ func (x *TestNested) String() string {
 func (*TestNested) ProtoMessage() {}
 
 func (x *TestNested) ProtoReflect() protoreflect.Message {
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[3]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -203,7 +348,7 @@ func (x *TestNested) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestNested.ProtoReflect.Descriptor instead.
 func (*TestNested) Descriptor() ([]byte, []int) {
-	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{3}
+	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *TestNested) GetInner() *TestInner {
@@ -226,7 +371,7 @@ type TestOutputOnlyMessage struct {
 
 func (x *TestOutputOnlyMessage) Reset() {
 	*x = TestOutputOnlyMessage{}
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[4]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -238,7 +383,7 @@ func (x *TestOutputOnlyMessage) String() string {
 func (*TestOutputOnlyMessage) ProtoMessage() {}
 
 func (x *TestOutputOnlyMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[4]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -251,7 +396,7 @@ func (x *TestOutputOnlyMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestOutputOnlyMessage.ProtoReflect.Descriptor instead.
 func (*TestOutputOnlyMessage) Descriptor() ([]byte, []int) {
-	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{4}
+	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *TestOutputOnlyMessage) GetStripped() *TestInner {
@@ -279,7 +424,7 @@ type TestRepeatedMessages struct {
 
 func (x *TestRepeatedMessages) Reset() {
 	*x = TestRepeatedMessages{}
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[5]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -291,7 +436,7 @@ func (x *TestRepeatedMessages) String() string {
 func (*TestRepeatedMessages) ProtoMessage() {}
 
 func (x *TestRepeatedMessages) ProtoReflect() protoreflect.Message {
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[5]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -304,7 +449,7 @@ func (x *TestRepeatedMessages) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestRepeatedMessages.ProtoReflect.Descriptor instead.
 func (*TestRepeatedMessages) Descriptor() ([]byte, []int) {
-	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{5}
+	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *TestRepeatedMessages) GetItems() []*TestInner {
@@ -325,7 +470,7 @@ type TestMapMessages struct {
 
 func (x *TestMapMessages) Reset() {
 	*x = TestMapMessages{}
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[6]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -337,7 +482,7 @@ func (x *TestMapMessages) String() string {
 func (*TestMapMessages) ProtoMessage() {}
 
 func (x *TestMapMessages) ProtoReflect() protoreflect.Message {
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[6]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -350,7 +495,7 @@ func (x *TestMapMessages) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestMapMessages.ProtoReflect.Descriptor instead.
 func (*TestMapMessages) Descriptor() ([]byte, []int) {
-	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{6}
+	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *TestMapMessages) GetItems() map[string]*TestInner {
@@ -376,7 +521,7 @@ type TestOneofOutputOnly struct {
 
 func (x *TestOneofOutputOnly) Reset() {
 	*x = TestOneofOutputOnly{}
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[7]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -388,7 +533,7 @@ func (x *TestOneofOutputOnly) String() string {
 func (*TestOneofOutputOnly) ProtoMessage() {}
 
 func (x *TestOneofOutputOnly) ProtoReflect() protoreflect.Message {
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[7]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -401,7 +546,7 @@ func (x *TestOneofOutputOnly) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestOneofOutputOnly.ProtoReflect.Descriptor instead.
 func (*TestOneofOutputOnly) Descriptor() ([]byte, []int) {
-	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{7}
+	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *TestOneofOutputOnly) GetChoice() isTestOneofOutputOnly_Choice {
@@ -457,7 +602,7 @@ type TestRepeatedOutputOnlyScalar struct {
 
 func (x *TestRepeatedOutputOnlyScalar) Reset() {
 	*x = TestRepeatedOutputOnlyScalar{}
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[8]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -469,7 +614,7 @@ func (x *TestRepeatedOutputOnlyScalar) String() string {
 func (*TestRepeatedOutputOnlyScalar) ProtoMessage() {}
 
 func (x *TestRepeatedOutputOnlyScalar) ProtoReflect() protoreflect.Message {
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[8]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -482,7 +627,7 @@ func (x *TestRepeatedOutputOnlyScalar) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestRepeatedOutputOnlyScalar.ProtoReflect.Descriptor instead.
 func (*TestRepeatedOutputOnlyScalar) Descriptor() ([]byte, []int) {
-	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{8}
+	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *TestRepeatedOutputOnlyScalar) GetServerIds() []string {
@@ -510,7 +655,7 @@ type TestAnyHolder struct {
 
 func (x *TestAnyHolder) Reset() {
 	*x = TestAnyHolder{}
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[9]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -522,7 +667,7 @@ func (x *TestAnyHolder) String() string {
 func (*TestAnyHolder) ProtoMessage() {}
 
 func (x *TestAnyHolder) ProtoReflect() protoreflect.Message {
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[9]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -535,7 +680,7 @@ func (x *TestAnyHolder) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestAnyHolder.ProtoReflect.Descriptor instead.
 func (*TestAnyHolder) Descriptor() ([]byte, []int) {
-	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{9}
+	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *TestAnyHolder) GetPayload() *anypb.Any {
@@ -570,7 +715,7 @@ type TestNode struct {
 
 func (x *TestNode) Reset() {
 	*x = TestNode{}
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[10]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -582,7 +727,7 @@ func (x *TestNode) String() string {
 func (*TestNode) ProtoMessage() {}
 
 func (x *TestNode) ProtoReflect() protoreflect.Message {
-	mi := &file_examples_auth_v1_auth_proto_msgTypes[10]
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -595,7 +740,7 @@ func (x *TestNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestNode.ProtoReflect.Descriptor instead.
 func (*TestNode) Descriptor() ([]byte, []int) {
-	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{10}
+	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *TestNode) GetSecret() string {
@@ -627,7 +772,17 @@ const file_examples_auth_v1_auth_proto_rawDesc = "" +
 	"\rWhoAmIRequest\"K\n" +
 	"\x0eWhoAmIResponse\x12\x1c\n" +
 	"\auser_id\x18\x01 \x01(\tB\x03\xe0A\x03R\x06userId\x12\x1b\n" +
-	"\x06tenant\x18\x02 \x01(\tB\x03\xe0A\x03R\x06tenant\"J\n" +
+	"\x06tenant\x18\x02 \x01(\tB\x03\xe0A\x03R\x06tenant\"\xa5\x01\n" +
+	"\x18TestPromptBindingRequest\x12\x19\n" +
+	"\x05topic\x18\x01 \x01(\tH\x01R\x05topic\x88\x01\x01\x12\x16\n" +
+	"\x05alias\x18\x02 \x01(\tH\x00R\x05alias\x12\x18\n" +
+	"\x06handle\x18\x03 \x01(\tH\x00R\x06handle\x12&\n" +
+	"\fserver_token\x18\x04 \x01(\tB\x03\xe0A\x03R\vserverTokenB\n" +
+	"\n" +
+	"\bidentityB\b\n" +
+	"\x06_topic\",\n" +
+	"\x16TestPromptBindingReply\x12\x12\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\"J\n" +
 	"\tTestInner\x12 \n" +
 	"\tserver_id\x18\x01 \x01(\tB\x03\xe0A\x03R\bserverId\x12\x1b\n" +
 	"\tuser_name\x18\x02 \x01(\tR\buserName\"H\n" +
@@ -666,7 +821,10 @@ const file_examples_auth_v1_auth_proto_rawDesc = "" +
 	"\x04data\x18\x02 \x01(\tR\x04data\x127\n" +
 	"\x04next\x18\x03 \x01(\v2#.protomcp.examples.auth.v1.TestNodeR\x04next2\xb9\x01\n" +
 	"\aProfile\x12\xad\x01\n" +
-	"\x06WhoAmI\x12(.protomcp.examples.auth.v1.WhoAmIRequest\x1a).protomcp.examples.auth.v1.WhoAmIResponse\"N\x8a\xb5\x18J\x12\bWho Am I\x1a<Returns the caller identity propagated from HTTP middleware. \x01B\xf1\x01\n" +
+	"\x06WhoAmI\x12(.protomcp.examples.auth.v1.WhoAmIRequest\x1a).protomcp.examples.auth.v1.WhoAmIResponse\"N\x8a\xb5\x18J\x12\bWho Am I\x1a<Returns the caller identity propagated from HTTP middleware. \x012\x96\x01\n" +
+	"\x11TestPromptBinding\x12\x80\x01\n" +
+	"\x06Render\x123.protomcp.examples.auth.v1.TestPromptBindingRequest\x1a1.protomcp.examples.auth.v1.TestPromptBindingReply\"\x0e\xaa\xb5\x18\n" +
+	"\"\b{{text}}B\xf1\x01\n" +
 	"\x1dcom.protomcp.examples.auth.v1B\tAuthProtoP\x01Z>github.com/akuity/protomcp/pkg/api/gen/examples/auth/v1;authv1\xa2\x02\x03PEA\xaa\x02\x19Protomcp.Examples.Auth.V1\xca\x02\x19Protomcp\\Examples\\Auth\\V1\xe2\x02%Protomcp\\Examples\\Auth\\V1\\GPBMetadata\xea\x02\x1cProtomcp::Examples::Auth::V1b\x06proto3"
 
 var (
@@ -681,38 +839,42 @@ func file_examples_auth_v1_auth_proto_rawDescGZIP() []byte {
 	return file_examples_auth_v1_auth_proto_rawDescData
 }
 
-var file_examples_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_examples_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_examples_auth_v1_auth_proto_goTypes = []any{
 	(*WhoAmIRequest)(nil),                // 0: protomcp.examples.auth.v1.WhoAmIRequest
 	(*WhoAmIResponse)(nil),               // 1: protomcp.examples.auth.v1.WhoAmIResponse
-	(*TestInner)(nil),                    // 2: protomcp.examples.auth.v1.TestInner
-	(*TestNested)(nil),                   // 3: protomcp.examples.auth.v1.TestNested
-	(*TestOutputOnlyMessage)(nil),        // 4: protomcp.examples.auth.v1.TestOutputOnlyMessage
-	(*TestRepeatedMessages)(nil),         // 5: protomcp.examples.auth.v1.TestRepeatedMessages
-	(*TestMapMessages)(nil),              // 6: protomcp.examples.auth.v1.TestMapMessages
-	(*TestOneofOutputOnly)(nil),          // 7: protomcp.examples.auth.v1.TestOneofOutputOnly
-	(*TestRepeatedOutputOnlyScalar)(nil), // 8: protomcp.examples.auth.v1.TestRepeatedOutputOnlyScalar
-	(*TestAnyHolder)(nil),                // 9: protomcp.examples.auth.v1.TestAnyHolder
-	(*TestNode)(nil),                     // 10: protomcp.examples.auth.v1.TestNode
-	nil,                                  // 11: protomcp.examples.auth.v1.TestMapMessages.ItemsEntry
-	nil,                                  // 12: protomcp.examples.auth.v1.TestAnyHolder.ByKeyEntry
-	(*anypb.Any)(nil),                    // 13: google.protobuf.Any
+	(*TestPromptBindingRequest)(nil),     // 2: protomcp.examples.auth.v1.TestPromptBindingRequest
+	(*TestPromptBindingReply)(nil),       // 3: protomcp.examples.auth.v1.TestPromptBindingReply
+	(*TestInner)(nil),                    // 4: protomcp.examples.auth.v1.TestInner
+	(*TestNested)(nil),                   // 5: protomcp.examples.auth.v1.TestNested
+	(*TestOutputOnlyMessage)(nil),        // 6: protomcp.examples.auth.v1.TestOutputOnlyMessage
+	(*TestRepeatedMessages)(nil),         // 7: protomcp.examples.auth.v1.TestRepeatedMessages
+	(*TestMapMessages)(nil),              // 8: protomcp.examples.auth.v1.TestMapMessages
+	(*TestOneofOutputOnly)(nil),          // 9: protomcp.examples.auth.v1.TestOneofOutputOnly
+	(*TestRepeatedOutputOnlyScalar)(nil), // 10: protomcp.examples.auth.v1.TestRepeatedOutputOnlyScalar
+	(*TestAnyHolder)(nil),                // 11: protomcp.examples.auth.v1.TestAnyHolder
+	(*TestNode)(nil),                     // 12: protomcp.examples.auth.v1.TestNode
+	nil,                                  // 13: protomcp.examples.auth.v1.TestMapMessages.ItemsEntry
+	nil,                                  // 14: protomcp.examples.auth.v1.TestAnyHolder.ByKeyEntry
+	(*anypb.Any)(nil),                    // 15: google.protobuf.Any
 }
 var file_examples_auth_v1_auth_proto_depIdxs = []int32{
-	2,  // 0: protomcp.examples.auth.v1.TestNested.inner:type_name -> protomcp.examples.auth.v1.TestInner
-	2,  // 1: protomcp.examples.auth.v1.TestOutputOnlyMessage.stripped:type_name -> protomcp.examples.auth.v1.TestInner
-	2,  // 2: protomcp.examples.auth.v1.TestRepeatedMessages.items:type_name -> protomcp.examples.auth.v1.TestInner
-	11, // 3: protomcp.examples.auth.v1.TestMapMessages.items:type_name -> protomcp.examples.auth.v1.TestMapMessages.ItemsEntry
-	13, // 4: protomcp.examples.auth.v1.TestAnyHolder.payload:type_name -> google.protobuf.Any
-	13, // 5: protomcp.examples.auth.v1.TestAnyHolder.items:type_name -> google.protobuf.Any
-	12, // 6: protomcp.examples.auth.v1.TestAnyHolder.by_key:type_name -> protomcp.examples.auth.v1.TestAnyHolder.ByKeyEntry
-	10, // 7: protomcp.examples.auth.v1.TestNode.next:type_name -> protomcp.examples.auth.v1.TestNode
-	2,  // 8: protomcp.examples.auth.v1.TestMapMessages.ItemsEntry.value:type_name -> protomcp.examples.auth.v1.TestInner
-	13, // 9: protomcp.examples.auth.v1.TestAnyHolder.ByKeyEntry.value:type_name -> google.protobuf.Any
+	4,  // 0: protomcp.examples.auth.v1.TestNested.inner:type_name -> protomcp.examples.auth.v1.TestInner
+	4,  // 1: protomcp.examples.auth.v1.TestOutputOnlyMessage.stripped:type_name -> protomcp.examples.auth.v1.TestInner
+	4,  // 2: protomcp.examples.auth.v1.TestRepeatedMessages.items:type_name -> protomcp.examples.auth.v1.TestInner
+	13, // 3: protomcp.examples.auth.v1.TestMapMessages.items:type_name -> protomcp.examples.auth.v1.TestMapMessages.ItemsEntry
+	15, // 4: protomcp.examples.auth.v1.TestAnyHolder.payload:type_name -> google.protobuf.Any
+	15, // 5: protomcp.examples.auth.v1.TestAnyHolder.items:type_name -> google.protobuf.Any
+	14, // 6: protomcp.examples.auth.v1.TestAnyHolder.by_key:type_name -> protomcp.examples.auth.v1.TestAnyHolder.ByKeyEntry
+	12, // 7: protomcp.examples.auth.v1.TestNode.next:type_name -> protomcp.examples.auth.v1.TestNode
+	4,  // 8: protomcp.examples.auth.v1.TestMapMessages.ItemsEntry.value:type_name -> protomcp.examples.auth.v1.TestInner
+	15, // 9: protomcp.examples.auth.v1.TestAnyHolder.ByKeyEntry.value:type_name -> google.protobuf.Any
 	0,  // 10: protomcp.examples.auth.v1.Profile.WhoAmI:input_type -> protomcp.examples.auth.v1.WhoAmIRequest
-	1,  // 11: protomcp.examples.auth.v1.Profile.WhoAmI:output_type -> protomcp.examples.auth.v1.WhoAmIResponse
-	11, // [11:12] is the sub-list for method output_type
-	10, // [10:11] is the sub-list for method input_type
+	2,  // 11: protomcp.examples.auth.v1.TestPromptBinding.Render:input_type -> protomcp.examples.auth.v1.TestPromptBindingRequest
+	1,  // 12: protomcp.examples.auth.v1.Profile.WhoAmI:output_type -> protomcp.examples.auth.v1.WhoAmIResponse
+	3,  // 13: protomcp.examples.auth.v1.TestPromptBinding.Render:output_type -> protomcp.examples.auth.v1.TestPromptBindingReply
+	12, // [12:14] is the sub-list for method output_type
+	10, // [10:12] is the sub-list for method input_type
 	10, // [10:10] is the sub-list for extension type_name
 	10, // [10:10] is the sub-list for extension extendee
 	0,  // [0:10] is the sub-list for field type_name
@@ -723,7 +885,11 @@ func file_examples_auth_v1_auth_proto_init() {
 	if File_examples_auth_v1_auth_proto != nil {
 		return
 	}
-	file_examples_auth_v1_auth_proto_msgTypes[7].OneofWrappers = []any{
+	file_examples_auth_v1_auth_proto_msgTypes[2].OneofWrappers = []any{
+		(*TestPromptBindingRequest_Alias)(nil),
+		(*TestPromptBindingRequest_Handle)(nil),
+	}
+	file_examples_auth_v1_auth_proto_msgTypes[9].OneofWrappers = []any{
 		(*TestOneofOutputOnly_Manual)(nil),
 		(*TestOneofOutputOnly_Computed)(nil),
 	}
@@ -733,9 +899,9 @@ func file_examples_auth_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_examples_auth_v1_auth_proto_rawDesc), len(file_examples_auth_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   15,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   2,
 		},
 		GoTypes:           file_examples_auth_v1_auth_proto_goTypes,
 		DependencyIndexes: file_examples_auth_v1_auth_proto_depIdxs,

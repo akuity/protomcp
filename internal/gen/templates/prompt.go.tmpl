@@ -30,21 +30,19 @@
 		if req != nil && req.Params != nil {
 			args = req.Params.Arguments
 		}
+		inputArgs := map[string]string{}
 {{range .Arguments}}
-{{- if .IsString}}
 		if v, ok := args[{{printf "%q" .Name}}]; ok {
-			in.{{.FieldName}} = v
-		}
-{{- else if .IsEnum}}
-		if v, ok := args[{{printf "%q" .Name}}]; ok {
-			if n, found := {{.EnumMapIdent}}[v]; found {
-				in.{{.FieldName}} = {{.EnumTypeRef}}(n)
-			} else {
-				return srv.FinishPromptGet(ctx, req, nil, nil, {{$.QFmtErrorf}}("invalid value %q for prompt argument %q", v, {{printf "%q" .Name}}))
-			}
+			inputArgs[{{printf "%q" .Name}}] = v
 		}
 {{- end}}
-{{- end}}
+		payload, mErr := {{.QJSONMarshal}}(inputArgs)
+		if mErr != nil {
+			return srv.FinishPromptGet(ctx, req, nil, nil, mErr)
+		}
+		if uErr := srv.UnmarshalProto(payload, in); uErr != nil {
+			return srv.FinishPromptGet(ctx, req, nil, nil, {{.QFmtErrorf}}("invalid prompt arguments: %w", uErr))
+		}
 		g := &{{.QProtomcpGRPCReq}}{Input: in, Metadata: {{.QMetadataMD}}{}}
 		final := func(ctx {{.QContext}}, req *{{.QMCPGetReq}}, g *{{.QProtomcpGRPCReq}}) (*{{.QMCPGetResult}}, error) {
 			ctx = {{.QMetadataNewOut}}(ctx, g.Metadata)

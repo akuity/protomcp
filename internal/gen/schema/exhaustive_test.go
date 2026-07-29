@@ -402,13 +402,13 @@ func TestMutualRecursion(t *testing.T) {
 	md := descByName(t, "protomcp.testdata.v1.MutualA")
 
 	// With a depth of 2 the recursion should terminate without panicking and
-	// produce a string placeholder somewhere in the tree.
+	// produce an object placeholder somewhere in the tree.
 	out := ForInput(md, Options{MaxRecursionDepth: 2})
 	raw, err := json.Marshal(out)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
-	if !jsonContains(raw, `"JSON-encoded`) {
+	if !jsonContains(raw, `"Recursion truncated`) {
 		t.Errorf("expected recursion placeholder somewhere in output; got %s", raw)
 	}
 }

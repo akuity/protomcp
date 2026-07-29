@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -422,6 +423,36 @@ func TestGenerate_BadReadOnlyPrefix(t *testing.T) {
 	}
 }
 
+func TestGenerate_BadReadOnlyDerivedName(t *testing.T) {
+	req := buildGenRequest(t, "read_only_names.proto")
+	for _, file := range req.ProtoFile {
+		if file.GetName() == "read_only_names.proto" {
+			file.Service[0].Name = proto.String("DeleteCatalog")
+		}
+	}
+	plugin, err := protogen.Options{}.New(req)
+	if err != nil {
+		t.Fatalf("protogen.New: %v", err)
+	}
+	err = Generate(plugin)
+	if err == nil {
+		if respErr := plugin.Response().Error; respErr != nil {
+			err = fmt.Errorf("%s", *respErr)
+		} else {
+			t.Fatal("want error, got nil")
+		}
+	}
+	for _, want := range []string{
+		"DeleteCatalog.GetWidget",
+		`"DeleteCatalog_GetWidget"`,
+		`mutating verb "Delete"`,
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q\nerror: %v", want, err)
+		}
+	}
+}
+
 func TestGenerate_ReadOnlyNames(t *testing.T) {
 	out := runGenerate(t, "read_only_names.proto")
 
@@ -436,11 +467,19 @@ func TestGenerate_ReadOnlyNames(t *testing.T) {
 }
 
 func TestGenerate_SlimZeroValueRule(t *testing.T) {
-	out := runGenerate(t, "slim_zero.proto")
-	assertSubstrings(t, out, []substringCase{
-		{"tool generated", true, `"SlimZero_Fetch"`},
-		{"excluded field cleared", true, "srv.ClearSchemaExcluded(&in)"},
-	})
+	err := runGenerateExpectError(t, "slim_zero.proto")
+	if err == nil {
+		t.Fatal("want error, got nil")
+	}
+	for _, want := range []string{
+		"FetchZeroRequest.selector",
+		`buf.validate rule "string.min_len"`,
+		"cleared zero value always violates",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q\nerror: %v", want, err)
+		}
+	}
 }
 
 func TestMutatingVerbPrefix(t *testing.T) {
@@ -608,6 +647,10 @@ func TestGenerate_Prompts(t *testing.T) {
 
 func TestGenerate_PromptRequiredness(t *testing.T) {
 	out := runGenerate(t, "prompt_requiredness.proto")
+	assertSubstrings(t, out, []substringCase{
+		{"prompt args decoded through protojson", true, "srv.UnmarshalProto(payload, in)"},
+		{"optional string is not assigned directly", false, "in.RequiredIgnoreZeroWithPresence = v"},
+	})
 	cases := []struct {
 		name     string
 		required bool
@@ -633,6 +676,34 @@ func TestGenerate_PromptRequiredness(t *testing.T) {
 				t.Errorf("prompt argument %q required = %v, want %v\n--- block ---\n%s", tc.name, got, tc.required, block)
 			}
 		})
+	}
+}
+
+func TestGenerate_PromptOutputOnlyArgumentOmitted(t *testing.T) {
+	req := buildGenRequest(t, "prompt_requiredness.proto")
+	for _, file := range req.ProtoFile {
+		if file.GetName() != "prompt_requiredness.proto" {
+			continue
+		}
+		field := file.MessageType[0].Field[2]
+		proto.SetExtension(field.Options, annotations.E_FieldBehavior, []annotations.FieldBehavior{
+			annotations.FieldBehavior_OUTPUT_ONLY,
+		})
+	}
+	plugin, err := protogen.Options{}.New(req)
+	if err != nil {
+		t.Fatalf("protogen.New: %v", err)
+	}
+	if err := Generate(plugin); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	resp := plugin.Response()
+	if resp.Error != nil {
+		t.Fatalf("plugin error: %s", *resp.Error)
+	}
+	out := resp.File[0].GetContent()
+	if strings.Contains(out, `"requiredIgnoreAlways"`) {
+		t.Fatalf("OUTPUT_ONLY request field was exposed as a prompt argument\n--- file ---\n%s", out)
 	}
 }
 

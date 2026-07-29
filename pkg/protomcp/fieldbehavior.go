@@ -66,33 +66,37 @@ func clearFieldsMatchingMode(m proto.Message, resolver anyTypeResolver, mode cle
 	if !r.IsValid() {
 		return nil
 	}
-	return clearFieldsMatchingReflect(r, resolver, 0, mode, match)
+	_, err := clearFieldsMatchingReflect(r, resolver, 0, mode, match)
+	return err
 }
 
 // clearFieldsMatchingReflect is the recursive worker; depth is bounded
 // by clearOutputOnlyMaxDepth per clearMode.
-func clearFieldsMatchingReflect(r protoreflect.Message, resolver anyTypeResolver, depth int, mode clearMode, match func(protoreflect.FieldDescriptor) bool) error {
+func clearFieldsMatchingReflect(r protoreflect.Message, resolver anyTypeResolver, depth int, mode clearMode, match func(protoreflect.FieldDescriptor) bool) (bool, error) {
 	if !r.IsValid() {
-		return nil
+		return false, nil
 	}
 	if depth >= clearOutputOnlyMaxDepth {
 		if mode == clearFailLoud {
-			return fmt.Errorf(
+			return false, fmt.Errorf(
 				"protomcp: masking aborted: %s nests deeper than %d levels; refusing to serialize content the masking walk cannot verify",
 				r.Descriptor().FullName(), clearOutputOnlyMaxDepth)
 		}
-		clearAllFields(r)
-		return nil
+		return clearAllFields(r), nil
 	}
 	if r.Descriptor().FullName() == anyMessageName {
 		return clearMatchingInAnyPayload(r, resolver, depth, mode, match)
 	}
+	changed := false
 	fields := r.Descriptor().Fields()
 	for i := range fields.Len() {
 		fd := fields.Get(i)
 
 		if match(fd) {
-			r.Clear(fd)
+			if r.Has(fd) {
+				r.Clear(fd)
+				changed = true
+			}
 			continue
 		}
 
@@ -105,90 +109,107 @@ func clearFieldsMatchingReflect(r protoreflect.Message, resolver anyTypeResolver
 		if !r.Has(fd) {
 			continue
 		}
-		if err := clearFieldChildren(r, fd, resolver, depth, mode, match); err != nil {
-			return err
+		childChanged, err := clearFieldChildren(r, fd, resolver, depth, mode, match)
+		if err != nil {
+			return false, err
 		}
+		changed = changed || childChanged
 	}
-	return nil
+	return changed, nil
 }
 
-func clearFieldChildren(r protoreflect.Message, fd protoreflect.FieldDescriptor, resolver anyTypeResolver, depth int, mode clearMode, match func(protoreflect.FieldDescriptor) bool) error {
+func clearFieldChildren(r protoreflect.Message, fd protoreflect.FieldDescriptor, resolver anyTypeResolver, depth int, mode clearMode, match func(protoreflect.FieldDescriptor) bool) (bool, error) {
 	switch {
 	case fd.IsMap():
 		if fd.MapValue().Kind() != protoreflect.MessageKind {
-			return nil
+			return false, nil
 		}
+		changed := false
 		var rangeErr error
 		r.Get(fd).Map().Range(func(_ protoreflect.MapKey, v protoreflect.Value) bool {
-			rangeErr = clearFieldsMatchingReflect(v.Message(), resolver, depth+1, mode, match)
+			var childChanged bool
+			childChanged, rangeErr = clearFieldsMatchingReflect(v.Message(), resolver, depth+1, mode, match)
+			changed = changed || childChanged
 			return rangeErr == nil
 		})
-		return rangeErr
+		return changed, rangeErr
 	case fd.IsList():
+		changed := false
 		list := r.Get(fd).List()
 		for j := range list.Len() {
-			if err := clearFieldsMatchingReflect(list.Get(j).Message(), resolver, depth+1, mode, match); err != nil {
-				return err
+			childChanged, err := clearFieldsMatchingReflect(list.Get(j).Message(), resolver, depth+1, mode, match)
+			if err != nil {
+				return false, err
 			}
+			changed = changed || childChanged
 		}
-		return nil
+		return changed, nil
 	default:
 		return clearFieldsMatchingReflect(r.Get(fd).Message(), resolver, depth+1, mode, match)
 	}
 }
 
-func clearAllFields(r protoreflect.Message) {
+func clearAllFields(r protoreflect.Message) bool {
+	changed := false
 	fields := r.Descriptor().Fields()
 	for i := range fields.Len() {
-		r.Clear(fields.Get(i))
+		fd := fields.Get(i)
+		if r.Has(fd) {
+			r.Clear(fd)
+			changed = true
+		}
 	}
+	return changed
 }
 
-func clearMatchingInAnyPayload(r protoreflect.Message, resolver anyTypeResolver, depth int, mode clearMode, match func(protoreflect.FieldDescriptor) bool) error {
+func clearMatchingInAnyPayload(r protoreflect.Message, resolver anyTypeResolver, depth int, mode clearMode, match func(protoreflect.FieldDescriptor) bool) (bool, error) {
 	fields := r.Descriptor().Fields()
 	urlFD := fields.ByName("type_url")
 	valueFD := fields.ByName("value")
 	raw := r.Get(valueFD).Bytes()
 	if len(raw) == 0 {
-		return nil
+		return false, nil
 	}
-	failClosed := func() {
+	failClosed := func() bool {
+		changed := r.Has(urlFD) || r.Has(valueFD)
 		r.Clear(urlFD)
 		r.Clear(valueFD)
+		return changed
 	}
 	url := r.Get(urlFD).String()
 	mt, err := resolver.FindMessageByURL(url)
 	if err != nil {
 		if mode == clearFailLoud {
-			return fmt.Errorf("protomcp: masking aborted: cannot resolve Any type %q: %w", url, err)
+			return false, fmt.Errorf("protomcp: masking aborted: cannot resolve Any type %q: %w", url, err)
 		}
-		failClosed()
-		return nil
+		return failClosed(), nil
 	}
 	if !descriptorHasMatch(mt.Descriptor(), match, map[protoreflect.FullName]bool{}) {
-		return nil
+		return false, nil
 	}
 	payload := mt.New()
 	if uErr := proto.Unmarshal(raw, payload.Interface()); uErr != nil {
 		if mode == clearFailLoud {
-			return fmt.Errorf("protomcp: masking aborted: cannot unmarshal Any payload of type %q: %w", url, uErr)
+			return false, fmt.Errorf("protomcp: masking aborted: cannot unmarshal Any payload of type %q: %w", url, uErr)
 		}
-		failClosed()
-		return nil
+		return failClosed(), nil
 	}
-	if cErr := clearFieldsMatchingReflect(payload, resolver, depth+1, mode, match); cErr != nil {
-		return cErr
+	changed, cErr := clearFieldsMatchingReflect(payload, resolver, depth+1, mode, match)
+	if cErr != nil {
+		return false, cErr
 	}
-	repacked, mErr := proto.Marshal(payload.Interface())
+	if !changed {
+		return false, nil
+	}
+	repacked, mErr := proto.MarshalOptions{Deterministic: true}.Marshal(payload.Interface())
 	if mErr != nil {
 		if mode == clearFailLoud {
-			return fmt.Errorf("protomcp: masking aborted: cannot repack Any payload of type %q: %w", url, mErr)
+			return false, fmt.Errorf("protomcp: masking aborted: cannot repack Any payload of type %q: %w", url, mErr)
 		}
-		failClosed()
-		return nil
+		return failClosed(), nil
 	}
 	r.Set(valueFD, protoreflect.ValueOfBytes(repacked))
-	return nil
+	return true, nil
 }
 
 func descriptorHasMatch(md protoreflect.MessageDescriptor, match func(protoreflect.FieldDescriptor) bool, seen map[protoreflect.FullName]bool) bool {

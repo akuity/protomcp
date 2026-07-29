@@ -516,9 +516,17 @@ func RegisterTasksMCPPrompts(srv *protomcp.Server, client TasksClient) {
 		if req != nil && req.Params != nil {
 			args = req.Params.Arguments
 		}
+		inputArgs := map[string]string{}
 
 		if v, ok := args["id"]; ok {
-			in.Id = v
+			inputArgs["id"] = v
+		}
+		payload, mErr := json.Marshal(inputArgs)
+		if mErr != nil {
+			return srv.FinishPromptGet(ctx, req, nil, nil, mErr)
+		}
+		if uErr := srv.UnmarshalProto(payload, in); uErr != nil {
+			return srv.FinishPromptGet(ctx, req, nil, nil, fmt.Errorf("invalid prompt arguments: %w", uErr))
 		}
 		g := &protomcp.GRPCData{Input: in, Metadata: metadata.MD{}}
 		final := func(ctx context.Context, req *mcp.GetPromptRequest, g *protomcp.GRPCData) (*mcp.GetPromptResult, error) {

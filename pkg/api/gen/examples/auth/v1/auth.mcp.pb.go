@@ -8,6 +8,7 @@ import (
 	json "encoding/json"
 	fmt "fmt"
 	protomcp "github.com/akuity/protomcp/pkg/protomcp"
+	mustache "github.com/cbroglie/mustache"
 	mcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	metadata "google.golang.org/grpc/metadata"
 )
@@ -70,6 +71,96 @@ func RegisterProfileMCPTools(srv *protomcp.Server, client ProfileClient) {
 
 		result, err := srv.ToolChain(final)(ctx, req, g)
 		return srv.FinishToolCall(ctx, req, g, result, err)
+	})
+
+}
+
+// TestPromptBinding exists only to ensure generated prompt bindings compile
+// for presence-tracking scalars and real oneofs.
+//
+// RegisterTestPromptBindingMCPPrompts registers every annotated RPC on the service
+// as an MCP prompt on srv, dispatching to the supplied gRPC client. For
+// prompts whose arguments have compile-time-known value sets (enum values,
+// buf.validate.string.in), a completion/complete handler is also wired up.
+func RegisterTestPromptBindingMCPPrompts(srv *protomcp.Server, client TestPromptBindingClient) {
+
+	srv.MustAddPrompt(&mcp.Prompt{
+		Name:        "TestPromptBinding_Render",
+		Description: "Render exercises prompt argument decoding without direct Go field assignment.",
+		Arguments: []*mcp.PromptArgument{
+			{
+				Name: "topic",
+			},
+			{
+				Name: "alias",
+			},
+			{
+				Name: "handle",
+			},
+		},
+	}, func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		// Arguments is map[string]string per MCP spec; required-arg
+		// validation happens in the SDK against Prompt.Arguments above.
+		in := &TestPromptBindingRequest{}
+		args := map[string]string{}
+		if req != nil && req.Params != nil {
+			args = req.Params.Arguments
+		}
+		inputArgs := map[string]string{}
+
+		if v, ok := args["topic"]; ok {
+			inputArgs["topic"] = v
+		}
+		if v, ok := args["alias"]; ok {
+			inputArgs["alias"] = v
+		}
+		if v, ok := args["handle"]; ok {
+			inputArgs["handle"] = v
+		}
+		payload, mErr := json.Marshal(inputArgs)
+		if mErr != nil {
+			return srv.FinishPromptGet(ctx, req, nil, nil, mErr)
+		}
+		if uErr := srv.UnmarshalProto(payload, in); uErr != nil {
+			return srv.FinishPromptGet(ctx, req, nil, nil, fmt.Errorf("invalid prompt arguments: %w", uErr))
+		}
+		g := &protomcp.GRPCData{Input: in, Metadata: metadata.MD{}}
+		final := func(ctx context.Context, req *mcp.GetPromptRequest, g *protomcp.GRPCData) (*mcp.GetPromptResult, error) {
+			ctx = metadata.NewOutgoingContext(ctx, g.Metadata)
+			upstream, ok := g.Input.(*TestPromptBindingRequest)
+			if !ok {
+				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "TestPromptBindingRequest", g.Input)
+			}
+			resp, err := client.Render(ctx, upstream)
+			if err != nil {
+				return nil, err
+			}
+			g.Output = resp
+			// The Server's protojson.MarshalOptions (default
+			// EmitDefaultValues=true) controls how zero-valued
+			// scalars appear in the template context; see
+			// WithProtoJSONMarshal.
+			payload, mErr := srv.MarshalProto(resp)
+			if mErr != nil {
+				return nil, mErr
+			}
+			var ctxMap map[string]any
+			if uErr := json.Unmarshal(payload, &ctxMap); uErr != nil {
+				return nil, uErr
+			}
+			rendered, rErr := mustache.Render(`{{text}}`, ctxMap)
+			if rErr != nil {
+				return nil, fmt.Errorf("render prompt template: %w", rErr)
+			}
+			return &mcp.GetPromptResult{
+				Description: "Render exercises prompt argument decoding without direct Go field assignment.",
+				Messages: []*mcp.PromptMessage{
+					{Role: "user", Content: &mcp.TextContent{Text: rendered}},
+				},
+			}, nil
+		}
+		result, err := srv.PromptChain(final)(ctx, req, g)
+		return srv.FinishPromptGet(ctx, req, g, result, err)
 	})
 
 }

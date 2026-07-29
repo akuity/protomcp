@@ -8,11 +8,15 @@ import (
 	"testing"
 
 	"github.com/google/jsonschema-go/jsonschema"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/dynamicpb"
 
 	_ "github.com/akuity/protomcp/internal/gen/schema/testdata"
+	protomcpv1 "github.com/akuity/protomcp/pkg/api/gen/protomcp/v1"
 )
 
 // descByName looks up a message descriptor registered in the global protoregistry.
@@ -539,6 +543,104 @@ func TestOneofArmRequired_ArmInTopLevelRequired(t *testing.T) {
 	}
 }
 
+func TestZeroValueViolation(t *testing.T) {
+	md := descByName(t, "protomcp.testdata.v1.ZeroBreakers")
+	cases := map[string]string{
+		"min_len_s":            "string.min_len",
+		"min_items_r":          "repeated.min_items",
+		"min_pairs_m":          "map.min_pairs",
+		"gt_i":                 "int32.gt",
+		"gt_u":                 "uint64.gt",
+		"lte_neg":              "double.lte",
+		"const_b":              "bool.const",
+		"pattern_s":            "string.pattern",
+		"email_s":              "string.email",
+		"enum_in":              "enum.in",
+		"len_bytes_s":          "string.len_bytes",
+		"not_contains_empty_s": "string.not_contains",
+		"ok_pattern":           "",
+		"ok_max":               "",
+		"ok_presence":          "",
+		"ok_ignore_always":     "",
+		"ok_ignore_zero":       "",
+		"ok_email_disabled":    "",
+		"ok_uri_ref":           "",
+		"ok_http_header_value": "",
+	}
+	for name, want := range cases {
+		t.Run(name, func(t *testing.T) {
+			fd := md.Fields().ByName(protoreflect.Name(name))
+			if fd == nil {
+				t.Fatalf("field %s not found", name)
+			}
+			rule, bad := zeroValueViolation(fd)
+			if want == "" && bad {
+				t.Errorf("zeroValueViolation = %q, want none", rule)
+			}
+			if want != "" && (!bad || rule != want) {
+				t.Errorf("zeroValueViolation = (%q, %v), want (%q, true)", rule, bad, want)
+			}
+		})
+	}
+	if IsRequired(md.Fields().ByName("req_ignore_always")) {
+		t.Error("required=true with ignore=IGNORE_ALWAYS must not count as required")
+	}
+}
+
+func TestValidateInputExclusions_StringZeroValueRules(t *testing.T) {
+	tests := []struct {
+		name        string
+		fields      []string
+		wantErrRule string
+	}{
+		{name: "len bytes rejects empty", fields: []string{"len_bytes_s"}, wantErrRule: "string.len_bytes"},
+		{name: "not contains empty rejects empty", fields: []string{"not_contains_empty_s"}, wantErrRule: "string.not_contains"},
+		{name: "empty accepted", fields: []string{"ok_email_disabled", "ok_uri_ref", "ok_http_header_value"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			md := messageWithExcludedFields(t, "protomcp.testdata.v1.ZeroBreakers", tt.fields...)
+			err := ValidateInputExclusions(md)
+			if tt.wantErrRule == "" {
+				if err != nil {
+					t.Fatalf("ValidateInputExclusions: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantErrRule) {
+				t.Fatalf("ValidateInputExclusions error = %v, want rule %q", err, tt.wantErrRule)
+			}
+		})
+	}
+}
+
+func messageWithExcludedFields(t *testing.T, name string, fieldNames ...string) protoreflect.MessageDescriptor {
+	t.Helper()
+	md := descByName(t, name)
+	fileProto := protodesc.ToFileDescriptorProto(md.ParentFile())
+	fileProto.Name = proto.String("excluded_zero_value_fixtures.proto")
+	fileProto.Dependency = append(fileProto.Dependency, "protomcp/v1/annotations.proto")
+	messageProto := fileProto.MessageType[md.Index()]
+	wanted := make(map[string]bool, len(fieldNames))
+	for _, fieldName := range fieldNames {
+		wanted[fieldName] = true
+	}
+	for _, field := range messageProto.Field {
+		if wanted[field.GetName()] {
+			proto.SetExtension(field.Options, protomcpv1.E_FieldSchema, &protomcpv1.FieldSchemaOptions{Exclude: true})
+			delete(wanted, field.GetName())
+		}
+	}
+	if len(wanted) != 0 {
+		t.Fatalf("fields not found: %v", wanted)
+	}
+	file, err := protodesc.NewFile(fileProto, protoregistry.GlobalFiles)
+	if err != nil {
+		t.Fatalf("build descriptor: %v", err)
+	}
+	return file.Messages().ByName(md.Name())
+}
+
 func TestRequiredOneofAllMasked_InputErrors(t *testing.T) {
 	md := descByName(t, "protomcp.testdata.v1.RequiredOneofAllMasked")
 	if _, err := ForInputE(md, Options{}); err == nil || !strings.Contains(err.Error(), "every member is masked") {
@@ -603,10 +705,43 @@ func TestRecursionCap(t *testing.T) {
 	if names := propertyNames(child1); !reflect.DeepEqual(names, []string{"child", "name"}) {
 		t.Fatalf("child1 properties: %v", names)
 	}
-	// Third level = placeholder string with the JSON-encoded hint.
+	// Third level remains an object so the schema accepts the same JSON
+	// shape that protojson requires for a message field.
 	child2 := get(t, child1, "properties", "child").(map[string]any)
-	if child2["type"] != "string" {
-		t.Errorf("recursion cap: expected string placeholder at max depth, got %v", child2["type"])
+	if child2["type"] != "object" {
+		t.Errorf("recursion cap: expected object placeholder at max depth, got %v", child2["type"])
+	}
+
+	rawSchema, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("marshal schema: %v", err)
+	}
+	sch := &jsonschema.Schema{}
+	if unmarshalErr := json.Unmarshal(rawSchema, sch); unmarshalErr != nil {
+		t.Fatalf("unmarshal schema: %v", unmarshalErr)
+	}
+	resolved, err := sch.Resolve(nil)
+	if err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+	instance := map[string]any{
+		"name": "root",
+		"child": map[string]any{
+			"name": "level-one",
+			"child": map[string]any{
+				"name": "level-two",
+			},
+		},
+	}
+	if validateErr := resolved.Validate(instance); validateErr != nil {
+		t.Fatalf("schema rejected protojson-compatible recursive object: %v", validateErr)
+	}
+	rawInstance, err := json.Marshal(instance)
+	if err != nil {
+		t.Fatalf("marshal instance: %v", err)
+	}
+	if err := protojson.Unmarshal(rawInstance, dynamicpb.NewMessage(md)); err != nil {
+		t.Fatalf("protojson rejected schema-compatible recursive object: %v", err)
 	}
 }
 

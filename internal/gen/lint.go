@@ -61,30 +61,36 @@ func validateReadOnlyHint(svc *protogen.Service, svcOpts *protomcpv1.ServiceOpti
 			svc.GoName, m.GoName, verb,
 		)
 	}
-	if name := to.GetName(); name != "" {
-		if verb, ok := mutatingVerbPrefixFold(name); ok {
-			return fmt.Errorf(
-				"%s.%s: protomcp.v1.tool sets read_only: true with the name "+
-					"override %q, which starts with the mutating verb %q; a "+
-					"read-only hint on a mutating tool name misleads MCP clients "+
-					"into calling it without user consent (rename the tool or "+
-					"drop read_only)",
-				svc.GoName, m.GoName, name, verb,
-			)
-		}
+	name := deriveToolName(svc, svcOpts, m, to)
+	verb, mutating := mutatingVerbPrefixFold(name)
+	if !mutating {
+		return nil
 	}
 	if prefix := svcOpts.GetToolPrefix(); prefix != "" {
-		name := deriveToolName(svc, svcOpts, m, to)
-		if verb, ok := mutatingVerbPrefixFold(name); ok {
-			return fmt.Errorf(
-				"%s.%s: protomcp.v1.tool sets read_only: true but the generated "+
-					"tool name %q (service tool_prefix %q applied) starts with "+
-					"the mutating verb %q; a read-only hint on a mutating tool "+
-					"name misleads MCP clients into calling it without user "+
-					"consent (adjust tool_prefix or drop read_only)",
-				svc.GoName, m.GoName, name, prefix, verb,
-			)
-		}
+		return fmt.Errorf(
+			"%s.%s: protomcp.v1.tool sets read_only: true but the generated "+
+				"tool name %q (service tool_prefix %q applied) starts with "+
+				"the mutating verb %q; a read-only hint on a mutating tool "+
+				"name misleads MCP clients into calling it without user "+
+				"consent (adjust tool_prefix or drop read_only)",
+			svc.GoName, m.GoName, name, prefix, verb,
+		)
 	}
-	return nil
+	if override := to.GetName(); override != "" {
+		return fmt.Errorf(
+			"%s.%s: protomcp.v1.tool sets read_only: true with the name "+
+				"override %q, which starts with the mutating verb %q; a "+
+				"read-only hint on a mutating tool name misleads MCP clients "+
+				"into calling it without user consent (rename the tool or "+
+				"drop read_only)",
+			svc.GoName, m.GoName, override, verb,
+		)
+	}
+	return fmt.Errorf(
+		"%s.%s: protomcp.v1.tool sets read_only: true but the generated "+
+			"tool name %q starts with the mutating verb %q; a read-only "+
+			"hint on a mutating tool name misleads MCP clients into calling "+
+			"it without user consent (rename the service or drop read_only)",
+		svc.GoName, m.GoName, name, verb,
+	)
 }

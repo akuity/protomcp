@@ -347,6 +347,57 @@ func TestClearOutputOnly_AnyUntouchedWhenNoMatches(t *testing.T) {
 	}
 }
 
+func TestClearOutputOnly_AnyPreservesBytesWhenMatchingFieldsAreUnset(t *testing.T) {
+	payload := &authv1.TestMapMessages{Items: map[string]*authv1.TestInner{
+		"a": {UserName: "one"},
+		"b": {UserName: "two"},
+		"c": {UserName: "three"},
+		"d": {UserName: "four"},
+		"e": {UserName: "five"},
+		"f": {UserName: "six"},
+		"g": {UserName: "seven"},
+		"h": {UserName: "eight"},
+	}}
+	packed, err := anypb.New(payload)
+	if err != nil {
+		t.Fatalf("anypb.New: %v", err)
+	}
+	original := bytes.Clone(packed.GetValue())
+	for i := range 100 {
+		m := &authv1.TestAnyHolder{Payload: proto.Clone(packed).(*anypb.Any)}
+		protomcp.ClearOutputOnly(m)
+		if !bytes.Equal(m.Payload.GetValue(), original) {
+			t.Fatalf("iteration %d rewrote Any.Value even though no populated field was cleared", i)
+		}
+	}
+}
+
+func TestClearOutputOnly_AnyChangedPayloadUsesDeterministicEncoding(t *testing.T) {
+	payload := &authv1.TestMapMessages{Items: map[string]*authv1.TestInner{
+		"a": {ServerId: "1", UserName: "one"},
+		"b": {ServerId: "2", UserName: "two"},
+		"c": {ServerId: "3", UserName: "three"},
+		"d": {ServerId: "4", UserName: "four"},
+		"e": {ServerId: "5", UserName: "five"},
+		"f": {ServerId: "6", UserName: "six"},
+		"g": {ServerId: "7", UserName: "seven"},
+		"h": {ServerId: "8", UserName: "eight"},
+	}}
+	packed, err := anypb.New(payload)
+	if err != nil {
+		t.Fatalf("anypb.New: %v", err)
+	}
+	encodings := map[string]struct{}{}
+	for range 100 {
+		m := &authv1.TestAnyHolder{Payload: proto.Clone(packed).(*anypb.Any)}
+		protomcp.ClearOutputOnly(m)
+		encodings[string(m.Payload.GetValue())] = struct{}{}
+	}
+	if len(encodings) != 1 {
+		t.Fatalf("changed Any payload produced %d wire encodings, want 1", len(encodings))
+	}
+}
+
 // newDynamicAnyPayload builds a message type that exists only in the
 // returned local registry (never in protoregistry.GlobalTypes) and an
 // Any packing an instance of it, reproducing a caller that configures a

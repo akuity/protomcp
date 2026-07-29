@@ -24,11 +24,38 @@ service Profile {
   }
 }
 
+// TestPromptBinding exists only to ensure generated prompt bindings compile
+// for presence-tracking scalars and real oneofs.
+service TestPromptBinding {
+  // Render exercises prompt argument decoding without direct Go field assignment.
+  rpc Render(TestPromptBindingRequest) returns (TestPromptBindingReply) {
+    option (protomcp.v1.prompt) = {
+      template: "{{text}}"
+    };
+  }
+}
+
 message WhoAmIRequest {}
 
 message WhoAmIResponse {
   string user_id = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   string tenant  = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// TestPromptBindingRequest covers every string field representation used by
+// prompt arguments, plus an OUTPUT_ONLY field that must stay hidden.
+message TestPromptBindingRequest {
+  optional string topic = 1;
+  oneof identity {
+    string alias = 2;
+    string handle = 3;
+  }
+  string server_token = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// TestPromptBindingReply provides the template context for TestPromptBinding.
+message TestPromptBindingReply {
+  string text = 1;
 }
 
 // ---------------------------------------------------------------------

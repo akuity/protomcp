@@ -11,9 +11,9 @@ import (
 
 var mutatingVerbs = []string{
 	"Add", "Apply", "Create", "Delete", "Destroy", "Disable", "Enable",
-	"Grant", "Insert", "Patch", "Purge", "Put", "Remove", "Reset",
-	"Restart", "Revoke", "Rotate", "Set", "Terminate", "Update", "Upsert",
-	"Write",
+	"Grant", "Insert", "Patch", "Purge", "Put", "Remove", "Replace",
+	"Reset", "Restart", "Revoke", "Rotate", "Set", "Terminate", "Update",
+	"Upsert", "Write",
 }
 
 func mutatingVerbPrefix(name string) (string, bool) {
@@ -48,8 +48,23 @@ func mutatingVerbPrefixFold(name string) (string, bool) {
 	return "", false
 }
 
-func validateReadOnlyHint(svc *protogen.Service, m *protogen.Method, to *protomcpv1.ToolOptions) error {
-	if !to.GetReadOnly() {
+// validateToolHints rejects contradictory MCP tool hints regardless of
+// any name-lint suppression: per the MCP spec, destructiveHint is only
+// meaningful on a non-read-only tool.
+func validateToolHints(svc *protogen.Service, m *protogen.Method, to *protomcpv1.ToolOptions) error {
+	if to.GetReadOnly() && to.GetDestructive() {
+		return fmt.Errorf(
+			"%s.%s: protomcp.v1.tool sets both read_only: true and "+
+				"destructive: true; the hints are contradictory (MCP defines "+
+				"destructiveHint only for non-read-only tools) — drop one",
+			svc.GoName, m.GoName,
+		)
+	}
+	return nil
+}
+
+func validateReadOnlyHint(svc *protogen.Service, svcOpts *protomcpv1.ServiceOptions, m *protogen.Method, to *protomcpv1.ToolOptions) error {
+	if !to.GetReadOnly() || to.GetDisableReadOnlyNameLint() {
 		return nil
 	}
 	if verb, ok := mutatingVerbPrefix(m.GoName); ok {
@@ -70,6 +85,19 @@ func validateReadOnlyHint(svc *protogen.Service, m *protogen.Method, to *protomc
 					"into calling it without user consent (rename the tool or "+
 					"drop read_only)",
 				svc.GoName, m.GoName, name, verb,
+			)
+		}
+	}
+	if prefix := svcOpts.GetToolPrefix(); prefix != "" {
+		name := deriveToolName(svc, svcOpts, m, to)
+		if verb, ok := mutatingVerbPrefixFold(name); ok {
+			return fmt.Errorf(
+				"%s.%s: protomcp.v1.tool sets read_only: true but the generated "+
+					"tool name %q (service tool_prefix %q applied) starts with "+
+					"the mutating verb %q; a read-only hint on a mutating tool "+
+					"name misleads MCP clients into calling it without user "+
+					"consent (adjust tool_prefix or drop read_only)",
+				svc.GoName, m.GoName, name, prefix, verb,
 			)
 		}
 	}

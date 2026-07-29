@@ -117,17 +117,11 @@ type toolTemplateData struct {
 
 	QProtomcpOutgoingContext string
 
-	// QProtomcpClearOutputOnly zeros OUTPUT_ONLY fields after
-	// protojson.Unmarshal.
-	QProtomcpClearOutputOnly string
-
 	// QProtomcpSanitizeMetadataValue strips CR/LF/NUL from
 	// client-controlled strings before they land in outgoing gRPC
 	// metadata, preventing log-line forgery and HPACK trips at the
 	// upstream hop.
 	QProtomcpSanitizeMetadataValue string
-
-	QProtomcpClearSchemaExcluded string
 
 	InputHasExcluded  bool
 	OutputHasExcluded bool
@@ -454,8 +448,11 @@ func buildFileTemplateData(g *protogen.GeneratedFile, f *protogen.File, opts Opt
 
 			if class.asTool {
 				to, _ := toolOptionsFor(m)
+				if err := validateToolHints(svc, m, to); err != nil {
+					return nil, err
+				}
 				if !opts.DisableReadOnlyNameLint {
-					if err := validateReadOnlyHint(svc, m, to); err != nil {
+					if err := validateReadOnlyHint(svc, svcOpts, m, to); err != nil {
 						return nil, err
 					}
 				}
@@ -685,9 +682,7 @@ func buildToolTemplateData(
 		QMetadataMD:                    metaMD,
 		QProtomcpGRPCReq:               q("GRPCData", importProtomcp),
 		QProtomcpOutgoingContext:       q("OutgoingContext", importProtomcp),
-		QProtomcpClearOutputOnly:       q("ClearOutputOnly", importProtomcp),
 		QProtomcpSanitizeMetadataValue: q("SanitizeMetadataValue", importProtomcp),
-		QProtomcpClearSchemaExcluded:   q("ClearSchemaExcluded", importProtomcp),
 		InputHasExcluded:               schema.HasExclusions(m.Input.Desc),
 		OutputHasExcluded:              schema.HasExclusions(m.Output.Desc),
 	}, nil

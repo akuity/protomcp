@@ -1429,6 +1429,252 @@ func (*RequiredOneofAllMasked_A) isRequiredOneofAllMasked_Secret() {}
 
 func (*RequiredOneofAllMasked_B) isRequiredOneofAllMasked_Secret() {}
 
+type OneofArmRequired struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Target:
+	//
+	//	*OneofArmRequired_Id
+	//	*OneofArmRequired_Name
+	Target        isOneofArmRequired_Target `protobuf_oneof:"target"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OneofArmRequired) Reset() {
+	*x = OneofArmRequired{}
+	mi := &file_fixtures_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OneofArmRequired) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OneofArmRequired) ProtoMessage() {}
+
+func (x *OneofArmRequired) ProtoReflect() protoreflect.Message {
+	mi := &file_fixtures_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OneofArmRequired.ProtoReflect.Descriptor instead.
+func (*OneofArmRequired) Descriptor() ([]byte, []int) {
+	return file_fixtures_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *OneofArmRequired) GetTarget() isOneofArmRequired_Target {
+	if x != nil {
+		return x.Target
+	}
+	return nil
+}
+
+func (x *OneofArmRequired) GetId() string {
+	if x != nil {
+		if x, ok := x.Target.(*OneofArmRequired_Id); ok {
+			return x.Id
+		}
+	}
+	return ""
+}
+
+func (x *OneofArmRequired) GetName() string {
+	if x != nil {
+		if x, ok := x.Target.(*OneofArmRequired_Name); ok {
+			return x.Name
+		}
+	}
+	return ""
+}
+
+type isOneofArmRequired_Target interface {
+	isOneofArmRequired_Target()
+}
+
+type OneofArmRequired_Id struct {
+	Id string `protobuf:"bytes,1,opt,name=id,proto3,oneof"`
+}
+
+type OneofArmRequired_Name struct {
+	Name string `protobuf:"bytes,2,opt,name=name,proto3,oneof"`
+}
+
+func (*OneofArmRequired_Id) isOneofArmRequired_Target() {}
+
+func (*OneofArmRequired_Name) isOneofArmRequired_Target() {}
+
+type ZeroBreakers struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	MinLenS         string                 `protobuf:"bytes,1,opt,name=min_len_s,json=minLenS,proto3" json:"min_len_s,omitempty"`
+	MinItemsR       []string               `protobuf:"bytes,2,rep,name=min_items_r,json=minItemsR,proto3" json:"min_items_r,omitempty"`
+	MinPairsM       map[string]string      `protobuf:"bytes,3,rep,name=min_pairs_m,json=minPairsM,proto3" json:"min_pairs_m,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	GtI             int32                  `protobuf:"varint,4,opt,name=gt_i,json=gtI,proto3" json:"gt_i,omitempty"`
+	GtU             uint64                 `protobuf:"varint,5,opt,name=gt_u,json=gtU,proto3" json:"gt_u,omitempty"`
+	LteNeg          float64                `protobuf:"fixed64,6,opt,name=lte_neg,json=lteNeg,proto3" json:"lte_neg,omitempty"`
+	ConstB          bool                   `protobuf:"varint,7,opt,name=const_b,json=constB,proto3" json:"const_b,omitempty"`
+	PatternS        string                 `protobuf:"bytes,8,opt,name=pattern_s,json=patternS,proto3" json:"pattern_s,omitempty"`
+	EmailS          string                 `protobuf:"bytes,9,opt,name=email_s,json=emailS,proto3" json:"email_s,omitempty"`
+	EnumIn          Status                 `protobuf:"varint,10,opt,name=enum_in,json=enumIn,proto3,enum=protomcp.testdata.v1.Status" json:"enum_in,omitempty"`
+	OkPattern       string                 `protobuf:"bytes,11,opt,name=ok_pattern,json=okPattern,proto3" json:"ok_pattern,omitempty"`
+	OkMax           string                 `protobuf:"bytes,12,opt,name=ok_max,json=okMax,proto3" json:"ok_max,omitempty"`
+	OkPresence      *string                `protobuf:"bytes,13,opt,name=ok_presence,json=okPresence,proto3,oneof" json:"ok_presence,omitempty"`
+	OkIgnoreAlways  string                 `protobuf:"bytes,14,opt,name=ok_ignore_always,json=okIgnoreAlways,proto3" json:"ok_ignore_always,omitempty"`
+	OkIgnoreZero    string                 `protobuf:"bytes,15,opt,name=ok_ignore_zero,json=okIgnoreZero,proto3" json:"ok_ignore_zero,omitempty"`
+	ReqIgnoreAlways string                 `protobuf:"bytes,16,opt,name=req_ignore_always,json=reqIgnoreAlways,proto3" json:"req_ignore_always,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ZeroBreakers) Reset() {
+	*x = ZeroBreakers{}
+	mi := &file_fixtures_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ZeroBreakers) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ZeroBreakers) ProtoMessage() {}
+
+func (x *ZeroBreakers) ProtoReflect() protoreflect.Message {
+	mi := &file_fixtures_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ZeroBreakers.ProtoReflect.Descriptor instead.
+func (*ZeroBreakers) Descriptor() ([]byte, []int) {
+	return file_fixtures_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *ZeroBreakers) GetMinLenS() string {
+	if x != nil {
+		return x.MinLenS
+	}
+	return ""
+}
+
+func (x *ZeroBreakers) GetMinItemsR() []string {
+	if x != nil {
+		return x.MinItemsR
+	}
+	return nil
+}
+
+func (x *ZeroBreakers) GetMinPairsM() map[string]string {
+	if x != nil {
+		return x.MinPairsM
+	}
+	return nil
+}
+
+func (x *ZeroBreakers) GetGtI() int32 {
+	if x != nil {
+		return x.GtI
+	}
+	return 0
+}
+
+func (x *ZeroBreakers) GetGtU() uint64 {
+	if x != nil {
+		return x.GtU
+	}
+	return 0
+}
+
+func (x *ZeroBreakers) GetLteNeg() float64 {
+	if x != nil {
+		return x.LteNeg
+	}
+	return 0
+}
+
+func (x *ZeroBreakers) GetConstB() bool {
+	if x != nil {
+		return x.ConstB
+	}
+	return false
+}
+
+func (x *ZeroBreakers) GetPatternS() string {
+	if x != nil {
+		return x.PatternS
+	}
+	return ""
+}
+
+func (x *ZeroBreakers) GetEmailS() string {
+	if x != nil {
+		return x.EmailS
+	}
+	return ""
+}
+
+func (x *ZeroBreakers) GetEnumIn() Status {
+	if x != nil {
+		return x.EnumIn
+	}
+	return Status_STATUS_UNSPECIFIED
+}
+
+func (x *ZeroBreakers) GetOkPattern() string {
+	if x != nil {
+		return x.OkPattern
+	}
+	return ""
+}
+
+func (x *ZeroBreakers) GetOkMax() string {
+	if x != nil {
+		return x.OkMax
+	}
+	return ""
+}
+
+func (x *ZeroBreakers) GetOkPresence() string {
+	if x != nil && x.OkPresence != nil {
+		return *x.OkPresence
+	}
+	return ""
+}
+
+func (x *ZeroBreakers) GetOkIgnoreAlways() string {
+	if x != nil {
+		return x.OkIgnoreAlways
+	}
+	return ""
+}
+
+func (x *ZeroBreakers) GetOkIgnoreZero() string {
+	if x != nil {
+		return x.OkIgnoreZero
+	}
+	return ""
+}
+
+func (x *ZeroBreakers) GetReqIgnoreAlways() string {
+	if x != nil {
+		return x.ReqIgnoreAlways
+	}
+	return ""
+}
+
 // Recursive tests the maxDepth cycle-breaker for direct recursion.
 type Recursive struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1440,7 +1686,7 @@ type Recursive struct {
 
 func (x *Recursive) Reset() {
 	*x = Recursive{}
-	mi := &file_fixtures_proto_msgTypes[13]
+	mi := &file_fixtures_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1452,7 +1698,7 @@ func (x *Recursive) String() string {
 func (*Recursive) ProtoMessage() {}
 
 func (x *Recursive) ProtoReflect() protoreflect.Message {
-	mi := &file_fixtures_proto_msgTypes[13]
+	mi := &file_fixtures_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1465,7 +1711,7 @@ func (x *Recursive) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Recursive.ProtoReflect.Descriptor instead.
 func (*Recursive) Descriptor() ([]byte, []int) {
-	return file_fixtures_proto_rawDescGZIP(), []int{13}
+	return file_fixtures_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *Recursive) GetName() string {
@@ -1494,7 +1740,7 @@ type MutualA struct {
 
 func (x *MutualA) Reset() {
 	*x = MutualA{}
-	mi := &file_fixtures_proto_msgTypes[14]
+	mi := &file_fixtures_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1506,7 +1752,7 @@ func (x *MutualA) String() string {
 func (*MutualA) ProtoMessage() {}
 
 func (x *MutualA) ProtoReflect() protoreflect.Message {
-	mi := &file_fixtures_proto_msgTypes[14]
+	mi := &file_fixtures_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1519,7 +1765,7 @@ func (x *MutualA) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MutualA.ProtoReflect.Descriptor instead.
 func (*MutualA) Descriptor() ([]byte, []int) {
-	return file_fixtures_proto_rawDescGZIP(), []int{14}
+	return file_fixtures_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *MutualA) GetLabel() string {
@@ -1546,7 +1792,7 @@ type MutualB struct {
 
 func (x *MutualB) Reset() {
 	*x = MutualB{}
-	mi := &file_fixtures_proto_msgTypes[15]
+	mi := &file_fixtures_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1558,7 +1804,7 @@ func (x *MutualB) String() string {
 func (*MutualB) ProtoMessage() {}
 
 func (x *MutualB) ProtoReflect() protoreflect.Message {
-	mi := &file_fixtures_proto_msgTypes[15]
+	mi := &file_fixtures_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1571,7 +1817,7 @@ func (x *MutualB) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MutualB.ProtoReflect.Descriptor instead.
 func (*MutualB) Descriptor() ([]byte, []int) {
-	return file_fixtures_proto_rawDescGZIP(), []int{15}
+	return file_fixtures_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *MutualB) GetLabel() string {
@@ -1598,7 +1844,7 @@ type Deep struct {
 
 func (x *Deep) Reset() {
 	*x = Deep{}
-	mi := &file_fixtures_proto_msgTypes[16]
+	mi := &file_fixtures_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1610,7 +1856,7 @@ func (x *Deep) String() string {
 func (*Deep) ProtoMessage() {}
 
 func (x *Deep) ProtoReflect() protoreflect.Message {
-	mi := &file_fixtures_proto_msgTypes[16]
+	mi := &file_fixtures_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1623,7 +1869,7 @@ func (x *Deep) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Deep.ProtoReflect.Descriptor instead.
 func (*Deep) Descriptor() ([]byte, []int) {
-	return file_fixtures_proto_rawDescGZIP(), []int{16}
+	return file_fixtures_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *Deep) GetL1() *Deep_L1 {
@@ -1642,7 +1888,7 @@ type Deep_L1 struct {
 
 func (x *Deep_L1) Reset() {
 	*x = Deep_L1{}
-	mi := &file_fixtures_proto_msgTypes[22]
+	mi := &file_fixtures_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1654,7 +1900,7 @@ func (x *Deep_L1) String() string {
 func (*Deep_L1) ProtoMessage() {}
 
 func (x *Deep_L1) ProtoReflect() protoreflect.Message {
-	mi := &file_fixtures_proto_msgTypes[22]
+	mi := &file_fixtures_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1667,7 +1913,7 @@ func (x *Deep_L1) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Deep_L1.ProtoReflect.Descriptor instead.
 func (*Deep_L1) Descriptor() ([]byte, []int) {
-	return file_fixtures_proto_rawDescGZIP(), []int{16, 0}
+	return file_fixtures_proto_rawDescGZIP(), []int{18, 0}
 }
 
 func (x *Deep_L1) GetL2() *Deep_L1_L2 {
@@ -1686,7 +1932,7 @@ type Deep_L1_L2 struct {
 
 func (x *Deep_L1_L2) Reset() {
 	*x = Deep_L1_L2{}
-	mi := &file_fixtures_proto_msgTypes[23]
+	mi := &file_fixtures_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1698,7 +1944,7 @@ func (x *Deep_L1_L2) String() string {
 func (*Deep_L1_L2) ProtoMessage() {}
 
 func (x *Deep_L1_L2) ProtoReflect() protoreflect.Message {
-	mi := &file_fixtures_proto_msgTypes[23]
+	mi := &file_fixtures_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1711,7 +1957,7 @@ func (x *Deep_L1_L2) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Deep_L1_L2.ProtoReflect.Descriptor instead.
 func (*Deep_L1_L2) Descriptor() ([]byte, []int) {
-	return file_fixtures_proto_rawDescGZIP(), []int{16, 0, 0}
+	return file_fixtures_proto_rawDescGZIP(), []int{18, 0, 0}
 }
 
 func (x *Deep_L1_L2) GetL3() *Deep_L1_L2_L3 {
@@ -1730,7 +1976,7 @@ type Deep_L1_L2_L3 struct {
 
 func (x *Deep_L1_L2_L3) Reset() {
 	*x = Deep_L1_L2_L3{}
-	mi := &file_fixtures_proto_msgTypes[24]
+	mi := &file_fixtures_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1742,7 +1988,7 @@ func (x *Deep_L1_L2_L3) String() string {
 func (*Deep_L1_L2_L3) ProtoMessage() {}
 
 func (x *Deep_L1_L2_L3) ProtoReflect() protoreflect.Message {
-	mi := &file_fixtures_proto_msgTypes[24]
+	mi := &file_fixtures_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1755,7 +2001,7 @@ func (x *Deep_L1_L2_L3) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Deep_L1_L2_L3.ProtoReflect.Descriptor instead.
 func (*Deep_L1_L2_L3) Descriptor() ([]byte, []int) {
-	return file_fixtures_proto_rawDescGZIP(), []int{16, 0, 0, 0}
+	return file_fixtures_proto_rawDescGZIP(), []int{18, 0, 0, 0}
 }
 
 func (x *Deep_L1_L2_L3) GetLeaf() string {
@@ -1910,7 +2156,38 @@ const file_fixtures_proto_rawDesc = "" +
 	"\x16RequiredOneofAllMasked\x12\x13\n" +
 	"\x01a\x18\x01 \x01(\tB\x03\xe0A\x03H\x00R\x01a\x12\x13\n" +
 	"\x01b\x18\x02 \x01(\tB\x03\xe0A\x03H\x00R\x01bB\x0f\n" +
-	"\x06secret\x12\x05\xbaH\x02\b\x01\"V\n" +
+	"\x06secret\x12\x05\xbaH\x02\b\x01\"L\n" +
+	"\x10OneofArmRequired\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\x06\xbaH\x03\xc8\x01\x01H\x00R\x02id\x12\x14\n" +
+	"\x04name\x18\x02 \x01(\tH\x00R\x04nameB\b\n" +
+	"\x06target\"\xb4\x06\n" +
+	"\fZeroBreakers\x12#\n" +
+	"\tmin_len_s\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aminLenS\x12(\n" +
+	"\vmin_items_r\x18\x02 \x03(\tB\b\xbaH\x05\x92\x01\x02\b\x01R\tminItemsR\x12[\n" +
+	"\vmin_pairs_m\x18\x03 \x03(\v21.protomcp.testdata.v1.ZeroBreakers.MinPairsMEntryB\b\xbaH\x05\x9a\x01\x02\b\x01R\tminPairsM\x12\x1a\n" +
+	"\x04gt_i\x18\x04 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00R\x03gtI\x12\x1a\n" +
+	"\x04gt_u\x18\x05 \x01(\x04B\a\xbaH\x042\x02 \x05R\x03gtU\x12'\n" +
+	"\alte_neg\x18\x06 \x01(\x01B\x0e\xbaH\v\x12\t\x19\x00\x00\x00\x00\x00\x00\xe0\xbfR\x06lteNeg\x12 \n" +
+	"\aconst_b\x18\a \x01(\bB\a\xbaH\x04j\x02\b\x01R\x06constB\x12(\n" +
+	"\tpattern_s\x18\b \x01(\tB\v\xbaH\br\x062\x04^a+$R\bpatternS\x12 \n" +
+	"\aemail_s\x18\t \x01(\tB\a\xbaH\x04r\x02`\x01R\x06emailS\x12A\n" +
+	"\aenum_in\x18\n" +
+	" \x01(\x0e2\x1c.protomcp.testdata.v1.StatusB\n" +
+	"\xbaH\a\x82\x01\x04\x18\x01\x18\x02R\x06enumIn\x12*\n" +
+	"\n" +
+	"ok_pattern\x18\v \x01(\tB\v\xbaH\br\x062\x04^a*$R\tokPattern\x12\x1e\n" +
+	"\x06ok_max\x18\f \x01(\tB\a\xbaH\x04r\x02\x18\x05R\x05okMax\x12-\n" +
+	"\vok_presence\x18\r \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\n" +
+	"okPresence\x88\x01\x01\x124\n" +
+	"\x10ok_ignore_always\x18\x0e \x01(\tB\n" +
+	"\xbaH\a\xd8\x01\x03r\x02\x10\x01R\x0eokIgnoreAlways\x120\n" +
+	"\x0eok_ignore_zero\x18\x0f \x01(\tB\n" +
+	"\xbaH\a\xd8\x01\x01r\x02\x10\x01R\fokIgnoreZero\x125\n" +
+	"\x11req_ignore_always\x18\x10 \x01(\tB\t\xbaH\x06\xc8\x01\x01\xd8\x01\x03R\x0freqIgnoreAlways\x1a<\n" +
+	"\x0eMinPairsMEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x0e\n" +
+	"\f_ok_presence\"V\n" +
 	"\tRecursive\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x125\n" +
 	"\x05child\x18\x02 \x01(\v2\x1f.protomcp.testdata.v1.RecursiveR\x05child\"R\n" +
@@ -1947,7 +2224,7 @@ func file_fixtures_proto_rawDescGZIP() []byte {
 }
 
 var file_fixtures_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_fixtures_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
+var file_fixtures_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_fixtures_proto_goTypes = []any{
 	(Status)(0),                    // 0: protomcp.testdata.v1.Status
 	(*Scalars)(nil),                // 1: protomcp.testdata.v1.Scalars
@@ -1963,35 +2240,38 @@ var file_fixtures_proto_goTypes = []any{
 	(*RequiredOneof)(nil),          // 11: protomcp.testdata.v1.RequiredOneof
 	(*RequiredOneofPartial)(nil),   // 12: protomcp.testdata.v1.RequiredOneofPartial
 	(*RequiredOneofAllMasked)(nil), // 13: protomcp.testdata.v1.RequiredOneofAllMasked
-	(*Recursive)(nil),              // 14: protomcp.testdata.v1.Recursive
-	(*MutualA)(nil),                // 15: protomcp.testdata.v1.MutualA
-	(*MutualB)(nil),                // 16: protomcp.testdata.v1.MutualB
-	(*Deep)(nil),                   // 17: protomcp.testdata.v1.Deep
-	nil,                            // 18: protomcp.testdata.v1.Mapy.CountsEntry
-	nil,                            // 19: protomcp.testdata.v1.Mapy.ByIdEntry
-	nil,                            // 20: protomcp.testdata.v1.Mapy.ByI32Entry
-	nil,                            // 21: protomcp.testdata.v1.Mapy.ByU32ToEnumEntry
-	nil,                            // 22: protomcp.testdata.v1.Mapy.ByBoolEntry
-	(*Deep_L1)(nil),                // 23: protomcp.testdata.v1.Deep.L1
-	(*Deep_L1_L2)(nil),             // 24: protomcp.testdata.v1.Deep.L1.L2
-	(*Deep_L1_L2_L3)(nil),          // 25: protomcp.testdata.v1.Deep.L1.L2.L3
-	(*timestamppb.Timestamp)(nil),  // 26: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),    // 27: google.protobuf.Duration
-	(*structpb.Struct)(nil),        // 28: google.protobuf.Struct
-	(*structpb.Value)(nil),         // 29: google.protobuf.Value
-	(*structpb.ListValue)(nil),     // 30: google.protobuf.ListValue
-	(*fieldmaskpb.FieldMask)(nil),  // 31: google.protobuf.FieldMask
-	(*anypb.Any)(nil),              // 32: google.protobuf.Any
-	(*emptypb.Empty)(nil),          // 33: google.protobuf.Empty
-	(*wrapperspb.StringValue)(nil), // 34: google.protobuf.StringValue
-	(*wrapperspb.Int32Value)(nil),  // 35: google.protobuf.Int32Value
-	(*wrapperspb.Int64Value)(nil),  // 36: google.protobuf.Int64Value
-	(*wrapperspb.UInt32Value)(nil), // 37: google.protobuf.UInt32Value
-	(*wrapperspb.UInt64Value)(nil), // 38: google.protobuf.UInt64Value
-	(*wrapperspb.BoolValue)(nil),   // 39: google.protobuf.BoolValue
-	(*wrapperspb.DoubleValue)(nil), // 40: google.protobuf.DoubleValue
-	(*wrapperspb.FloatValue)(nil),  // 41: google.protobuf.FloatValue
-	(*wrapperspb.BytesValue)(nil),  // 42: google.protobuf.BytesValue
+	(*OneofArmRequired)(nil),       // 14: protomcp.testdata.v1.OneofArmRequired
+	(*ZeroBreakers)(nil),           // 15: protomcp.testdata.v1.ZeroBreakers
+	(*Recursive)(nil),              // 16: protomcp.testdata.v1.Recursive
+	(*MutualA)(nil),                // 17: protomcp.testdata.v1.MutualA
+	(*MutualB)(nil),                // 18: protomcp.testdata.v1.MutualB
+	(*Deep)(nil),                   // 19: protomcp.testdata.v1.Deep
+	nil,                            // 20: protomcp.testdata.v1.Mapy.CountsEntry
+	nil,                            // 21: protomcp.testdata.v1.Mapy.ByIdEntry
+	nil,                            // 22: protomcp.testdata.v1.Mapy.ByI32Entry
+	nil,                            // 23: protomcp.testdata.v1.Mapy.ByU32ToEnumEntry
+	nil,                            // 24: protomcp.testdata.v1.Mapy.ByBoolEntry
+	nil,                            // 25: protomcp.testdata.v1.ZeroBreakers.MinPairsMEntry
+	(*Deep_L1)(nil),                // 26: protomcp.testdata.v1.Deep.L1
+	(*Deep_L1_L2)(nil),             // 27: protomcp.testdata.v1.Deep.L1.L2
+	(*Deep_L1_L2_L3)(nil),          // 28: protomcp.testdata.v1.Deep.L1.L2.L3
+	(*timestamppb.Timestamp)(nil),  // 29: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),    // 30: google.protobuf.Duration
+	(*structpb.Struct)(nil),        // 31: google.protobuf.Struct
+	(*structpb.Value)(nil),         // 32: google.protobuf.Value
+	(*structpb.ListValue)(nil),     // 33: google.protobuf.ListValue
+	(*fieldmaskpb.FieldMask)(nil),  // 34: google.protobuf.FieldMask
+	(*anypb.Any)(nil),              // 35: google.protobuf.Any
+	(*emptypb.Empty)(nil),          // 36: google.protobuf.Empty
+	(*wrapperspb.StringValue)(nil), // 37: google.protobuf.StringValue
+	(*wrapperspb.Int32Value)(nil),  // 38: google.protobuf.Int32Value
+	(*wrapperspb.Int64Value)(nil),  // 39: google.protobuf.Int64Value
+	(*wrapperspb.UInt32Value)(nil), // 40: google.protobuf.UInt32Value
+	(*wrapperspb.UInt64Value)(nil), // 41: google.protobuf.UInt64Value
+	(*wrapperspb.BoolValue)(nil),   // 42: google.protobuf.BoolValue
+	(*wrapperspb.DoubleValue)(nil), // 43: google.protobuf.DoubleValue
+	(*wrapperspb.FloatValue)(nil),  // 44: google.protobuf.FloatValue
+	(*wrapperspb.BytesValue)(nil),  // 45: google.protobuf.BytesValue
 }
 var file_fixtures_proto_depIdxs = []int32{
 	0,  // 0: protomcp.testdata.v1.Enums.plain:type_name -> protomcp.testdata.v1.Status
@@ -2001,43 +2281,45 @@ var file_fixtures_proto_depIdxs = []int32{
 	0,  // 4: protomcp.testdata.v1.Enums.not_in:type_name -> protomcp.testdata.v1.Status
 	1,  // 5: protomcp.testdata.v1.Listy.nested_messages:type_name -> protomcp.testdata.v1.Scalars
 	0,  // 6: protomcp.testdata.v1.Listy.statuses:type_name -> protomcp.testdata.v1.Status
-	18, // 7: protomcp.testdata.v1.Mapy.counts:type_name -> protomcp.testdata.v1.Mapy.CountsEntry
-	19, // 8: protomcp.testdata.v1.Mapy.by_id:type_name -> protomcp.testdata.v1.Mapy.ByIdEntry
-	20, // 9: protomcp.testdata.v1.Mapy.by_i32:type_name -> protomcp.testdata.v1.Mapy.ByI32Entry
-	21, // 10: protomcp.testdata.v1.Mapy.by_u32_to_enum:type_name -> protomcp.testdata.v1.Mapy.ByU32ToEnumEntry
-	22, // 11: protomcp.testdata.v1.Mapy.by_bool:type_name -> protomcp.testdata.v1.Mapy.ByBoolEntry
-	26, // 12: protomcp.testdata.v1.WellKnown.ts:type_name -> google.protobuf.Timestamp
-	27, // 13: protomcp.testdata.v1.WellKnown.dur:type_name -> google.protobuf.Duration
-	28, // 14: protomcp.testdata.v1.WellKnown.obj:type_name -> google.protobuf.Struct
-	29, // 15: protomcp.testdata.v1.WellKnown.any_value:type_name -> google.protobuf.Value
-	30, // 16: protomcp.testdata.v1.WellKnown.lst:type_name -> google.protobuf.ListValue
-	31, // 17: protomcp.testdata.v1.WellKnown.mask:type_name -> google.protobuf.FieldMask
-	32, // 18: protomcp.testdata.v1.WellKnown.pkt:type_name -> google.protobuf.Any
-	33, // 19: protomcp.testdata.v1.WellKnown.empty:type_name -> google.protobuf.Empty
-	34, // 20: protomcp.testdata.v1.WellKnown.sv:type_name -> google.protobuf.StringValue
-	35, // 21: protomcp.testdata.v1.WellKnown.i32v:type_name -> google.protobuf.Int32Value
-	36, // 22: protomcp.testdata.v1.WellKnown.i64v:type_name -> google.protobuf.Int64Value
-	37, // 23: protomcp.testdata.v1.WellKnown.u32v:type_name -> google.protobuf.UInt32Value
-	38, // 24: protomcp.testdata.v1.WellKnown.u64v:type_name -> google.protobuf.UInt64Value
-	39, // 25: protomcp.testdata.v1.WellKnown.bv:type_name -> google.protobuf.BoolValue
-	40, // 26: protomcp.testdata.v1.WellKnown.dv:type_name -> google.protobuf.DoubleValue
-	41, // 27: protomcp.testdata.v1.WellKnown.fv:type_name -> google.protobuf.FloatValue
-	42, // 28: protomcp.testdata.v1.WellKnown.bytesv:type_name -> google.protobuf.BytesValue
+	20, // 7: protomcp.testdata.v1.Mapy.counts:type_name -> protomcp.testdata.v1.Mapy.CountsEntry
+	21, // 8: protomcp.testdata.v1.Mapy.by_id:type_name -> protomcp.testdata.v1.Mapy.ByIdEntry
+	22, // 9: protomcp.testdata.v1.Mapy.by_i32:type_name -> protomcp.testdata.v1.Mapy.ByI32Entry
+	23, // 10: protomcp.testdata.v1.Mapy.by_u32_to_enum:type_name -> protomcp.testdata.v1.Mapy.ByU32ToEnumEntry
+	24, // 11: protomcp.testdata.v1.Mapy.by_bool:type_name -> protomcp.testdata.v1.Mapy.ByBoolEntry
+	29, // 12: protomcp.testdata.v1.WellKnown.ts:type_name -> google.protobuf.Timestamp
+	30, // 13: protomcp.testdata.v1.WellKnown.dur:type_name -> google.protobuf.Duration
+	31, // 14: protomcp.testdata.v1.WellKnown.obj:type_name -> google.protobuf.Struct
+	32, // 15: protomcp.testdata.v1.WellKnown.any_value:type_name -> google.protobuf.Value
+	33, // 16: protomcp.testdata.v1.WellKnown.lst:type_name -> google.protobuf.ListValue
+	34, // 17: protomcp.testdata.v1.WellKnown.mask:type_name -> google.protobuf.FieldMask
+	35, // 18: protomcp.testdata.v1.WellKnown.pkt:type_name -> google.protobuf.Any
+	36, // 19: protomcp.testdata.v1.WellKnown.empty:type_name -> google.protobuf.Empty
+	37, // 20: protomcp.testdata.v1.WellKnown.sv:type_name -> google.protobuf.StringValue
+	38, // 21: protomcp.testdata.v1.WellKnown.i32v:type_name -> google.protobuf.Int32Value
+	39, // 22: protomcp.testdata.v1.WellKnown.i64v:type_name -> google.protobuf.Int64Value
+	40, // 23: protomcp.testdata.v1.WellKnown.u32v:type_name -> google.protobuf.UInt32Value
+	41, // 24: protomcp.testdata.v1.WellKnown.u64v:type_name -> google.protobuf.UInt64Value
+	42, // 25: protomcp.testdata.v1.WellKnown.bv:type_name -> google.protobuf.BoolValue
+	43, // 26: protomcp.testdata.v1.WellKnown.dv:type_name -> google.protobuf.DoubleValue
+	44, // 27: protomcp.testdata.v1.WellKnown.fv:type_name -> google.protobuf.FloatValue
+	45, // 28: protomcp.testdata.v1.WellKnown.bytesv:type_name -> google.protobuf.BytesValue
 	1,  // 29: protomcp.testdata.v1.Oneofs.nested:type_name -> protomcp.testdata.v1.Scalars
 	0,  // 30: protomcp.testdata.v1.Oneofs.label:type_name -> protomcp.testdata.v1.Status
-	14, // 31: protomcp.testdata.v1.Recursive.child:type_name -> protomcp.testdata.v1.Recursive
-	16, // 32: protomcp.testdata.v1.MutualA.peer:type_name -> protomcp.testdata.v1.MutualB
-	15, // 33: protomcp.testdata.v1.MutualB.peer:type_name -> protomcp.testdata.v1.MutualA
-	23, // 34: protomcp.testdata.v1.Deep.l1:type_name -> protomcp.testdata.v1.Deep.L1
-	1,  // 35: protomcp.testdata.v1.Mapy.ByI32Entry.value:type_name -> protomcp.testdata.v1.Scalars
-	0,  // 36: protomcp.testdata.v1.Mapy.ByU32ToEnumEntry.value:type_name -> protomcp.testdata.v1.Status
-	24, // 37: protomcp.testdata.v1.Deep.L1.l2:type_name -> protomcp.testdata.v1.Deep.L1.L2
-	25, // 38: protomcp.testdata.v1.Deep.L1.L2.l3:type_name -> protomcp.testdata.v1.Deep.L1.L2.L3
-	39, // [39:39] is the sub-list for method output_type
-	39, // [39:39] is the sub-list for method input_type
-	39, // [39:39] is the sub-list for extension type_name
-	39, // [39:39] is the sub-list for extension extendee
-	0,  // [0:39] is the sub-list for field type_name
+	25, // 31: protomcp.testdata.v1.ZeroBreakers.min_pairs_m:type_name -> protomcp.testdata.v1.ZeroBreakers.MinPairsMEntry
+	0,  // 32: protomcp.testdata.v1.ZeroBreakers.enum_in:type_name -> protomcp.testdata.v1.Status
+	16, // 33: protomcp.testdata.v1.Recursive.child:type_name -> protomcp.testdata.v1.Recursive
+	18, // 34: protomcp.testdata.v1.MutualA.peer:type_name -> protomcp.testdata.v1.MutualB
+	17, // 35: protomcp.testdata.v1.MutualB.peer:type_name -> protomcp.testdata.v1.MutualA
+	26, // 36: protomcp.testdata.v1.Deep.l1:type_name -> protomcp.testdata.v1.Deep.L1
+	1,  // 37: protomcp.testdata.v1.Mapy.ByI32Entry.value:type_name -> protomcp.testdata.v1.Scalars
+	0,  // 38: protomcp.testdata.v1.Mapy.ByU32ToEnumEntry.value:type_name -> protomcp.testdata.v1.Status
+	27, // 39: protomcp.testdata.v1.Deep.L1.l2:type_name -> protomcp.testdata.v1.Deep.L1.L2
+	28, // 40: protomcp.testdata.v1.Deep.L1.L2.l3:type_name -> protomcp.testdata.v1.Deep.L1.L2.L3
+	41, // [41:41] is the sub-list for method output_type
+	41, // [41:41] is the sub-list for method input_type
+	41, // [41:41] is the sub-list for extension type_name
+	41, // [41:41] is the sub-list for extension extendee
+	0,  // [0:41] is the sub-list for field type_name
 }
 
 func init() { file_fixtures_proto_init() }
@@ -2065,13 +2347,18 @@ func file_fixtures_proto_init() {
 		(*RequiredOneofAllMasked_A)(nil),
 		(*RequiredOneofAllMasked_B)(nil),
 	}
+	file_fixtures_proto_msgTypes[13].OneofWrappers = []any{
+		(*OneofArmRequired_Id)(nil),
+		(*OneofArmRequired_Name)(nil),
+	}
+	file_fixtures_proto_msgTypes[14].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fixtures_proto_rawDesc), len(file_fixtures_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   25,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

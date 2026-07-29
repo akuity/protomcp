@@ -82,9 +82,10 @@ type ToolOptions struct {
 	Destructive bool `protobuf:"varint,6,opt,name=destructive,proto3" json:"destructive,omitempty"`
 	// open_world signals the tool reaches outside the local server
 	// (web fetch, third-party API, search).
-	OpenWorld     bool `protobuf:"varint,7,opt,name=open_world,json=openWorld,proto3" json:"open_world,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	OpenWorld               bool `protobuf:"varint,7,opt,name=open_world,json=openWorld,proto3" json:"open_world,omitempty"`
+	DisableReadOnlyNameLint bool `protobuf:"varint,8,opt,name=disable_read_only_name_lint,json=disableReadOnlyNameLint,proto3" json:"disable_read_only_name_lint,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *ToolOptions) Reset() {
@@ -162,6 +163,13 @@ func (x *ToolOptions) GetDestructive() bool {
 func (x *ToolOptions) GetOpenWorld() bool {
 	if x != nil {
 		return x.OpenWorld
+	}
+	return false
+}
+
+func (x *ToolOptions) GetDisableReadOnlyNameLint() bool {
+	if x != nil {
+		return x.DisableReadOnlyNameLint
 	}
 	return false
 }
@@ -749,7 +757,7 @@ const file_protomcp_v1_annotations_proto_rawDesc = "" +
 	"\n" +
 	"\x1dprotomcp/v1/annotations.proto\x12\vprotomcp.v1\x1a google/protobuf/descriptor.proto\".\n" +
 	"\x12FieldSchemaOptions\x12\x18\n" +
-	"\aexclude\x18\x01 \x01(\bR\aexclude\"\xd7\x01\n" +
+	"\aexclude\x18\x01 \x01(\bR\aexclude\"\x95\x02\n" +
 	"\vToolOptions\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -760,7 +768,8 @@ const file_protomcp_v1_annotations_proto_rawDesc = "" +
 	"idempotent\x12 \n" +
 	"\vdestructive\x18\x06 \x01(\bR\vdestructive\x12\x1d\n" +
 	"\n" +
-	"open_world\x18\a \x01(\bR\topenWorld\"1\n" +
+	"open_world\x18\a \x01(\bR\topenWorld\x12<\n" +
+	"\x1bdisable_read_only_name_lint\x18\b \x01(\bR\x17disableReadOnlyNameLint\"1\n" +
 	"\x0eServiceOptions\x12\x1f\n" +
 	"\vtool_prefix\x18\x01 \x01(\tR\n" +
 	"toolPrefix\"L\n" +

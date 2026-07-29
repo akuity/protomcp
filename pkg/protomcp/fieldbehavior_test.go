@@ -6,6 +6,13 @@ import (
 	"bytes"
 	"testing"
 
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/dynamicpb"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -337,6 +344,95 @@ func TestClearOutputOnly_AnyUntouchedWhenNoMatches(t *testing.T) {
 	protomcp.ClearOutputOnly(m)
 	if m.Payload.GetTypeUrl() != origURL || !bytes.Equal(m.Payload.GetValue(), origValue) {
 		t.Errorf("Any with no matchable fields was rewritten: %+v", m.Payload)
+	}
+}
+
+// newDynamicAnyPayload builds a message type that exists only in the
+// returned local registry (never in protoregistry.GlobalTypes) and an
+// Any packing an instance of it, reproducing a caller that configures a
+// custom protojson Resolver for dynamically loaded types.
+func newDynamicAnyPayload(t *testing.T) (*protoregistry.Types, *anypb.Any) {
+	t.Helper()
+	fdp := &descriptorpb.FileDescriptorProto{
+		Name:    proto.String("protomcp/dynamictest/payload.proto"),
+		Package: proto.String("protomcp.dynamictest"),
+		Syntax:  proto.String("proto3"),
+		MessageType: []*descriptorpb.DescriptorProto{{
+			Name: proto.String("Payload"),
+			Field: []*descriptorpb.FieldDescriptorProto{{
+				Name:     proto.String("value"),
+				Number:   proto.Int32(1),
+				Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+				Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+				JsonName: proto.String("value"),
+			}},
+		}},
+	}
+	fd, err := protodesc.NewFile(fdp, nil)
+	if err != nil {
+		t.Fatalf("protodesc.NewFile: %v", err)
+	}
+	mt := dynamicpb.NewMessageType(fd.Messages().Get(0))
+	types := &protoregistry.Types{}
+	if rErr := types.RegisterMessage(mt); rErr != nil {
+		t.Fatalf("RegisterMessage: %v", rErr)
+	}
+	payload := mt.New()
+	payload.Set(mt.Descriptor().Fields().ByName("value"), protoreflect.ValueOfString("kept"))
+	raw, err := proto.Marshal(payload.Interface())
+	if err != nil {
+		t.Fatalf("marshal dynamic payload: %v", err)
+	}
+	return types, &anypb.Any{
+		TypeUrl: "type.googleapis.com/protomcp.dynamictest.Payload",
+		Value:   raw,
+	}
+}
+
+func TestServerClear_AnyUsesConfiguredResolver(t *testing.T) {
+	types, packed := newDynamicAnyPayload(t)
+	srv := protomcp.New("t", "0.0.1",
+		protomcp.WithProtoJSONUnmarshal(protojson.UnmarshalOptions{Resolver: types}))
+
+	origURL := packed.GetTypeUrl()
+	origValue := append([]byte(nil), packed.GetValue()...)
+	m := &authv1.TestAnyHolder{Payload: packed}
+	srv.ClearOutputOnly(m)
+	srv.ClearSchemaExcluded(m)
+	if m.Payload.GetTypeUrl() != origURL || !bytes.Equal(m.Payload.GetValue(), origValue) {
+		t.Errorf("Any resolvable via the configured resolver was cleared: %+v", m.Payload)
+	}
+
+	protomcp.ClearOutputOnly(m)
+	if m.Payload.GetTypeUrl() != "" || len(m.Payload.GetValue()) != 0 {
+		t.Errorf("package-level clear must stay conservative for types outside GlobalTypes: %+v", m.Payload)
+	}
+}
+
+// buildNodeChain returns a TestNode chain with links+1 nodes, every one
+// carrying an excluded secret.
+func buildNodeChain(links int) *authv1.TestNode {
+	head := &authv1.TestNode{Secret: "deep-secret", Data: "d"}
+	cur := head
+	for range links {
+		cur.Next = &authv1.TestNode{Secret: "deep-secret", Data: "d"}
+		cur = cur.Next
+	}
+	return head
+}
+
+func TestClearSchemaExcluded_DeepChainFailsClosed(t *testing.T) {
+	head := buildNodeChain(10050)
+	protomcp.ClearSchemaExcluded(head)
+	depth := 0
+	for n := head; n != nil; n = n.Next {
+		if n.GetSecret() != "" {
+			t.Fatalf("node at depth %d kept its excluded secret %q; deep nesting must fail closed", depth, n.GetSecret())
+		}
+		depth++
+	}
+	if head.GetData() != "d" {
+		t.Errorf("head.Data = %q, want untouched %q", head.GetData(), "d")
 	}
 }
 

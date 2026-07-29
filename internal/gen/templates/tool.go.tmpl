@@ -20,9 +20,9 @@
 		// Clear OUTPUT_ONLY fields: the schema hides them but the
 		// wire format does not, so the upstream gRPC server must
 		// never see client-supplied values for server-computed fields.
-		{{.QProtomcpClearOutputOnly}}(&in)
+		srv.ClearOutputOnly(&in)
 {{- if .InputHasExcluded}}
-		{{.QProtomcpClearSchemaExcluded}}(&in)
+		srv.ClearSchemaExcluded(&in)
 {{- end}}
 		// ToolMiddleware may mutate &in or replace the pointer; the
 		// final handler reads from g.Input so both forms propagate.

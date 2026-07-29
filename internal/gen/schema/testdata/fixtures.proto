@@ -214,6 +214,43 @@ message RequiredOneofAllMasked {
   }
 }
 
+message OneofArmRequired {
+  oneof target {
+    string id = 1 [(buf.validate.field).required = true];
+    string name = 2;
+  }
+}
+
+message ZeroBreakers {
+  string min_len_s = 1 [(buf.validate.field).string.min_len = 1];
+  repeated string min_items_r = 2 [(buf.validate.field).repeated.min_items = 1];
+  map<string, string> min_pairs_m = 3 [(buf.validate.field).map.min_pairs = 1];
+  int32 gt_i = 4 [(buf.validate.field).int32.gt = 0];
+  uint64 gt_u = 5 [(buf.validate.field).uint64.gt = 5];
+  double lte_neg = 6 [(buf.validate.field).double.lte = -0.5];
+  bool const_b = 7 [(buf.validate.field).bool.const = true];
+  string pattern_s = 8 [(buf.validate.field).string.pattern = "^a+$"];
+  string email_s = 9 [(buf.validate.field).string.email = true];
+  Status enum_in = 10 [(buf.validate.field).enum = {
+    in: [1, 2]
+  }];
+  string ok_pattern = 11 [(buf.validate.field).string.pattern = "^a*$"];
+  string ok_max = 12 [(buf.validate.field).string.max_len = 5];
+  optional string ok_presence = 13 [(buf.validate.field).string.min_len = 1];
+  string ok_ignore_always = 14 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).ignore = IGNORE_ALWAYS
+  ];
+  string ok_ignore_zero = 15 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE
+  ];
+  string req_ignore_always = 16 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).ignore = IGNORE_ALWAYS
+  ];
+}
+
 // Recursive tests the maxDepth cycle-breaker for direct recursion.
 message Recursive {
   string name  = 1;

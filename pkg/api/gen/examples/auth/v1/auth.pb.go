@@ -559,6 +559,66 @@ func (x *TestAnyHolder) GetByKey() map[string]*anypb.Any {
 	return nil
 }
 
+type TestNode struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Secret        string                 `protobuf:"bytes,1,opt,name=secret,proto3" json:"secret,omitempty"`
+	Data          string                 `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	Next          *TestNode              `protobuf:"bytes,3,opt,name=next,proto3" json:"next,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TestNode) Reset() {
+	*x = TestNode{}
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestNode) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestNode) ProtoMessage() {}
+
+func (x *TestNode) ProtoReflect() protoreflect.Message {
+	mi := &file_examples_auth_v1_auth_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestNode.ProtoReflect.Descriptor instead.
+func (*TestNode) Descriptor() ([]byte, []int) {
+	return file_examples_auth_v1_auth_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *TestNode) GetSecret() string {
+	if x != nil {
+		return x.Secret
+	}
+	return ""
+}
+
+func (x *TestNode) GetData() string {
+	if x != nil {
+		return x.Data
+	}
+	return ""
+}
+
+func (x *TestNode) GetNext() *TestNode {
+	if x != nil {
+		return x.Next
+	}
+	return nil
+}
+
 var File_examples_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_examples_auth_v1_auth_proto_rawDesc = "" +
@@ -600,7 +660,11 @@ const file_examples_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"ByKeyEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12*\n" +
-	"\x05value\x18\x02 \x01(\v2\x14.google.protobuf.AnyR\x05value:\x028\x012\xb9\x01\n" +
+	"\x05value\x18\x02 \x01(\v2\x14.google.protobuf.AnyR\x05value:\x028\x01\"w\n" +
+	"\bTestNode\x12\x1e\n" +
+	"\x06secret\x18\x01 \x01(\tB\x06ʵ\x18\x02\b\x01R\x06secret\x12\x12\n" +
+	"\x04data\x18\x02 \x01(\tR\x04data\x127\n" +
+	"\x04next\x18\x03 \x01(\v2#.protomcp.examples.auth.v1.TestNodeR\x04next2\xb9\x01\n" +
 	"\aProfile\x12\xad\x01\n" +
 	"\x06WhoAmI\x12(.protomcp.examples.auth.v1.WhoAmIRequest\x1a).protomcp.examples.auth.v1.WhoAmIResponse\"N\x8a\xb5\x18J\x12\bWho Am I\x1a<Returns the caller identity propagated from HTTP middleware. \x01B\xf1\x01\n" +
 	"\x1dcom.protomcp.examples.auth.v1B\tAuthProtoP\x01Z>github.com/akuity/protomcp/pkg/api/gen/examples/auth/v1;authv1\xa2\x02\x03PEA\xaa\x02\x19Protomcp.Examples.Auth.V1\xca\x02\x19Protomcp\\Examples\\Auth\\V1\xe2\x02%Protomcp\\Examples\\Auth\\V1\\GPBMetadata\xea\x02\x1cProtomcp::Examples::Auth::V1b\x06proto3"
@@ -617,7 +681,7 @@ func file_examples_auth_v1_auth_proto_rawDescGZIP() []byte {
 	return file_examples_auth_v1_auth_proto_rawDescData
 }
 
-var file_examples_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_examples_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_examples_auth_v1_auth_proto_goTypes = []any{
 	(*WhoAmIRequest)(nil),                // 0: protomcp.examples.auth.v1.WhoAmIRequest
 	(*WhoAmIResponse)(nil),               // 1: protomcp.examples.auth.v1.WhoAmIResponse
@@ -629,27 +693,29 @@ var file_examples_auth_v1_auth_proto_goTypes = []any{
 	(*TestOneofOutputOnly)(nil),          // 7: protomcp.examples.auth.v1.TestOneofOutputOnly
 	(*TestRepeatedOutputOnlyScalar)(nil), // 8: protomcp.examples.auth.v1.TestRepeatedOutputOnlyScalar
 	(*TestAnyHolder)(nil),                // 9: protomcp.examples.auth.v1.TestAnyHolder
-	nil,                                  // 10: protomcp.examples.auth.v1.TestMapMessages.ItemsEntry
-	nil,                                  // 11: protomcp.examples.auth.v1.TestAnyHolder.ByKeyEntry
-	(*anypb.Any)(nil),                    // 12: google.protobuf.Any
+	(*TestNode)(nil),                     // 10: protomcp.examples.auth.v1.TestNode
+	nil,                                  // 11: protomcp.examples.auth.v1.TestMapMessages.ItemsEntry
+	nil,                                  // 12: protomcp.examples.auth.v1.TestAnyHolder.ByKeyEntry
+	(*anypb.Any)(nil),                    // 13: google.protobuf.Any
 }
 var file_examples_auth_v1_auth_proto_depIdxs = []int32{
 	2,  // 0: protomcp.examples.auth.v1.TestNested.inner:type_name -> protomcp.examples.auth.v1.TestInner
 	2,  // 1: protomcp.examples.auth.v1.TestOutputOnlyMessage.stripped:type_name -> protomcp.examples.auth.v1.TestInner
 	2,  // 2: protomcp.examples.auth.v1.TestRepeatedMessages.items:type_name -> protomcp.examples.auth.v1.TestInner
-	10, // 3: protomcp.examples.auth.v1.TestMapMessages.items:type_name -> protomcp.examples.auth.v1.TestMapMessages.ItemsEntry
-	12, // 4: protomcp.examples.auth.v1.TestAnyHolder.payload:type_name -> google.protobuf.Any
-	12, // 5: protomcp.examples.auth.v1.TestAnyHolder.items:type_name -> google.protobuf.Any
-	11, // 6: protomcp.examples.auth.v1.TestAnyHolder.by_key:type_name -> protomcp.examples.auth.v1.TestAnyHolder.ByKeyEntry
-	2,  // 7: protomcp.examples.auth.v1.TestMapMessages.ItemsEntry.value:type_name -> protomcp.examples.auth.v1.TestInner
-	12, // 8: protomcp.examples.auth.v1.TestAnyHolder.ByKeyEntry.value:type_name -> google.protobuf.Any
-	0,  // 9: protomcp.examples.auth.v1.Profile.WhoAmI:input_type -> protomcp.examples.auth.v1.WhoAmIRequest
-	1,  // 10: protomcp.examples.auth.v1.Profile.WhoAmI:output_type -> protomcp.examples.auth.v1.WhoAmIResponse
-	10, // [10:11] is the sub-list for method output_type
-	9,  // [9:10] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	11, // 3: protomcp.examples.auth.v1.TestMapMessages.items:type_name -> protomcp.examples.auth.v1.TestMapMessages.ItemsEntry
+	13, // 4: protomcp.examples.auth.v1.TestAnyHolder.payload:type_name -> google.protobuf.Any
+	13, // 5: protomcp.examples.auth.v1.TestAnyHolder.items:type_name -> google.protobuf.Any
+	12, // 6: protomcp.examples.auth.v1.TestAnyHolder.by_key:type_name -> protomcp.examples.auth.v1.TestAnyHolder.ByKeyEntry
+	10, // 7: protomcp.examples.auth.v1.TestNode.next:type_name -> protomcp.examples.auth.v1.TestNode
+	2,  // 8: protomcp.examples.auth.v1.TestMapMessages.ItemsEntry.value:type_name -> protomcp.examples.auth.v1.TestInner
+	13, // 9: protomcp.examples.auth.v1.TestAnyHolder.ByKeyEntry.value:type_name -> google.protobuf.Any
+	0,  // 10: protomcp.examples.auth.v1.Profile.WhoAmI:input_type -> protomcp.examples.auth.v1.WhoAmIRequest
+	1,  // 11: protomcp.examples.auth.v1.Profile.WhoAmI:output_type -> protomcp.examples.auth.v1.WhoAmIResponse
+	11, // [11:12] is the sub-list for method output_type
+	10, // [10:11] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_examples_auth_v1_auth_proto_init() }
@@ -667,7 +733,7 @@ func file_examples_auth_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_examples_auth_v1_auth_proto_rawDesc), len(file_examples_auth_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

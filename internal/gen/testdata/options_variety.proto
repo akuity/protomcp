@@ -34,10 +34,10 @@ service Prefixed {
     };
   }
 
-  // AllHints sets every hint flag.
+  // AllHints sets every hint flag that can legally coexist (read_only
+  // is omitted: it contradicts destructive and is a codegen error).
   rpc AllHints(Empty) returns (Empty) {
     option (protomcp.v1.tool) = {
-      read_only: true
       idempotent: true
       destructive: true
     };

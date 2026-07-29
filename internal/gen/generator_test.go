@@ -183,7 +183,7 @@ func TestGenerate_Slim(t *testing.T) {
 	out := runGenerate(t, "slim.proto")
 
 	cases := []substringCase{
-		{"input clears excluded fields", true, "protomcp.ClearSchemaExcluded(&in)"},
+		{"input clears excluded fields", true, "srv.ClearSchemaExcluded(&in)"},
 		{"output is never cleared; g.Output stays raw for result processors", false, "ClearSchemaExcluded(resp)"},
 		{"streaming output is never cleared", false, "ClearSchemaExcluded(msg)"},
 		{"kept input field stays in schema", true, `"id"`},
@@ -258,7 +258,7 @@ func TestGenerate_AnyMasking(t *testing.T) {
 	out := runGenerate(t, "any_masking.proto")
 
 	cases := []substringCase{
-		{"input containing Any clears excluded fields at runtime", true, "protomcp.ClearSchemaExcluded(&in)"},
+		{"input containing Any clears excluded fields at runtime", true, "srv.ClearSchemaExcluded(&in)"},
 		{"output containing Any is masked at runtime", true, "MarshalProtoMasked(resp)"},
 	}
 	assertSubstrings(t, out, cases)
@@ -405,6 +405,23 @@ func TestGenerate_BadReadOnlyNameOverride(t *testing.T) {
 	}
 }
 
+func TestGenerate_BadReadOnlyPrefix(t *testing.T) {
+	err := runGenerateExpectError(t, "bad_read_only_prefix.proto")
+	if err == nil {
+		t.Fatal("want error, got nil")
+	}
+	for _, want := range []string{
+		"BadReadOnlyPrefix.GetWidget",
+		`"delete_BadReadOnlyPrefix_GetWidget"`,
+		`tool_prefix "delete_"`,
+		`mutating verb "Delete"`,
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q\nerror: %v", want, err)
+		}
+	}
+}
+
 func TestGenerate_ReadOnlyNames(t *testing.T) {
 	out := runGenerate(t, "read_only_names.proto")
 
@@ -412,9 +429,34 @@ func TestGenerate_ReadOnlyNames(t *testing.T) {
 		{"GetWidget generated", true, `"ReadOnlyNames_GetWidget"`},
 		{"ListWidgets generated", true, `"ReadOnlyNames_ListWidgets"`},
 		{"SettingsInfo not flagged as Set-prefixed", true, `"ReadOnlyNames_SettingsInfo"`},
+		{"SetDifference generated via per-RPC lint opt-out", true, `"ReadOnlyNames_SetDifference"`},
 		{"read-only hint emitted", true, "&mcp.ToolAnnotations{ReadOnlyHint: true}"},
 	}
 	assertSubstrings(t, out, cases)
+}
+
+func TestGenerate_BadReadOnlyDestructive(t *testing.T) {
+	err := runGenerateExpectError(t, "bad_read_only_destructive.proto")
+	want := "read_only: true and destructive: true"
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("want error containing %q, got %v", want, err)
+	}
+}
+
+func TestGenerate_BadSlimZeroViolation(t *testing.T) {
+	err := runGenerateExpectError(t, "bad_slim_zero.proto")
+	if err == nil {
+		t.Fatal("want error, got nil")
+	}
+	for _, want := range []string{
+		"FetchZeroRequest.selector",
+		`buf.validate rule "string.min_len"`,
+		"cleared zero value always violates",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q\nerror: %v", want, err)
+		}
+	}
 }
 
 func TestMutatingVerbPrefix(t *testing.T) {
@@ -503,8 +545,8 @@ func TestGenerate_OptionsVariety(t *testing.T) {
 			true, "&mcp.ToolAnnotations{IdempotentHint: true}"},
 		{"DestructiveOnly has DestructiveHint",
 			true, "&mcp.ToolAnnotations{DestructiveHint: protomcp.BoolPtr(true)}"},
-		{"AllHints has all three fields",
-			true, "&mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, DestructiveHint: protomcp.BoolPtr(true)}"},
+		{"AllHints has both compatible fields",
+			true, "&mcp.ToolAnnotations{IdempotentHint: true, DestructiveHint: protomcp.BoolPtr(true)}"},
 
 		// Description override vs. leading-comment fallback.
 		// The gofmt-aligned output uses two spaces after "Description:" when

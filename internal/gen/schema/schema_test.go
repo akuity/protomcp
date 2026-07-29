@@ -422,16 +422,40 @@ func TestRequiredOneof_NoEmptyBranch(t *testing.T) {
 	}
 }
 
-func TestRequiredOneofPartial_MaskedArmKeepsEmptyBranch(t *testing.T) {
+func TestRequiredOneofPartial_InputRequiresVisibleArm(t *testing.T) {
 	md := descByName(t, "protomcp.testdata.v1.RequiredOneofPartial")
 
 	in := jsonRound(t, ForInput(md, Options{}))
 	inOneOf := in["allOf"].([]any)[0].(map[string]any)["oneOf"].([]any)
-	if len(inOneOf) != 2 {
-		t.Fatalf("input oneOf: want 2 branches (visible + no-arm), got %d: %v", len(inOneOf), inOneOf)
+	if len(inOneOf) != 1 {
+		t.Fatalf("input oneOf: want 1 branch (visible only), got %d: %v", len(inOneOf), inOneOf)
 	}
-	if _, hasNot := inOneOf[1].(map[string]any)["not"]; !hasNot {
-		t.Errorf("input schema of a partially-masked required oneof must keep the no-arm branch: %v", inOneOf)
+	for _, b := range inOneOf {
+		if _, hasNot := b.(map[string]any)["not"]; hasNot {
+			t.Errorf("input schema of a required oneof must not accept the no-arm case: %v", inOneOf)
+		}
+	}
+
+	raw, err := json.Marshal(ForInput(md, Options{}))
+	if err != nil {
+		t.Fatalf("marshal schema: %v", err)
+	}
+	sch := &jsonschema.Schema{}
+	if uErr := json.Unmarshal(raw, sch); uErr != nil {
+		t.Fatalf("unmarshal into jsonschema.Schema: %v", uErr)
+	}
+	resolved, err := sch.Resolve(nil)
+	if err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+	if vErr := resolved.Validate(map[string]any{}); vErr == nil {
+		t.Error("empty input validated; a required oneof with a visible arm must demand that arm")
+	}
+	if vErr := resolved.Validate(map[string]any{"visible": "x"}); vErr != nil {
+		t.Errorf("visible arm rejected: %v", vErr)
+	}
+	if vErr := resolved.Validate(map[string]any{"hidden": "y"}); vErr == nil {
+		t.Error("masked arm validated; hidden is OUTPUT_ONLY and cannot satisfy the oneof")
 	}
 
 	out := jsonRound(t, ForOutput(md, Options{}))
@@ -443,6 +467,105 @@ func TestRequiredOneofPartial_MaskedArmKeepsEmptyBranch(t *testing.T) {
 		if _, hasNot := b.(map[string]any)["not"]; hasNot {
 			t.Errorf("output schema sees every arm; no-arm branch must be dropped: %v", outOneOf)
 		}
+	}
+}
+
+func TestRequiredOneofPartial_FilteredOutputKeepsEmptyBranch(t *testing.T) {
+	md := descByName(t, "protomcp.testdata.v1.RequiredOneofPartial")
+
+	s := jsonRound(t, messageSchema(md, Options{}, nil, func(fd protoreflect.FieldDescriptor) bool {
+		return fd.Name() != "hidden"
+	}, false))
+	oneOf := s["allOf"].([]any)[0].(map[string]any)["oneOf"].([]any)
+	if len(oneOf) != 2 {
+		t.Fatalf("output oneOf: want 2 branches (visible + no-arm), got %d: %v", len(oneOf), oneOf)
+	}
+	if _, hasNot := oneOf[1].(map[string]any)["not"]; !hasNot {
+		t.Errorf("output schema with a filtered arm must keep the no-arm branch: %v", oneOf)
+	}
+}
+
+func TestOneofArmRequired_ArmInTopLevelRequired(t *testing.T) {
+	md := descByName(t, "protomcp.testdata.v1.OneofArmRequired")
+	s := jsonRound(t, ForInput(md, Options{}))
+	if !requiredSet(s)["id"] {
+		t.Fatalf("required oneof arm id missing from top-level required: %v", s["required"])
+	}
+	if requiredSet(s)["name"] {
+		t.Fatalf("non-required arm name wrongly in top-level required: %v", s["required"])
+	}
+
+	raw, err := json.Marshal(ForInput(md, Options{}))
+	if err != nil {
+		t.Fatalf("marshal schema: %v", err)
+	}
+	sch := &jsonschema.Schema{}
+	if uErr := json.Unmarshal(raw, sch); uErr != nil {
+		t.Fatalf("unmarshal into jsonschema.Schema: %v", uErr)
+	}
+	resolved, err := sch.Resolve(nil)
+	if err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+	cases := []struct {
+		name     string
+		instance map[string]any
+		valid    bool
+	}{
+		{"no arm rejected", map[string]any{}, false},
+		{"other arm alone rejected", map[string]any{"name": "x"}, false},
+		{"required arm validates", map[string]any{"id": "x"}, true},
+		{"both arms rejected", map[string]any{"id": "x", "name": "y"}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := resolved.Validate(tc.instance)
+			if tc.valid && err != nil {
+				t.Errorf("want valid, got %v", err)
+			}
+			if !tc.valid && err == nil {
+				t.Errorf("want validation failure, got none")
+			}
+		})
+	}
+}
+
+func TestZeroValueViolation(t *testing.T) {
+	md := descByName(t, "protomcp.testdata.v1.ZeroBreakers")
+	cases := map[string]string{
+		"min_len_s":        "string.min_len",
+		"min_items_r":      "repeated.min_items",
+		"min_pairs_m":      "map.min_pairs",
+		"gt_i":             "int32.gt",
+		"gt_u":             "uint64.gt",
+		"lte_neg":          "double.lte",
+		"const_b":          "bool.const",
+		"pattern_s":        "string.pattern",
+		"email_s":          "string.<format>",
+		"enum_in":          "enum.in",
+		"ok_pattern":       "",
+		"ok_max":           "",
+		"ok_presence":      "",
+		"ok_ignore_always": "",
+		"ok_ignore_zero":   "",
+	}
+	for name, want := range cases {
+		t.Run(name, func(t *testing.T) {
+			fd := md.Fields().ByName(protoreflect.Name(name))
+			if fd == nil {
+				t.Fatalf("field %s not found", name)
+			}
+			rule, bad := zeroValueViolation(fd)
+			if want == "" && bad {
+				t.Errorf("zeroValueViolation = %q, want none", rule)
+			}
+			if want != "" && (!bad || rule != want) {
+				t.Errorf("zeroValueViolation = (%q, %v), want (%q, true)", rule, bad, want)
+			}
+		})
+	}
+	if isRequired(md.Fields().ByName("req_ignore_always")) {
+		t.Error("required=true with ignore=IGNORE_ALWAYS must not count as required")
 	}
 }
 

@@ -48,7 +48,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		// Clear OUTPUT_ONLY fields: the schema hides them but the
 		// wire format does not, so the upstream gRPC server must
 		// never see client-supplied values for server-computed fields.
-		protomcp.ClearOutputOnly(&in)
+		srv.ClearOutputOnly(&in)
 		// ToolMiddleware may mutate &in or replace the pointer; the
 		// final handler reads from g.Input so both forms propagate.
 		g := &protomcp.GRPCData{Input: &in, Metadata: metadata.MD{}}
@@ -98,7 +98,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		// Clear OUTPUT_ONLY fields: the schema hides them but the
 		// wire format does not, so the upstream gRPC server must
 		// never see client-supplied values for server-computed fields.
-		protomcp.ClearOutputOnly(&in)
+		srv.ClearOutputOnly(&in)
 		// ToolMiddleware may mutate &in or replace the pointer; the
 		// final handler reads from g.Input so both forms propagate.
 		g := &protomcp.GRPCData{Input: &in, Metadata: metadata.MD{}}
@@ -182,7 +182,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		// Clear OUTPUT_ONLY fields: the schema hides them but the
 		// wire format does not, so the upstream gRPC server must
 		// never see client-supplied values for server-computed fields.
-		protomcp.ClearOutputOnly(&in)
+		srv.ClearOutputOnly(&in)
 		// ToolMiddleware may mutate &in or replace the pointer; the
 		// final handler reads from g.Input so both forms propagate.
 		g := &protomcp.GRPCData{Input: &in, Metadata: metadata.MD{}}
@@ -232,8 +232,8 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		// Clear OUTPUT_ONLY fields: the schema hides them but the
 		// wire format does not, so the upstream gRPC server must
 		// never see client-supplied values for server-computed fields.
-		protomcp.ClearOutputOnly(&in)
-		protomcp.ClearSchemaExcluded(&in)
+		srv.ClearOutputOnly(&in)
+		srv.ClearSchemaExcluded(&in)
 		// ToolMiddleware may mutate &in or replace the pointer; the
 		// final handler reads from g.Input so both forms propagate.
 		g := &protomcp.GRPCData{Input: &in, Metadata: metadata.MD{}}
@@ -282,7 +282,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 		// Clear OUTPUT_ONLY fields: the schema hides them but the
 		// wire format does not, so the upstream gRPC server must
 		// never see client-supplied values for server-computed fields.
-		protomcp.ClearOutputOnly(&in)
+		srv.ClearOutputOnly(&in)
 		// ToolMiddleware may mutate &in or replace the pointer; the
 		// final handler reads from g.Input so both forms propagate.
 		g := &protomcp.GRPCData{Input: &in, Metadata: metadata.MD{}}

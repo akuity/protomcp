@@ -22,6 +22,12 @@ service ReadOnlyNames {
       read_only: true
     };
   }
+  rpc SetDifference(SetDifferenceRequest) returns (SetDifferenceReply) {
+    option (protomcp.v1.tool) = {
+      read_only: true
+      disable_read_only_name_lint: true
+    };
+  }
 }
 
 message GetWidgetRequest {
@@ -47,4 +53,13 @@ message SettingsInfoRequest {
 
 message SettingsInfoReply {
   string value = 1;
+}
+
+message SetDifferenceRequest {
+  repeated string left = 1;
+  repeated string right = 2;
+}
+
+message SetDifferenceReply {
+  repeated string result = 1;
 }

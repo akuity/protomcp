@@ -95,3 +95,9 @@ message TestAnyHolder {
   repeated google.protobuf.Any items = 2;
   map<string, google.protobuf.Any> by_key = 3;
 }
+
+message TestNode {
+  string secret = 1 [(protomcp.v1.field_schema).exclude = true];
+  string data   = 2;
+  TestNode next = 3;
+}

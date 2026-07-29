@@ -70,6 +70,8 @@ message ToolOptions {
   // open_world signals the tool reaches outside the local server
   // (web fetch, third-party API, search).
   bool open_world  = 7;
+
+  bool disable_read_only_name_lint = 8;
 }
 
 // ServiceOptions applies to every annotated method on the service.

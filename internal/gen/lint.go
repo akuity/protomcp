@@ -48,21 +48,6 @@ func mutatingVerbPrefixFold(name string) (string, bool) {
 	return "", false
 }
 
-// validateToolHints rejects contradictory MCP tool hints regardless of
-// any name-lint suppression: per the MCP spec, destructiveHint is only
-// meaningful on a non-read-only tool.
-func validateToolHints(svc *protogen.Service, m *protogen.Method, to *protomcpv1.ToolOptions) error {
-	if to.GetReadOnly() && to.GetDestructive() {
-		return fmt.Errorf(
-			"%s.%s: protomcp.v1.tool sets both read_only: true and "+
-				"destructive: true; the hints are contradictory (MCP defines "+
-				"destructiveHint only for non-read-only tools) — drop one",
-			svc.GoName, m.GoName,
-		)
-	}
-	return nil
-}
-
 func validateReadOnlyHint(svc *protogen.Service, svcOpts *protomcpv1.ServiceOptions, m *protogen.Method, to *protomcpv1.ToolOptions) error {
 	if !to.GetReadOnly() || to.GetDisableReadOnlyNameLint() {
 		return nil

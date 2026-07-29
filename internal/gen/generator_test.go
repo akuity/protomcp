@@ -435,28 +435,12 @@ func TestGenerate_ReadOnlyNames(t *testing.T) {
 	assertSubstrings(t, out, cases)
 }
 
-func TestGenerate_BadReadOnlyDestructive(t *testing.T) {
-	err := runGenerateExpectError(t, "bad_read_only_destructive.proto")
-	want := "read_only: true and destructive: true"
-	if err == nil || !strings.Contains(err.Error(), want) {
-		t.Fatalf("want error containing %q, got %v", want, err)
-	}
-}
-
-func TestGenerate_BadSlimZeroViolation(t *testing.T) {
-	err := runGenerateExpectError(t, "bad_slim_zero.proto")
-	if err == nil {
-		t.Fatal("want error, got nil")
-	}
-	for _, want := range []string{
-		"FetchZeroRequest.selector",
-		`buf.validate rule "string.min_len"`,
-		"cleared zero value always violates",
-	} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("error missing %q\nerror: %v", want, err)
-		}
-	}
+func TestGenerate_SlimZeroValueRule(t *testing.T) {
+	out := runGenerate(t, "slim_zero.proto")
+	assertSubstrings(t, out, []substringCase{
+		{"tool generated", true, `"SlimZero_Fetch"`},
+		{"excluded field cleared", true, "srv.ClearSchemaExcluded(&in)"},
+	})
 }
 
 func TestMutatingVerbPrefix(t *testing.T) {
@@ -545,8 +529,8 @@ func TestGenerate_OptionsVariety(t *testing.T) {
 			true, "&mcp.ToolAnnotations{IdempotentHint: true}"},
 		{"DestructiveOnly has DestructiveHint",
 			true, "&mcp.ToolAnnotations{DestructiveHint: protomcp.BoolPtr(true)}"},
-		{"AllHints has both compatible fields",
-			true, "&mcp.ToolAnnotations{IdempotentHint: true, DestructiveHint: protomcp.BoolPtr(true)}"},
+		{"AllHints has all three fields",
+			true, "&mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, DestructiveHint: protomcp.BoolPtr(true)}"},
 
 		// Description override vs. leading-comment fallback.
 		// The gofmt-aligned output uses two spaces after "Description:" when
@@ -620,6 +604,36 @@ func TestGenerate_Prompts(t *testing.T) {
 		{"string.in values", true, `"alpha"`},
 	}
 	assertSubstrings(t, out, cases)
+}
+
+func TestGenerate_PromptRequiredness(t *testing.T) {
+	out := runGenerate(t, "prompt_requiredness.proto")
+	cases := []struct {
+		name     string
+		required bool
+	}{
+		{"apiRequired", true},
+		{"protovalidateRequired", true},
+		{"requiredIgnoreAlways", false},
+		{"requiredIgnoreZero", false},
+		{"requiredIgnoreZeroWithPresence", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			marker := `"` + tc.name + `"`
+			start := strings.Index(out, marker)
+			if start < 0 {
+				t.Fatalf("prompt argument %q not found\n--- file ---\n%s", tc.name, out)
+			}
+			block := out[start:]
+			if end := strings.Index(block, "},"); end >= 0 {
+				block = block[:end]
+			}
+			if got := strings.Contains(block, "Required: true"); got != tc.required {
+				t.Errorf("prompt argument %q required = %v, want %v\n--- block ---\n%s", tc.name, got, tc.required, block)
+			}
+		})
+	}
 }
 
 // TestGenerate_BadPromptStreams_Errors asserts the generator returns a

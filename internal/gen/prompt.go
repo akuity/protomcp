@@ -2,11 +2,9 @@ package gen
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
-	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -62,7 +60,7 @@ type promptArgument struct {
 	FieldName   string
 	Description string
 	// Required is set by field_behavior=REQUIRED or
-	// buf.validate.required.
+	// an active buf.validate.required rule.
 	Required bool
 	IsEnum   bool
 	IsString bool
@@ -202,7 +200,7 @@ func buildPromptArguments(g *protogen.GeneratedFile, in *protogen.Message) ([]pr
 			Name:        fd.JSONName(),
 			FieldName:   f.GoName,
 			Description: strings.TrimSpace(schema.CleanComment(string(f.Comments.Leading))),
-			Required:    isFieldRequired(fd),
+			Required:    schema.IsRequired(fd),
 		}
 		switch fd.Kind() {
 		case protoreflect.StringKind:
@@ -262,22 +260,4 @@ func stringInValues(fd protoreflect.FieldDescriptor) []string {
 		return nil
 	}
 	return s.GetIn()
-}
-
-// isFieldRequired reports whether fd carries
-// google.api.field_behavior=REQUIRED or buf.validate.field.required.
-func isFieldRequired(fd protoreflect.FieldDescriptor) bool {
-	if proto.HasExtension(fd.Options(), annotations.E_FieldBehavior) {
-		behaviors, _ := proto.GetExtension(fd.Options(), annotations.E_FieldBehavior).([]annotations.FieldBehavior)
-		if slices.Contains(behaviors, annotations.FieldBehavior_REQUIRED) {
-			return true
-		}
-	}
-	if proto.HasExtension(fd.Options(), validate.E_Field) {
-		rules, _ := proto.GetExtension(fd.Options(), validate.E_Field).(*validate.FieldRules)
-		if rules != nil && rules.GetRequired() {
-			return true
-		}
-	}
-	return false
 }

@@ -164,6 +164,15 @@ func TestRequiredAndOutputOnly(t *testing.T) {
 	if req["optionalField"] {
 		t.Error("optional_field wrongly listed as required")
 	}
+	if req["requiredIgnoreAlways"] {
+		t.Error("required_ignore_always wrongly listed as required")
+	}
+	if req["requiredIgnoreZero"] {
+		t.Error("required_ignore_zero wrongly listed as required")
+	}
+	if !req["requiredIgnoreZeroWithPresence"] {
+		t.Error("required_ignore_zero_with_presence not in required[]")
+	}
 
 	// Output schema includes server_computed (no stripping).
 	out := jsonRound(t, ForOutput(md, Options{}))
@@ -527,45 +536,6 @@ func TestOneofArmRequired_ArmInTopLevelRequired(t *testing.T) {
 				t.Errorf("want validation failure, got none")
 			}
 		})
-	}
-}
-
-func TestZeroValueViolation(t *testing.T) {
-	md := descByName(t, "protomcp.testdata.v1.ZeroBreakers")
-	cases := map[string]string{
-		"min_len_s":        "string.min_len",
-		"min_items_r":      "repeated.min_items",
-		"min_pairs_m":      "map.min_pairs",
-		"gt_i":             "int32.gt",
-		"gt_u":             "uint64.gt",
-		"lte_neg":          "double.lte",
-		"const_b":          "bool.const",
-		"pattern_s":        "string.pattern",
-		"email_s":          "string.<format>",
-		"enum_in":          "enum.in",
-		"ok_pattern":       "",
-		"ok_max":           "",
-		"ok_presence":      "",
-		"ok_ignore_always": "",
-		"ok_ignore_zero":   "",
-	}
-	for name, want := range cases {
-		t.Run(name, func(t *testing.T) {
-			fd := md.Fields().ByName(protoreflect.Name(name))
-			if fd == nil {
-				t.Fatalf("field %s not found", name)
-			}
-			rule, bad := zeroValueViolation(fd)
-			if want == "" && bad {
-				t.Errorf("zeroValueViolation = %q, want none", rule)
-			}
-			if want != "" && (!bad || rule != want) {
-				t.Errorf("zeroValueViolation = (%q, %v), want (%q, true)", rule, bad, want)
-			}
-		})
-	}
-	if isRequired(md.Fields().ByName("req_ignore_always")) {
-		t.Error("required=true with ignore=IGNORE_ALWAYS must not count as required")
 	}
 }
 

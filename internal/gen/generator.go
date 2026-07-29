@@ -451,9 +451,6 @@ func buildFileTemplateData(g *protogen.GeneratedFile, f *protogen.File, opts Opt
 
 			if class.asTool {
 				to, _ := toolOptionsFor(m)
-				if err := validateToolHints(svc, m, to); err != nil {
-					return nil, err
-				}
 				if !opts.DisableReadOnlyNameLint {
 					if err := validateReadOnlyHint(svc, svcOpts, m, to); err != nil {
 						return nil, err

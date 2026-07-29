@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"regexp"
 	"slices"
 	"strings"
 
@@ -171,19 +170,11 @@ func validateInputExclusions(md protoreflect.MessageDescriptor, seen map[protore
 			continue
 		}
 		if isExcluded(fd) {
-			if isRequired(fd) {
+			if IsRequired(fd) {
 				return fmt.Errorf(
 					"field %s: (protomcp.v1.field_schema).exclude on a required field: "+
 						"the input schema would omit a field the upstream call requires; "+
 						"drop exclude or the required constraint", fd.FullName())
-			}
-			if rule, bad := zeroValueViolation(fd); bad {
-				return fmt.Errorf(
-					"field %s: (protomcp.v1.field_schema).exclude on a field whose "+
-						"cleared zero value always violates buf.validate rule %q: the "+
-						"generated handler clears excluded fields before the upstream "+
-						"call, so every request would be rejected; drop exclude or the "+
-						"rule, or set (buf.validate.field).ignore", fd.FullName(), rule)
 			}
 			continue
 		}
@@ -290,7 +281,7 @@ func messageSchema(
 
 		properties[name] = fieldSchema(fd, opts, seen, filter, input)
 
-		if isRequired(fd) {
+		if IsRequired(fd) {
 			required = append(required, name)
 		}
 
@@ -704,228 +695,29 @@ func kindToJSONType(k protoreflect.Kind) string {
 	}
 }
 
-// isRequired reads google.api.field_behavior=REQUIRED (AIP-203) and
-// buf.validate.field.required (inert under ignore = IGNORE_ALWAYS).
-func isRequired(fd protoreflect.FieldDescriptor) bool {
+// IsRequired reports whether fd is required by
+// google.api.field_behavior=REQUIRED (AIP-203) or
+// buf.validate.field.required. IGNORE_ALWAYS disables the latter;
+// IGNORE_IF_ZERO_VALUE also disables it for fields without presence.
+func IsRequired(fd protoreflect.FieldDescriptor) bool {
 	if proto.HasExtension(fd.Options(), annotations.E_FieldBehavior) {
 		behaviors, _ := proto.GetExtension(fd.Options(), annotations.E_FieldBehavior).([]annotations.FieldBehavior)
 		if slices.Contains(behaviors, annotations.FieldBehavior_REQUIRED) {
 			return true
 		}
 	}
-	if rules := fieldRules(fd); rules != nil && rules.GetRequired() && rules.GetIgnore() != validate.Ignore_IGNORE_ALWAYS {
-		return true
-	}
-	return false
-}
-
-// zeroValueViolation reports a buf.validate rule that the field's zero
-// value is guaranteed to violate, for fields protovalidate always
-// evaluates (no presence: proto3 implicit scalars, repeated, maps).
-// Detection is best-effort over deterministic rules; CEL expressions are
-// not analyzed.
-func zeroValueViolation(fd protoreflect.FieldDescriptor) (string, bool) {
-	if fd.HasPresence() {
-		return "", false
-	}
 	rules := fieldRules(fd)
-	if rules == nil {
-		return "", false
+	if rules == nil || !rules.GetRequired() {
+		return false
 	}
 	switch rules.GetIgnore() {
-	case validate.Ignore_IGNORE_ALWAYS, validate.Ignore_IGNORE_IF_ZERO_VALUE:
-		return "", false
+	case validate.Ignore_IGNORE_ALWAYS:
+		return false
+	case validate.Ignore_IGNORE_IF_ZERO_VALUE:
+		return fd.HasPresence()
+	default:
+		return true
 	}
-	switch {
-	case fd.IsList():
-		if rules.GetRepeated().GetMinItems() > 0 {
-			return "repeated.min_items", true
-		}
-		return "", false
-	case fd.IsMap():
-		if rules.GetMap().GetMinPairs() > 0 {
-			return "map.min_pairs", true
-		}
-		return "", false
-	}
-	if s := rules.GetString(); s != nil {
-		return stringZeroViolation(s)
-	}
-	if b := rules.GetBytes(); b != nil {
-		return bytesZeroViolation(b)
-	}
-	if b := rules.GetBool(); b != nil && b.HasConst() && b.GetConst() {
-		return "bool.const", true
-	}
-	if e := rules.GetEnum(); e != nil {
-		return enumZeroViolation(fd, e)
-	}
-	return numericZeroViolation(rules)
-}
-
-func stringZeroViolation(s *validate.StringRules) (string, bool) {
-	switch {
-	case s.HasConst() && s.GetConst() != "":
-		return "string.const", true
-	case s.HasLen() && s.GetLen() > 0:
-		return "string.len", true
-	case s.HasMinLen() && s.GetMinLen() > 0:
-		return "string.min_len", true
-	case s.HasMinBytes() && s.GetMinBytes() > 0:
-		return "string.min_bytes", true
-	case s.GetPrefix() != "":
-		return "string.prefix", true
-	case s.GetSuffix() != "":
-		return "string.suffix", true
-	case s.GetContains() != "":
-		return "string.contains", true
-	case len(s.GetIn()) > 0 && !slices.Contains(s.GetIn(), ""):
-		return "string.in", true
-	case slices.Contains(s.GetNotIn(), ""):
-		return "string.not_in", true
-	case s.HasWellKnown():
-		return "string.<format>", true
-	}
-	if s.HasPattern() {
-		if re, err := regexp.Compile(s.GetPattern()); err == nil && !re.MatchString("") {
-			return "string.pattern", true
-		}
-	}
-	return "", false
-}
-
-func bytesZeroViolation(b *validate.BytesRules) (string, bool) {
-	emptyIn := func(vals [][]byte) bool {
-		return slices.ContainsFunc(vals, func(v []byte) bool { return len(v) == 0 })
-	}
-	switch {
-	case b.HasConst() && len(b.GetConst()) > 0:
-		return "bytes.const", true
-	case b.HasLen() && b.GetLen() > 0:
-		return "bytes.len", true
-	case b.HasMinLen() && b.GetMinLen() > 0:
-		return "bytes.min_len", true
-	case len(b.GetPrefix()) > 0:
-		return "bytes.prefix", true
-	case len(b.GetSuffix()) > 0:
-		return "bytes.suffix", true
-	case len(b.GetContains()) > 0:
-		return "bytes.contains", true
-	case len(b.GetIn()) > 0 && !emptyIn(b.GetIn()):
-		return "bytes.in", true
-	case emptyIn(b.GetNotIn()):
-		return "bytes.not_in", true
-	case b.HasWellKnown():
-		return "bytes.<format>", true
-	}
-	if b.HasPattern() {
-		if re, err := regexp.Compile(b.GetPattern()); err == nil && !re.Match(nil) {
-			return "bytes.pattern", true
-		}
-	}
-	return "", false
-}
-
-func enumZeroViolation(fd protoreflect.FieldDescriptor, e *validate.EnumRules) (string, bool) {
-	switch {
-	case e.HasConst() && e.GetConst() != 0:
-		return "enum.const", true
-	case len(e.GetIn()) > 0 && !slices.Contains(e.GetIn(), 0):
-		return "enum.in", true
-	case slices.Contains(e.GetNotIn(), 0):
-		return "enum.not_in", true
-	case e.GetDefinedOnly() && fd.Enum().Values().ByNumber(0) == nil:
-		return "enum.defined_only", true
-	}
-	return "", false
-}
-
-// numericZero applies the shared zero-vs-bounds logic; all 12 numeric
-// rule messages funnel through it with their bounds widened to float64
-// (sign comparisons against zero survive the conversion).
-func numericZero(kind string, hasC bool, c float64, hasGt bool, gt float64, hasGte bool, gte float64,
-	hasLt bool, lt float64, hasLte bool, lte float64, inNoZero, notInZero bool) (string, bool) {
-	switch {
-	case hasC && c != 0:
-		return kind + ".const", true
-	case hasGt && gt >= 0:
-		return kind + ".gt", true
-	case hasGte && gte > 0:
-		return kind + ".gte", true
-	case hasLt && lt <= 0:
-		return kind + ".lt", true
-	case hasLte && lte < 0:
-		return kind + ".lte", true
-	case inNoZero:
-		return kind + ".in", true
-	case notInZero:
-		return kind + ".not_in", true
-	}
-	return "", false
-}
-
-func numericZeroViolation(rules *validate.FieldRules) (string, bool) {
-	if r := rules.GetInt32(); r != nil {
-		return numericZero("int32", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
-			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
-			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
-	}
-	if r := rules.GetInt64(); r != nil {
-		return numericZero("int64", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
-			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
-			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
-	}
-	if r := rules.GetUint32(); r != nil {
-		return numericZero("uint32", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
-			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
-			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
-	}
-	if r := rules.GetUint64(); r != nil {
-		return numericZero("uint64", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
-			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
-			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
-	}
-	if r := rules.GetSint32(); r != nil {
-		return numericZero("sint32", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
-			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
-			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
-	}
-	if r := rules.GetSint64(); r != nil {
-		return numericZero("sint64", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
-			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
-			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
-	}
-	if r := rules.GetFixed32(); r != nil {
-		return numericZero("fixed32", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
-			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
-			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
-	}
-	if r := rules.GetFixed64(); r != nil {
-		return numericZero("fixed64", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
-			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
-			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
-	}
-	if r := rules.GetSfixed32(); r != nil {
-		return numericZero("sfixed32", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
-			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
-			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
-	}
-	if r := rules.GetSfixed64(); r != nil {
-		return numericZero("sfixed64", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
-			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
-			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
-	}
-	if r := rules.GetFloat(); r != nil {
-		return numericZero("float", r.HasConst(), float64(r.GetConst()), r.HasGt(), float64(r.GetGt()),
-			r.HasGte(), float64(r.GetGte()), r.HasLt(), float64(r.GetLt()), r.HasLte(), float64(r.GetLte()),
-			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
-	}
-	if r := rules.GetDouble(); r != nil {
-		return numericZero("double", r.HasConst(), r.GetConst(), r.HasGt(), r.GetGt(),
-			r.HasGte(), r.GetGte(), r.HasLt(), r.GetLt(), r.HasLte(), r.GetLte(),
-			len(r.GetIn()) > 0 && !slices.Contains(r.GetIn(), 0), slices.Contains(r.GetNotIn(), 0))
-	}
-	return "", false
 }
 
 // oneofRequired reads (buf.validate.oneof).required on oo.

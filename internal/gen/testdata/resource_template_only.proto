@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+// resource_template_only.proto is the minimal shape that exposed the
+// unused-import bug: a service whose ONLY annotation is a
+// protomcp.v1.resource_template. Mustache rendering and encoding/json
+// live exclusively in resource_list.go.tmpl, so a resource-read-only
+// file must not pull those imports in — Go rejects unused imports, so
+// the generated file would not compile.
+package protomcp.gen.testdata.resourcetemplateonly.v1;
+
+import "protomcp/v1/annotations.proto";
+
+option go_package = "github.com/akuity/protomcp/internal/gen/testdata/resourcetemplateonly;resourcetemplateonlyv1";
+
+service Catalog {
+  // GetEntry returns a single catalog entry by id. No tool, no
+  // resource_list, no prompt anywhere in the file.
+  rpc GetEntry(GetEntryRequest) returns (Entry) {
+    option (protomcp.v1.resource_template) = {
+      uri_template: "catalog://{id}"
+      uri_bindings: [{placeholder: "id", field: "id"}]
+      name_field: "{{title}}"
+    };
+  }
+}
+
+message GetEntryRequest {
+  string id = 1;
+}
+
+message Entry {
+  string id = 1;
+  string title = 2;
+}

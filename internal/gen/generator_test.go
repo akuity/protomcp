@@ -3,6 +3,10 @@ package gen
 import (
 	_ "embed"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -25,11 +29,17 @@ import (
 	_ "github.com/akuity/protomcp/pkg/api/gen/protomcp/v1"
 )
 
-// fixturesBin is the output of:
+// fixturesBin is the output of, from internal/gen/testdata (DEPS holds
+// buf/validate/validate.proto and google/api/field_behavior.proto, e.g.
+// via `buf export buf.build/bufbuild/protovalidate -o "$DEPS"`):
 //
-//	protoc --include_source_info --include_imports \
+//	protoc -I . -I ../../../proto -I "$DEPS" \
+//	    --include_source_info --include_imports \
 //	    --descriptor_set_out=fixtures.binpb \
-//	    greeter.proto options_variety.proto multi_service.proto no_tools.proto
+//	    $(ls *.proto | LC_ALL=C sort)
+//
+// The C-collation sort keeps the file order (and therefore the bytes)
+// reproducible when a fixture is added.
 //
 // It holds FileDescriptorProto messages for every testdata fixture, with
 // source_code_info populated so our leading-comment-fallback assertions
@@ -156,6 +166,30 @@ func TestGenerate_BadDupListChanged(t *testing.T) {
 	}
 }
 
+// TestGenerate_ResourceTemplateOnly covers a service whose only
+// annotation is a `resource_template`: no tool, no resource_list, no
+// prompt. Only resource_list.go.tmpl renders Mustache and decodes items
+// with encoding/json, so a resource-read-only file must not import
+// either package — protogen never prunes imports, so an import the
+// templates do not reference is an "imported and not used" compile
+// error in the user's build.
+func TestGenerate_ResourceTemplateOnly(t *testing.T) {
+	out := runGenerate(t, "resource_template_only.proto")
+
+	cases := []substringCase{
+		{"resources register function", true, "func RegisterCatalogMCPResources("},
+		{"claiming AddResourceTemplate", true, "srv.MustAddResourceTemplate("},
+		{"uri template var declared", true, `MustNew("catalog://{id}")`},
+		{"uritemplate is still imported", true, `"github.com/yosida95/uritemplate/v3"`},
+		{"no tool registration", false, "MustAddTool"},
+		{"no resource lister", false, "RegisterResourceLister"},
+		{"mustache is not imported", false, `"github.com/cbroglie/mustache"`},
+		{"mustache is never rendered", false, "mustache.Render"},
+		{"encoding/json is not imported", false, `"encoding/json"`},
+	}
+	assertSubstrings(t, out, cases)
+}
+
 // TestGenerate_BadElicitNoTool asserts the generator hard-errors on a
 // method annotated with protomcp.v1.elicitation but no protomcp.v1.tool ,
 // elicitation is a modifier and has nothing to gate on its own.
@@ -213,6 +247,10 @@ func TestGenerate_Slim(t *testing.T) {
 	moreCases := []substringCase{
 		{"REQUIRED+OUTPUT_ONLY+exclude generates fine and stays masked", false, "serverRef"},
 		{"excluded prompt request field is not a prompt argument", false, `"trace"`},
+		// Control for TestGenerate_ResourceTemplateOnly: this fixture does
+		// carry a resource_list, so the mustache import must stay.
+		{"resource_list keeps the mustache import", true, `"github.com/cbroglie/mustache"`},
+		{"resource_list renders name_field with mustache", true, "mustache.Render"},
 	}
 	assertSubstrings(t, out, moreCases)
 }
@@ -812,7 +850,14 @@ func runGenerate(t *testing.T, protoName string) string {
 		t.Errorf("output filename = %q, want suffix %q",
 			resp.File[0].GetName(), wantFilename)
 	}
-	return resp.File[0].GetContent()
+	out := resp.File[0].GetContent()
+	// Every successful generation must be compilable, and the cheapest
+	// compile error to leak past substring assertions is an unused
+	// import: protogen emits one import line per QualifiedGoIdent call
+	// and never prunes, so qualifying an identifier the templates end up
+	// not rendering breaks the user's build.
+	assertNoUnusedImports(t, protoName, out)
+	return out
 }
 
 // runGenerateExpectError drives the generator against protoName and
@@ -836,6 +881,48 @@ func runGenerateExpectError(t *testing.T, protoName string) error {
 	}
 	t.Fatalf("expected generator error for %q, got success", protoName)
 	return nil
+}
+
+// assertNoUnusedImports fails the test if the generated file imports a
+// package it never references. `go build` would reject such a file, but
+// the generator tests only ever see the source as a string, so the check
+// is done over the AST: collect the qualifier of every selector
+// expression, then require each named import to appear among them. Blank
+// and dot imports are exempt (they have no qualifier by construction).
+func assertNoUnusedImports(t *testing.T, protoName, out string) {
+	t.Helper()
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "generated.go", out, parser.ParseComments)
+	if err != nil {
+		t.Fatalf("parse generated output for %s: %v", protoName, err)
+	}
+	used := map[string]bool{}
+	ast.Inspect(file, func(n ast.Node) bool {
+		if sel, ok := n.(*ast.SelectorExpr); ok {
+			if id, isIdent := sel.X.(*ast.Ident); isIdent {
+				used[id.Name] = true
+			}
+		}
+		return true
+	})
+	for _, imp := range file.Imports {
+		path, uErr := strconv.Unquote(imp.Path.Value)
+		if uErr != nil {
+			t.Fatalf("unquote import path %s in %s: %v", imp.Path.Value, protoName, uErr)
+		}
+		name := path[strings.LastIndex(path, "/")+1:]
+		if imp.Name != nil {
+			if imp.Name.Name == "_" || imp.Name.Name == "." {
+				continue
+			}
+			name = imp.Name.Name
+		}
+		if !used[name] {
+			t.Errorf("generated file for %s imports %q as %q but never "+
+				"references it; the file would not compile\n--- file ---\n%s",
+				protoName, path, name, out)
+		}
+	}
 }
 
 // assertSubstrings runs a table of substring presence/absence checks

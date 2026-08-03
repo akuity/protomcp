@@ -364,8 +364,11 @@ func buildFileTemplateData(g *protogen.GeneratedFile, f *protogen.File, opts Opt
 	}
 
 	// Resource-related imports are registered only when a resource
-	// surface exists, so tool-only files stay lean.
+	// surface exists, so tool-only files stay lean. resource_list needs
+	// a strictly larger import set than resource_template (see the
+	// qualification block below), so the two are tracked separately.
 	anyResourceEmitted := false
+	anyResourceListEmitted := false
 
 	// Prompts have a separate namespace from tools per MCP spec.
 	promptEmitted := make(map[string]string)
@@ -520,6 +523,7 @@ func buildFileTemplateData(g *protogen.GeneratedFile, f *protogen.File, opts Opt
 				ld.URITemplateVar = allocURITemplateVar(ld.URITemplate)
 				svcData.ResourceLists = append(svcData.ResourceLists, ld)
 				anyResourceEmitted = true
+				anyResourceListEmitted = true
 			}
 			if class.asResourceListChanged {
 				site := fmt.Sprintf("%s:%s.%s", f.Desc.Path(), svc.GoName, m.GoName)
@@ -580,10 +584,21 @@ func buildFileTemplateData(g *protogen.GeneratedFile, f *protogen.File, opts Opt
 		data.MCPPkg = strings.TrimSuffix(mcpRes, ".Resource")
 		uriNew := q("New", importURITemplate)
 		data.URITemplatePkg = strings.TrimSuffix(uriNew, ".New")
+		data.QMetadataMD = q("MD", importGRPCMetadata)
+	}
+	// Mustache and encoding/json are referenced by resource_list.go.tmpl
+	// only: it renders name_field / description_field per item and
+	// decodes each item into the map those templates resolve against.
+	// resource_read.go.tmpl touches neither, so qualifying them for
+	// every resource surface left a resource_template-only file with two
+	// imports it never uses, which does not compile. Qualifying is what
+	// registers the import with protogen (one import line per
+	// QualifiedGoIdent call, never pruned), so the calls themselves have
+	// to be gated, not just the template data.
+	if anyResourceListEmitted {
 		musRender := q("Render", importMustache)
 		data.MustachePkg = strings.TrimSuffix(musRender, ".Render")
 		data.JSONUnmarshal = q("Unmarshal", importJSON)
-		data.QMetadataMD = q("MD", importGRPCMetadata)
 	}
 
 	return data, nil

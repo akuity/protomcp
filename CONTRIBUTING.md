@@ -130,7 +130,7 @@ Any deviation is a hard error citing the `service.method`. No fallbacks.
 
 ### 7. Schema mismatches are dev-time failures
 
-`AddTool` is called with both input and output schemas. The SDK validates responses against the output schema before delivering them, a proto server returning a response that fails our generated schema is a codegen bug we want the test suite to catch, not something to silence.
+`AddTool` is called with both input and output schemas. The SDK validates responses against the output schema before delivering them, a proto server returning a response that fails our generated schema is a codegen bug we want the test suite to catch, not something to silence. The one exception is by SDK design: input-required results (multi-round-trip `InputRequests`, as emitted by the generated elicitation gate) skip output-schema validation entirely — they are protocol intermediates, not tool results.
 
 ## Style
 

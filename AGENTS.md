@@ -51,6 +51,8 @@ LSP diagnostics go stale after `buf generate`; trust `go build` / `go test` over
 - **proto message copy-locks.** Generated message types embed `protoimpl.MessageState` which contains a `sync.Mutex`. Don't struct-copy them (`c := *t`); use `proto.Clone`.
 - **`paths=source_relative`.** Our `buf.gen.yaml` uses `paths=source_relative`, meaning the output directory mirrors the proto source tree. Do not change without updating every `go_package` option and every import path.
 - **protojson vs json.** MCP tool content is protojson. Use `protojson.Unmarshal` in tests that decode into generated proto types, plain `json.Unmarshal` breaks on Timestamp, Duration, enum-as-name, and int64-as-string.
+- **Elicitation is multi-round-trip (SEP-2322).** Generated elicitation-gated handlers run **twice** per confirmed call: first invocation returns an `InputRequests` result, the retry carries the answer in `req.Params.InputResponses["confirm"]`. A harness that invokes a generated handler directly with a non-nil session must supply that map entry or it will get the input-required result, not the tool result.
+- **Subscription registration is asynchronous on protocol ≥ 2026-07-28.** The client's `subscriptions/listen` call dispatches without awaiting a response, so `Subscribe`/`Connect` return before the server has recorded the subscription. Tests that connect and immediately mutate can miss notifications; poll or wait for a first event instead of assuming registration completed.
 
 ## Where design decisions live
 

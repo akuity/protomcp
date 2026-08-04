@@ -41,6 +41,15 @@ func connectLegacyHTTP(ctx context.Context, t *testing.T, srv *protomcp.Server, 
 	t.Helper()
 	ts := httptest.NewServer(srv)
 	t.Cleanup(ts.Close)
+	// Disable the client-side multi-round-trip middleware: it fires on
+	// any inputRequests result regardless of protocol version, so left
+	// enabled it would fulfill the elicitation itself and mask a
+	// server-side shim regression — exactly what this suite exists to
+	// catch. With it off, only the shim can complete the round-trip.
+	if opts == nil {
+		opts = &mcp.ClientOptions{}
+	}
+	opts.MultiRoundTrip = &mcp.MultiRoundTripOptions{Disabled: true}
 	client := mcp.NewClient(&mcp.Implementation{Name: "legacy-test-client", Version: "0.0.1"}, opts)
 	cs, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: ts.URL}, nil)
 	if err != nil {

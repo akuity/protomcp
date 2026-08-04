@@ -154,6 +154,10 @@ type elicitationTemplateData struct {
 	QMCPElicitParams    string
 	QMCPInputRequestMap string
 	QMCPElicitResult    string
+
+	// QProtomcpElicitationState qualifies the runtime helper that binds
+	// an elicitation answer to the tool call that prompted it.
+	QProtomcpElicitationState string
 }
 
 // commonQuals bundles qualified identifiers every template site needs.
@@ -755,12 +759,17 @@ func buildElicitationTemplateData(
 		GoName:       "ElicitResult",
 		GoImportPath: importMCP,
 	})
+	qElicitationState := g.QualifiedGoIdent(protogen.GoIdent{
+		GoName:       "ElicitationState",
+		GoImportPath: importProtomcp,
+	})
 	return &elicitationTemplateData{
-		MessageExpr:         expr,
-		RequestID:           elicitationRequestID,
-		QMCPElicitParams:    qElicitParams,
-		QMCPInputRequestMap: qInputRequestMap,
-		QMCPElicitResult:    qElicitResult,
+		MessageExpr:               expr,
+		RequestID:                 elicitationRequestID,
+		QMCPElicitParams:          qElicitParams,
+		QMCPInputRequestMap:       qInputRequestMap,
+		QMCPElicitResult:          qElicitResult,
+		QProtomcpElicitationState: qElicitationState,
 	}, nil
 }
 

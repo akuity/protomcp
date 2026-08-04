@@ -112,14 +112,18 @@ func TestGenerate_Elicit(t *testing.T) {
 		{"Delete tool name", true, `"Elicit_Delete"`},
 		{"ElicitParams struct literal", true, "&mcp.ElicitParams{"},
 		// First invocation publishes the confirmation under the fixed
-		// server-assigned request ID.
+		// server-assigned request ID, bound to the call via RequestState.
 		{"InputRequests map literal", true, "InputRequests: mcp.InputRequestMap{"},
-		// The retry reads the client's echoed answer back by the same key.
+		{"request state derived from call", true, "protomcp.ElicitationState("},
+		{"request state on the result", true, "RequestState: elicitState"},
+		// The retry reads the client's echoed answer back by the same key
+		// and requires the echoed state to match.
 		{"inputResponses lookup", true, `req.Params.InputResponses["confirm"]`},
-		{"answer type assertion", true, "*mcp.ElicitResult"},
+		{"request state verified on retry", true, "req.Params.RequestState != elicitState"},
+		{"answer type assertion", true, "elicitAnswer.(*mcp.ElicitResult)"},
 		// The old direct server-initiated request must be gone: it hard-fails
 		// on protocol >= 2026-07-28 sessions.
-		{"no direct Elicit call", false, ".Elicit(ctx"},
+		{"no direct Elicit call", false, "Session.Elicit("},
 		// The literal prefix up to the first Mustache var appears as a Go
 		// string literal in the emitted Sprintf concatenation.
 		{"rendered message prefix", true, `"Delete item with id "`},

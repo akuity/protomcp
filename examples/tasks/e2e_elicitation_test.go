@@ -148,6 +148,101 @@ func TestDeleteTask_ElicitationDecline(t *testing.T) {
 	}
 }
 
+// TestDeleteTask_ElicitationReusedParamsRePrompts is the regression test
+// for answer/request binding. The SDK's client middleware mutates the
+// caller's CallToolParams in place on a fulfilled elicitation
+// (setMultiRoundTripRetryParams), so a client that reuses one params
+// struct across calls carries a stale inputResponses["confirm"] into the
+// next call. Without RequestState binding that stale answer silently
+// confirmed a delete of a *different* task; with it, every distinct call
+// re-prompts.
+func TestDeleteTask_ElicitationReusedParamsRePrompts(t *testing.T) {
+	ctx := context.Background()
+	grpcClient := startGRPC(t)
+	srv := protomcp.New("tasks", "0.1.0")
+	tasksv1.RegisterTasksMCPTools(srv, grpcClient)
+
+	var elicitCalls atomic.Int32
+	cs := connectWith(ctx, t, srv, &mcp.ClientOptions{
+		ElicitationHandler: func(_ context.Context, _ *mcp.ElicitRequest) (*mcp.ElicitResult, error) {
+			elicitCalls.Add(1)
+			return &mcp.ElicitResult{Action: "accept"}, nil
+		},
+	})
+
+	var first, second tasksv1.Task
+	callTool(ctx, t, cs, "Tasks_CreateTask", `{"task":{"title":"one","done":false}}`, &first)
+	callTool(ctx, t, cs, "Tasks_CreateTask", `{"task":{"title":"two","done":false}}`, &second)
+
+	// One params struct, reused across both deletes: after the first
+	// call the SDK has stuffed InputResponses + RequestState into it.
+	params := &mcp.CallToolParams{
+		Name:      "Tasks_DeleteTask",
+		Arguments: json.RawMessage(fmt.Sprintf(`{"id":%q}`, first.Id)),
+	}
+	if out, err := cs.CallTool(ctx, params); err != nil || out.IsError {
+		t.Fatalf("first Delete: err=%v out=%+v", err, out)
+	}
+	if got := elicitCalls.Load(); got != 1 {
+		t.Fatalf("after first delete: elicitation handler called %d times, want 1", got)
+	}
+
+	params.Arguments = json.RawMessage(fmt.Sprintf(`{"id":%q}`, second.Id))
+	if out, err := cs.CallTool(ctx, params); err != nil || out.IsError {
+		t.Fatalf("second Delete: err=%v out=%+v", err, out)
+	}
+	if got := elicitCalls.Load(); got != 2 {
+		t.Errorf("after second delete: elicitation handler called %d times, want 2 (stale answer must re-prompt, not confirm)", got)
+	}
+}
+
+// TestDeleteTask_ElicitationPrePopulatedAnswerRePrompts asserts that an
+// inputResponses entry supplied on the very first call, without the
+// matching RequestState, does not skip the confirmation: the gate
+// re-prompts, and a declining user still blocks the delete.
+func TestDeleteTask_ElicitationPrePopulatedAnswerRePrompts(t *testing.T) {
+	ctx := context.Background()
+	grpcClient := startGRPC(t)
+	srv := protomcp.New("tasks", "0.1.0")
+	tasksv1.RegisterTasksMCPTools(srv, grpcClient)
+
+	var elicitCalls atomic.Int32
+	cs := connectWith(ctx, t, srv, &mcp.ClientOptions{
+		ElicitationHandler: func(_ context.Context, _ *mcp.ElicitRequest) (*mcp.ElicitResult, error) {
+			elicitCalls.Add(1)
+			return &mcp.ElicitResult{Action: "decline"}, nil
+		},
+	})
+
+	var created tasksv1.Task
+	callTool(ctx, t, cs, "Tasks_CreateTask", `{"task":{"title":"keep-me","done":false}}`, &created)
+
+	out, err := cs.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "Tasks_DeleteTask",
+		Arguments: json.RawMessage(fmt.Sprintf(`{"id":%q}`, created.Id)),
+		InputResponses: mcp.InputResponseMap{
+			"confirm": &mcp.ElicitResult{Action: "accept"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool: transport error: %v", err)
+	}
+	if !out.IsError {
+		t.Fatalf("Delete: want IsError (user declined the re-prompt), got success: %+v", out)
+	}
+	if got := elicitCalls.Load(); got != 1 {
+		t.Errorf("elicitation handler called %d times, want 1 (pre-populated answer must trigger a real prompt)", got)
+	}
+
+	// Task survived.
+	var got tasksv1.Task
+	callTool(ctx, t, cs, "Tasks_GetTask",
+		fmt.Sprintf(`{"id":%q}`, created.Id), &got)
+	if got.Id != created.Id {
+		t.Errorf("Get after blocked delete: got %q, want %q", got.Id, created.Id)
+	}
+}
+
 // TestDeleteTask_ElicitationCancel asserts that action=cancel behaves the
 // same as decline, it is a non-accept action, so the tool must
 // short-circuit with IsError and leave the backend untouched.

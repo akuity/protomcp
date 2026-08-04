@@ -212,14 +212,28 @@ Go SDK speaks protocol revision 2026-07-28, where `resources/subscribe`
 is replaced by `subscriptions/listen`: one long-lived POST whose
 response stream carries the notifications. Subscription state lives on
 that connection, not in a server-side session map, so no affinity
-mechanism is needed anywhere: the replica holding a listen stream
-delivers to it, and a dropped stream is simply re-issued by the client
-to whichever replica answers next. Your `SubscribeHandler` /
+mechanism is needed: any replica can serve any request, and the replica
+holding a listen stream delivers to it. Your `SubscribeHandler` /
 `UnsubscribeHandler` fire per URI exactly as in the other patterns —
 `subscriptions/listen` routes through the same gate — and the push
 side (`ResourceUpdated`) is unchanged; in a multi-replica deployment,
 feed every replica from a shared event source so whichever one holds a
 given stream can deliver.
+
+**A dropped listen stream is not replaced, and the loss is silent.** On
+go-sdk v1.7.0, streams on this protocol carry no SSE event IDs, and the
+client abandons a POST stream whose connection dies without one instead
+of retrying it; because `subscriptions/listen` is dispatched
+fire-and-forget, the synthesized `request terminated without response`
+error is discarded, so no error surfaces to the application. A later
+`ClientSession.Subscribe` for the same URI is a no-op while the client
+still believes it is subscribed — recovery is `Unsubscribe` (which
+clears that client-side entry) followed by a fresh `Subscribe`, and any
+replica can answer the new stream. A client that must survive
+connection drops therefore needs its own liveness signal — e.g. a
+subscribed heartbeat resource the server touches on an interval, or
+periodic re-reads of the watched resource — to detect a dead stream and
+re-subscribe.
 
 `PropagateRequestCancellation` ties each in-flight handler context to
 its HTTP request, so a client that goes away mid-call cancels the

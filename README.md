@@ -403,6 +403,8 @@ Enum-typed and `buf.validate.string.in`-constrained prompt arguments automatical
 
 The gate uses the multi-round-trip protocol (SEP-2322). The generated handler's first invocation returns a `CallToolResult` carrying a single elicitation `InputRequest` under the fixed key `"confirm"` — not a tool result. The SDK then obtains the user's answer and re-invokes the handler with it echoed in `inputResponses`; only an `action == "accept"` answer lets the gRPC call run. On sessions speaking protocol ≥ 2026-07-28 the client's middleware fulfills the request through its `ElicitationHandler` and retries automatically; on older sessions the SDK's server-side shim performs a classic `elicitation/create` round-trip and re-invokes the handler in place. One annotation serves both. Note the handler body runs twice per confirmed call.
 
+**Answers are bound to the call that prompted them.** The input-required result carries a `RequestState` derived from the tool name and raw arguments (`protomcp.ElicitationState`), and the retry must echo it back alongside the answer or the gate re-prompts. This matters because the SDK's client middleware mutates the caller's `CallToolParams` in place when it fulfills an elicitation: a client reusing one params struct across calls would otherwise carry a stale `"confirm"` answer into the next call and silently skip the confirmation. The binding is a content hash, not an authenticator — a client willing to lie about the user's answer can compute it, just as it could return `accept` from its handler without asking anyone. Elicitation is a UX confirmation for honest clients, not a server-enforced authorization control; enforce authorization server-side.
+
 **Clients must register an `ElicitationHandler`.** A client without one fails the tool call with a hard JSON-RPC error (`client does not support elicitation`) — the error never reaches your `ToolErrorHandler`, and there is no `IsError` result for the LLM to read. (Under go-sdk v1.5.0 this case surfaced as a graceful `IsError` tool result instead.)
 
 Hard codegen error when used without a companion `tool`, or on a streaming RPC.
@@ -572,24 +574,24 @@ func injectTenant(next protomcp.ToolHandler) protomcp.ToolHandler {
 
 Override with `protomcp.WithToolErrorHandler(...)`, mirrors `grpc-gateway`'s `runtime.WithErrorHandler` but produces JSON-RPC shapes.
 
-**Error-code landscape (go-sdk ≥ v1.7.0).** protomcp's own JSON-RPC codes are unchanged: `Unauthenticated → -32001`, `PermissionDenied → -32002`, `Canceled → -32003`, `DeadlineExceeded → -32004` (all in the implementation-defined `-32000..-32019` range). The SDK's resource-not-found error moved from `-32002` to `-32602` (`mcp.CodeResourceNotFound` is now a deprecated `var` aliasing `jsonrpc.CodeInvalidParams`), so `-32002` no longer collides with any SDK response — but `-32602` is now shared between the SDK's resource-not-found / invalid-params errors and protomcp's invalid-cursor mapping. protomcp does not set the `MCPGODEBUG=customresnotfounderrcode` escape hatch.
+**Error-code landscape (go-sdk ≥ v1.7.0).** protomcp's own JSON-RPC codes are unchanged: `Unauthenticated → -32001`, `PermissionDenied → -32002`, `Canceled → -32003`, `DeadlineExceeded → -32004` (all in JSON-RPC's implementation-defined `-32000..-32099` range, below the `-32020` and up band the SDK claims for its own codes). The SDK's resource-not-found error moved from `-32002` to `-32602` (`mcp.CodeResourceNotFound` is now a deprecated `var` aliasing `jsonrpc.CodeInvalidParams`), so `-32002` no longer collides with any SDK response — but `-32602` is now shared between the SDK's resource-not-found / invalid-params errors and protomcp's invalid-cursor mapping. protomcp does not set the `MCPGODEBUG=customresnotfounderrcode` escape hatch.
 
 ### ResultProcessor, mutate responses before the client sees them
 
 ```go
-func scrubEmails(_ context.Context, _ *mcp.CallToolRequest, r *mcp.CallToolResult) (*mcp.CallToolResult, error) {
-    for _, c := range r.Content {
+func scrubEmails(_ context.Context, _ *protomcp.GRPCData, m *protomcp.MCPData[*mcp.CallToolRequest, *mcp.CallToolResult]) (*mcp.CallToolResult, error) {
+    for _, c := range m.Output.Content {
         if tc, ok := c.(*mcp.TextContent); ok {
             tc.Text = emailRE.ReplaceAllString(tc.Text, "[email]")
         }
     }
-    return r, nil
+    return m.Output, nil
 }
 
 protomcp.New("svc", "0.1.0", protomcp.WithToolResultProcessor(scrubEmails))
 ```
 
-Processors run on **both** success and `IsError` results, so a single redaction rule covers every response path.
+Processors run on **both** success and `IsError` results, so a single redaction rule covers both of those response paths. They do **not** run on input-required (multi-round-trip) intermediates such as the generated elicitation confirmation — the SDK rejects results carrying both `Content` and `InputRequests`, so those bypass the pipeline finish. In particular, the elicitation prompt (rendered from request fields) reaches the client unredacted; keep sensitive values out of `elicitation.message` templates.
 
 ### RetryLoop
 

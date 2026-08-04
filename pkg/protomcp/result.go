@@ -9,7 +9,11 @@ import (
 // ToolResultProcessor inspects or mutates a CallToolResult before it
 // reaches the client. Processors see IsError results synthesized by
 // ToolErrorHandler, so a redaction processor covers both success and
-// failure paths.
+// failure paths. They do NOT see input-required (multi-round-trip)
+// intermediates such as the generated elicitation confirmation: those
+// bypass the pipeline finish because the SDK rejects results carrying
+// both Content and InputRequests, so anything a processor could attach
+// would be invalid there.
 //
 // Alias for ResultProcessor[*mcp.CallToolRequest, *mcp.CallToolResult].
 type ToolResultProcessor = ResultProcessor[*mcp.CallToolRequest, *mcp.CallToolResult]

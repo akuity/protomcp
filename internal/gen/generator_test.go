@@ -101,8 +101,9 @@ func TestGenerate_BadStreams_BidiErrors(t *testing.T) {
 // TestGenerate_Elicit covers the happy path where a method carries both a
 // tool and an elicitation annotation: the generated source must emit the
 // multi-round-trip confirmation gate — an InputRequests result carrying
-// mcp.ElicitParams on the first invocation, the inputResponses lookup on
-// the retry — plus the Mustache-rendered message expression and the
+// mcp.ElicitParams and a RequestState bound to the call on the first
+// invocation, the inputResponses lookup plus state verification on the
+// retry — plus the Mustache-rendered message expression and the
 // decline-path IsError short-circuit.
 func TestGenerate_Elicit(t *testing.T) {
 	out := runGenerate(t, "elicit.proto")

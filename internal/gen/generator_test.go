@@ -100,8 +100,10 @@ func TestGenerate_BadStreams_BidiErrors(t *testing.T) {
 
 // TestGenerate_Elicit covers the happy path where a method carries both a
 // tool and an elicitation annotation: the generated source must emit the
-// mcp.ElicitParams struct, the Mustache-rendered message expression, the
-// accept-path guard, and the decline-path IsError short-circuit.
+// multi-round-trip confirmation gate — an InputRequests result carrying
+// mcp.ElicitParams on the first invocation, the inputResponses lookup on
+// the retry — plus the Mustache-rendered message expression and the
+// decline-path IsError short-circuit.
 func TestGenerate_Elicit(t *testing.T) {
 	out := runGenerate(t, "elicit.proto")
 
@@ -109,6 +111,15 @@ func TestGenerate_Elicit(t *testing.T) {
 		{"register function", true, "RegisterElicitMCPTools"},
 		{"Delete tool name", true, `"Elicit_Delete"`},
 		{"ElicitParams struct literal", true, "&mcp.ElicitParams{"},
+		// First invocation publishes the confirmation under the fixed
+		// server-assigned request ID.
+		{"InputRequests map literal", true, "InputRequests: mcp.InputRequestMap{"},
+		// The retry reads the client's echoed answer back by the same key.
+		{"inputResponses lookup", true, `req.Params.InputResponses["confirm"]`},
+		{"answer type assertion", true, "*mcp.ElicitResult"},
+		// The old direct server-initiated request must be gone: it hard-fails
+		// on protocol >= 2026-07-28 sessions.
+		{"no direct Elicit call", false, ".Elicit(ctx"},
 		// The literal prefix up to the first Mustache var appears as a Go
 		// string literal in the emitted Sprintf concatenation.
 		{"rendered message prefix", true, `"Delete item with id "`},

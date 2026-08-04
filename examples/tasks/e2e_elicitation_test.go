@@ -2,7 +2,9 @@
 // DeleteTask carries both the destructive tool hint and a confirmation
 // elicitation in tasks.proto; the generated handler must:
 //
-//   - fire session.Elicit before the upstream gRPC call
+//   - publish the confirmation as a multi-round-trip InputRequest before
+//     the upstream gRPC call (the SDK fulfills it through the client's
+//     ElicitationHandler and re-invokes the handler with the answer)
 //   - render {{id}} into the prompt so the user sees *which* task
 //   - run the gRPC call only when action=="accept"
 //   - return an IsError CallToolResult with a clear message when the

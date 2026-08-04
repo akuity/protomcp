@@ -268,16 +268,27 @@ func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 		if tok := req.Params.GetProgressToken(); tok != nil {
 			g.Metadata.Set(srv.ProgressTokenHeader(), protomcp.SanitizeMetadataValue(fmt.Sprintf("%v", tok)))
 		}
-		// Confirm with the client before making the upstream call.
-		// A nil session is tolerated for unit-test harnesses.
+		// Confirm with the client before making the upstream call, via
+		// the multi-round-trip protocol (SEP-2322): the first invocation
+		// returns an elicitation InputRequest, and the SDK re-invokes
+		// this handler with the client's answer (client middleware on
+		// >= 2026-07-28 sessions, the SDK's server-side shim for older
+		// clients). A nil session is tolerated for unit-test harnesses.
 		if req.Session != nil {
-			elicitResult, elicitErr := req.Session.Elicit(ctx, &mcp.ElicitParams{
-				Message: "Delete task with id " + fmt.Sprintf("%v", (&in).GetId()) + "? This cannot be undone.",
-			})
-			if elicitErr != nil {
-				return srv.FinishToolCall(ctx, req, g, nil, elicitErr)
+			answer, answered := req.Params.InputResponses["confirm"]
+			if !answered {
+				// Intermediate protocol result, not a tool result: skip
+				// FinishToolCall so ToolResultProcessors cannot attach
+				// Content, which the SDK rejects alongside InputRequests.
+				return &mcp.CallToolResult{
+					InputRequests: mcp.InputRequestMap{
+						"confirm": &mcp.ElicitParams{
+							Message: "Delete task with id " + fmt.Sprintf("%v", (&in).GetId()) + "? This cannot be undone.",
+						},
+					},
+				}, nil, nil
 			}
-			if elicitResult == nil || elicitResult.Action != "accept" {
+			if er, ok := answer.(*mcp.ElicitResult); !ok || er == nil || er.Action != "accept" {
 				// Explicit refusal; the gRPC call does NOT run.
 				return srv.FinishToolCall(ctx, req, g, &mcp.CallToolResult{
 					IsError: true,

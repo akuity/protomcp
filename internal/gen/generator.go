@@ -131,12 +131,13 @@ type toolTemplateData struct {
 
 	// Elicitation is non-nil when the method also carries a
 	// protomcp.v1.elicitation annotation; the tool template then emits
-	// a session.Elicit(...) call before the upstream gRPC invocation.
+	// a multi-round-trip confirmation gate before the upstream gRPC
+	// invocation.
 	Elicitation *elicitationTemplateData
 }
 
 // elicitationTemplateData carries the per-RPC context the tool template
-// needs to emit a session.Elicit call.
+// needs to emit a multi-round-trip elicitation input request.
 type elicitationTemplateData struct {
 	// MessageExpr is a Go source expression that evaluates at runtime
 	// to the fully-rendered confirmation prompt. For literal strings
@@ -145,7 +146,14 @@ type elicitationTemplateData struct {
 	// ...) field getters.
 	MessageExpr string
 
-	QMCPElicitParams string
+	// RequestID is the server-assigned key under which the elicitation
+	// is published in the result's InputRequests map, and which the
+	// client echoes back in inputResponses on the retry.
+	RequestID string
+
+	QMCPElicitParams    string
+	QMCPInputRequestMap string
+	QMCPElicitResult    string
 }
 
 // commonQuals bundles qualified identifiers every template site needs.
@@ -704,9 +712,10 @@ func buildToolTemplateData(
 }
 
 // buildElicitationTemplateData validates the elicitation annotation and
-// computes the tool template context for the session.Elicit(...) gate.
-// Validation rejects empty messages, unresolved Mustache variables, and
-// unsupported Mustache forms (sections, partials).
+// computes the tool template context for the multi-round-trip
+// confirmation gate. Validation rejects empty messages, unresolved
+// Mustache variables, and unsupported Mustache forms (sections,
+// partials).
 func buildElicitationTemplateData(
 	g *protogen.GeneratedFile,
 	m *protogen.Method,
@@ -738,11 +747,28 @@ func buildElicitationTemplateData(
 		GoName:       "ElicitParams",
 		GoImportPath: importMCP,
 	})
+	qInputRequestMap := g.QualifiedGoIdent(protogen.GoIdent{
+		GoName:       "InputRequestMap",
+		GoImportPath: importMCP,
+	})
+	qElicitResult := g.QualifiedGoIdent(protogen.GoIdent{
+		GoName:       "ElicitResult",
+		GoImportPath: importMCP,
+	})
 	return &elicitationTemplateData{
-		MessageExpr:      expr,
-		QMCPElicitParams: qElicitParams,
+		MessageExpr:         expr,
+		RequestID:           elicitationRequestID,
+		QMCPElicitParams:    qElicitParams,
+		QMCPInputRequestMap: qInputRequestMap,
+		QMCPElicitResult:    qElicitResult,
 	}, nil
 }
+
+// elicitationRequestID is the server-assigned key for the confirmation
+// input request. Servers choose these IDs freely; clients echo them back
+// verbatim in inputResponses, so any stable value works. One elicitation
+// per tool call means a single fixed key is sufficient.
+const elicitationRequestID = "confirm"
 
 // deriveToolName implements the ToolOptions.Name algorithm: explicit
 // override > synthesized <Service>_<Method> > service-level prefix

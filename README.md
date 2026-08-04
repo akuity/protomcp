@@ -381,7 +381,7 @@ There are two common shapes:
 
 2. **Wrap an external source.** Real handlers that start/stop upstream delivery per subscription (open a gRPC stream, run a PG `LISTEN`, subscribe to a Redis/Kafka topic, register a webhook). Best when events come from outside the process. Still call `ResourceUpdated` on each incoming event.
 
-[`examples/subscriptions`](examples/subscriptions) ships both as runnable demos: `cmd/subscriptions-simple` for the push-from-write-path pattern (about 30 lines of wiring) and `cmd/subscriptions` for the external-source pattern, with per-principal subscribe authorization and a watcher wrapped in `protomcp.RetryLoop`.
+[`examples/subscriptions`](examples/subscriptions) ships all of this as runnable demos: `cmd/subscriptions-simple` for the push-from-write-path pattern (about 30 lines of wiring), `cmd/subscriptions` for the external-source pattern with per-principal subscribe authorization and a watcher wrapped in `protomcp.RetryLoop`, and `cmd/subscriptions-stateless` for the stateless serving shape where ≥ 2026-07-28 clients subscribe via `subscriptions/listen` with no session affinity anywhere.
 
 ### `protomcp.v1.prompt`, method option
 
@@ -460,7 +460,7 @@ Each example is standalone, runnable, and has its own README.
 |---|---|
 | [`examples/greeter`](examples/greeter) | Tool primitive surface, unary + server-streaming RPCs, progress notifications with monotonic counter, **progress-token gRPC-metadata propagation**, `ToolErrorHandler`, `ToolResultProcessor` redaction, `ToolMiddleware` request mutation, SDK options pass-through, **`field_schema.exclude` schema masking round-trip** |
 | [`examples/tasks`](examples/tasks) | **Every declarative MCP primitive end-to-end.** Tools with `read_only` / `idempotent` / `destructive` hints + `OUTPUT_ONLY` stripping, **two `resource_template` annotations (`tasks://{id}`, `tags://{id}`)**, **a single `resource_list` that enumerates both types via `{type}://{id}` with `OffsetPagination`**, **prompts (`tasks_review`)**, **elicitation (confirm `DeleteTask`)**, plus `@example` markers and `enumDescriptions` on `TaskStatus` |
-| [`examples/subscriptions`](examples/subscriptions) | **User-wired resource subscriptions** on top of the Tasks resource template. Per-principal subscribe authorization in `SubscribeHandler`/`UnsubscribeHandler`, plus a watcher wrapped in `protomcp.RetryLoop` pushing `ResourceUpdated`. Race-tested. |
+| [`examples/subscriptions`](examples/subscriptions) | **User-wired resource subscriptions** on top of the Tasks resource template. Per-principal subscribe authorization in `SubscribeHandler`/`UnsubscribeHandler`, plus a watcher wrapped in `protomcp.RetryLoop` pushing `ResourceUpdated`. Also the **stateless serving shape** (`Stateless` + `PropagateRequestCancellation`): protocol ≥ 2026-07-28 with `subscriptions/listen`-delivered subscriptions and no session affinity. Race-tested. |
 | [`examples/auth`](examples/auth) | Two-layer auth: SDK-native bearer middleware **or** custom HTTP middleware, both writing gRPC metadata for the upstream |
 
 Cmd directories inside each example hold the runnable binaries:
@@ -473,6 +473,7 @@ Cmd directories inside each example hold the runnable binaries:
 - [`examples/greeter/cmd/sdkopts`](examples/greeter/cmd/sdkopts), pass `mcp.ServerOptions` / `mcp.StreamableHTTPOptions`
 - [`examples/tasks/cmd/tasks`](examples/tasks/cmd/tasks), CRUD
 - [`examples/subscriptions/cmd/subscriptions`](examples/subscriptions/cmd/subscriptions), authorization-gated subscribe wiring
+- [`examples/subscriptions/cmd/subscriptions-stateless`](examples/subscriptions/cmd/subscriptions-stateless), stateless serving + `subscriptions/listen` delivery (protocol ≥ 2026-07-28)
 - [`examples/auth/cmd/auth`](examples/auth/cmd/auth), custom HTTP middleware → ctx → metadata
 - [`examples/auth/cmd/sdkauth`](examples/auth/cmd/sdkauth), MCP Go SDK's `auth.RequireBearerToken` → `TokenInfoFromContext` → metadata
 

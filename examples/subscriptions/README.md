@@ -195,6 +195,44 @@ resources push from internal code and others need an external watch.
 Return `nil` for push-path URIs (no-op) and open the external watch
 only for URIs that need it.
 
+## Serving stateless (protocol ≥ 2026-07-28, no session affinity)
+
+`cmd/subscriptions-stateless` runs the same subscription wiring with
+
+```go
+protomcp.WithHTTPOptions(&mcp.StreamableHTTPOptions{
+    Stateless:                    true,
+    PropagateRequestCancellation: true,
+})
+```
+
+Stateless mode is the shape for horizontally scaled servers behind a
+plain round-robin load balancer — and it is the only mode in which the
+Go SDK speaks protocol revision 2026-07-28, where `resources/subscribe`
+is replaced by `subscriptions/listen`: one long-lived POST whose
+response stream carries the notifications. Subscription state lives on
+that connection, not in a server-side session map, so no affinity
+mechanism is needed anywhere: the replica holding a listen stream
+delivers to it, and a dropped stream is simply re-issued by the client
+to whichever replica answers next. Your `SubscribeHandler` /
+`UnsubscribeHandler` fire per URI exactly as in the other patterns —
+`subscriptions/listen` routes through the same gate — and the push
+side (`ResourceUpdated`) is unchanged; in a multi-replica deployment,
+feed every replica from a shared event source so whichever one holds a
+given stream can deliver.
+
+`PropagateRequestCancellation` ties each in-flight handler context to
+its HTTP request, so a client that goes away mid-call cancels the
+handler instead of leaving it running for nobody. (The SDK forces this
+on for `subscriptions/listen` requests regardless — a listen handler
+blocks until its request ends.)
+
+The e2e suite in `cmd/subscriptions-stateless/main_test.go` pins the
+whole contract: 2026-07-28 negotiated over plain HTTP, listen-based
+delivery to concurrent clients, unsubscribe teardown, handler
+cancellation on request abort, and the same endpoint still answering a
+classic `initialize` from pre-2026 clients.
+
 ## Running the demos
 
 ```shell
@@ -203,6 +241,10 @@ go run ./examples/subscriptions/cmd/subscriptions-simple -addr :8080
 
 # Pattern B: watch stream + authz (requires a bearer token)
 go run ./examples/subscriptions/cmd/subscriptions -addr :8080
+
+# Stateless: same push wiring, Stateless + PropagateRequestCancellation,
+# subscriptions arrive via subscriptions/listen (protocol >= 2026-07-28)
+go run ./examples/subscriptions/cmd/subscriptions-stateless -addr :8080
 ```
 
 Point any MCP client at `http://localhost:8080`. For Pattern B,

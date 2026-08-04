@@ -159,6 +159,17 @@ func New(name, version string, opts ...ServerOption) *Server {
 	s.httpInner = mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 		return s.sdk
 	}, s.httpOpts)
+	// go-sdk v1.7.0 stopped installing cross-origin protection when
+	// StreamableHTTPOptions.CrossOriginProtection is nil, and deprecated
+	// the field in favor of wrapping the handler. Restore the v1.5.0
+	// always-on default unless the caller supplied their own instance via
+	// WithHTTPOptions. Reading the deprecated field is the only way to
+	// detect that; when the SDK removes it, wrap the caller's instance
+	// here instead of passing it through.
+	callerCOP := s.httpOpts != nil && s.httpOpts.CrossOriginProtection != nil //nolint:staticcheck // SA1019: reading the deprecated field is the only way to detect a caller-supplied instance.
+	if !callerCOP {
+		s.httpInner = http.NewCrossOriginProtection().Handler(s.httpInner)
+	}
 	return s
 }
 

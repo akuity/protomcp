@@ -12,8 +12,16 @@
 //   - Any replica can serve any request; nothing routes on a session.
 //   - A subscription lives exactly as long as its listen stream. The
 //     replica holding the stream delivers `notifications/resources/
-//     updated` for it; when the stream drops, the client re-issues it
-//     (to whichever replica the balancer picks next).
+//     updated` for it. A dropped stream is NOT re-issued: on go-sdk
+//     v1.7.0 these streams carry no SSE event IDs, the client abandons
+//     a listen POST that dies without one, and — because the listen
+//     call is dispatched fire-and-forget — no error surfaces to the
+//     application. A later Subscribe for the same URI is a no-op while
+//     the client still thinks it is subscribed; recovery is
+//     Unsubscribe then a fresh Subscribe, which any replica can
+//     answer. Clients that must survive drops need their own liveness
+//     signal (e.g. a subscribed heartbeat resource) to notice a dead
+//     stream.
 //   - SubscribeHandler / UnsubscribeHandler fire per URI exactly as in
 //     the legacy modes — `subscriptions/listen` routes through the same
 //     gate — so ACL checks carry over unchanged.

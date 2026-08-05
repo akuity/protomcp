@@ -196,6 +196,69 @@ func TestDeleteTask_ElicitationReusedParamsRePrompts(t *testing.T) {
 	}
 }
 
+// TestDeleteTask_ElicitationIdenticalReplayRePrompts pins the
+// byte-identical replay property end to end: re-issuing the SAME
+// CallToolParams struct — same tool, same arguments — after a confirmed
+// call must prompt again rather than ride the previous answer. The
+// server-side RequestState is a recomputable content hash, so this
+// protection lives client-side: a fixed SDK never writes retry state
+// into the caller's params, the replay arrives with no answer, and the
+// gate re-prompts. go-sdk <= v1.7.0 instead leaves the fulfilled answer
+// and matching state on the caller's struct
+// (modelcontextprotocol/go-sdk#1144), so the replay skips the prompt;
+// on such SDKs this test detects the mutation and skips. Once the
+// pinned go-sdk contains the fix (modelcontextprotocol/go-sdk#1145),
+// the skip never triggers — turn it into a hard failure then, so an
+// SDK regression cannot silently reopen the replay window.
+func TestDeleteTask_ElicitationIdenticalReplayRePrompts(t *testing.T) {
+	ctx := context.Background()
+	grpcClient := startGRPC(t)
+	srv := protomcp.New("tasks", "0.1.0")
+	tasksv1.RegisterTasksMCPTools(srv, grpcClient)
+
+	// Accept the first prompt, decline any later one: if the replay
+	// correctly re-prompts, it must then short-circuit with IsError.
+	var elicitCalls atomic.Int32
+	cs := connectWith(ctx, t, srv, &mcp.ClientOptions{
+		ElicitationHandler: func(_ context.Context, _ *mcp.ElicitRequest) (*mcp.ElicitResult, error) {
+			if elicitCalls.Add(1) == 1 {
+				return &mcp.ElicitResult{Action: "accept"}, nil
+			}
+			return &mcp.ElicitResult{Action: "decline"}, nil
+		},
+	})
+
+	var created tasksv1.Task
+	callTool(ctx, t, cs, "Tasks_CreateTask", `{"task":{"title":"replay-me","done":false}}`, &created)
+
+	params := &mcp.CallToolParams{
+		Name:      "Tasks_DeleteTask",
+		Arguments: json.RawMessage(fmt.Sprintf(`{"id":%q}`, created.Id)),
+	}
+	if out, err := cs.CallTool(ctx, params); err != nil || out.IsError {
+		t.Fatalf("first Delete: err=%v out=%+v", err, out)
+	}
+	if got := elicitCalls.Load(); got != 1 {
+		t.Fatalf("after first delete: elicitation handler called %d times, want 1", got)
+	}
+
+	if params.RequestState != "" || params.InputResponses != nil {
+		t.Skipf("go-sdk left multi-round-trip state on caller params (modelcontextprotocol/go-sdk#1144, fixed by #1145): a byte-identical replay would skip the prompt until the fixed SDK is pinned")
+	}
+
+	// Replay the SAME struct, byte-identical arguments included.
+	out, err := cs.CallTool(ctx, params)
+	if err != nil {
+		t.Fatalf("replayed Delete: transport error: %v", err)
+	}
+	if got := elicitCalls.Load(); got != 2 {
+		t.Errorf("after replay: elicitation handler called %d times, want 2 (identical replay must re-prompt)", got)
+	}
+	if !out.IsError {
+		t.Errorf("replayed Delete: want IsError (user declined the re-prompt), got success: %+v", out)
+	}
+}
+
 // TestDeleteTask_ElicitationPrePopulatedAnswerRePrompts asserts that an
 // inputResponses entry supplied on the very first call, without the
 // matching RequestState, does not skip the confirmation: the gate

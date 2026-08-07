@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/dynamicpb"
 
 	_ "github.com/akuity/protomcp/internal/gen/schema/testdata"
@@ -182,6 +183,145 @@ func TestRequiredAndOutputOnly(t *testing.T) {
 	out := jsonRound(t, ForOutput(md, Options{}))
 	if _, ok := out["properties"].(map[string]any)["serverComputed"]; !ok {
 		t.Error("server_computed missing from output schema")
+	}
+}
+
+func TestMCPRequired(t *testing.T) {
+	tests := []struct {
+		name      string
+		fieldName string
+		options   *protomcpv1.FieldSchemaOptions
+		want      bool
+	}{
+		{
+			name:      "MCP only",
+			fieldName: "optional_field",
+			options:   &protomcpv1.FieldSchemaOptions{Required: true},
+			want:      true,
+		},
+		{
+			name:      "default false",
+			fieldName: "optional_field",
+			want:      false,
+		},
+		{
+			name:      "explicit false",
+			fieldName: "optional_field",
+			options:   &protomcpv1.FieldSchemaOptions{},
+			want:      false,
+		},
+		{
+			name:      "false does not cancel field behavior",
+			fieldName: "api_required",
+			options:   &protomcpv1.FieldSchemaOptions{},
+			want:      true,
+		},
+		{
+			name:      "false does not cancel protovalidate",
+			fieldName: "protovalidate_required",
+			options:   &protomcpv1.FieldSchemaOptions{},
+			want:      true,
+		},
+		{
+			name:      "MCP composes with ignored protovalidate",
+			fieldName: "required_ignore_always",
+			options:   &protomcpv1.FieldSchemaOptions{Required: true},
+			want:      true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fieldOptions := map[string]*protomcpv1.FieldSchemaOptions{}
+			if tt.options != nil {
+				fieldOptions[tt.fieldName] = tt.options
+			}
+			md := messageWithFieldSchemaOptions(t, "protomcp.testdata.v1.Required", fieldOptions)
+			fd := md.Fields().ByName(protoreflect.Name(tt.fieldName))
+			if got := IsRequired(fd); got != tt.want {
+				t.Errorf("IsRequired(%s) = %v, want %v", tt.fieldName, got, tt.want)
+			}
+			got := requiredSet(jsonRound(t, ForInput(md, Options{})))[fd.JSONName()]
+			if got != tt.want {
+				t.Errorf("input required[%s] = %v, want %v", fd.JSONName(), got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMCPRequiredOutputOnly(t *testing.T) {
+	md := messageWithFieldSchemaOptions(t, "protomcp.testdata.v1.Required", map[string]*protomcpv1.FieldSchemaOptions{
+		"server_computed": {Required: true},
+	})
+	fd := md.Fields().ByName("server_computed")
+	if !IsRequired(fd) {
+		t.Fatal("MCP-required OUTPUT_ONLY field is not recognized as required")
+	}
+	in := jsonRound(t, ForInput(md, Options{}))
+	if _, ok := in["properties"].(map[string]any)[fd.JSONName()]; ok {
+		t.Fatal("MCP-required OUTPUT_ONLY field leaked into the input schema")
+	}
+	out := jsonRound(t, ForOutput(md, Options{}))
+	if !requiredSet(out)[fd.JSONName()] {
+		t.Fatal("MCP-required OUTPUT_ONLY field missing from output required[]")
+	}
+}
+
+func TestMCPRequiredExcludedInputRejected(t *testing.T) {
+	md := messageWithFieldSchemaOptions(t, "protomcp.testdata.v1.Required", map[string]*protomcpv1.FieldSchemaOptions{
+		"optional_field": {Exclude: true, Required: true},
+	})
+	err := ValidateInputExclusions(md)
+	for _, want := range []string{
+		"field protomcp.testdata.v1.Required.optional_field",
+		"(protomcp.v1.field_schema).exclude on a required field",
+	} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Fatalf("ValidateInputExclusions error = %v, want text %q", err, want)
+		}
+	}
+}
+
+func TestMCPRequiredOneofArm(t *testing.T) {
+	md := messageWithFieldSchemaOptions(t, "protomcp.testdata.v1.Oneofs", map[string]*protomcpv1.FieldSchemaOptions{
+		"text": {Required: true},
+	})
+	s := jsonRound(t, ForInput(md, Options{}))
+	if !requiredSet(s)["text"] {
+		t.Fatalf("MCP-required oneof arm missing from top-level required: %v", s["required"])
+	}
+
+	raw, err := json.Marshal(ForInput(md, Options{}))
+	if err != nil {
+		t.Fatalf("marshal schema: %v", err)
+	}
+	sch := &jsonschema.Schema{}
+	if unmarshalErr := json.Unmarshal(raw, sch); unmarshalErr != nil {
+		t.Fatalf("unmarshal schema: %v", unmarshalErr)
+	}
+	resolved, err := sch.Resolve(nil)
+	if err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+	tests := []struct {
+		name     string
+		instance map[string]any
+		valid    bool
+	}{
+		{name: "no arm rejected", instance: map[string]any{}, valid: false},
+		{name: "other arm rejected", instance: map[string]any{"count": float64(1)}, valid: false},
+		{name: "required arm accepted", instance: map[string]any{"text": "value"}, valid: true},
+		{name: "multiple arms rejected", instance: map[string]any{"text": "value", "count": float64(1)}, valid: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := resolved.Validate(tt.instance)
+			if tt.valid && err != nil {
+				t.Errorf("want valid, got %v", err)
+			}
+			if !tt.valid && err == nil {
+				t.Error("want validation failure, got nil")
+			}
+		})
 	}
 }
 
@@ -616,18 +756,34 @@ func TestValidateInputExclusions_StringZeroValueRules(t *testing.T) {
 
 func messageWithExcludedFields(t *testing.T, name string, fieldNames ...string) protoreflect.MessageDescriptor {
 	t.Helper()
+	fieldOptions := make(map[string]*protomcpv1.FieldSchemaOptions, len(fieldNames))
+	for _, fieldName := range fieldNames {
+		fieldOptions[fieldName] = &protomcpv1.FieldSchemaOptions{Exclude: true}
+	}
+	return messageWithFieldSchemaOptions(t, name, fieldOptions)
+}
+
+func messageWithFieldSchemaOptions(
+	t *testing.T,
+	name string,
+	fieldOptions map[string]*protomcpv1.FieldSchemaOptions,
+) protoreflect.MessageDescriptor {
+	t.Helper()
 	md := descByName(t, name)
 	fileProto := protodesc.ToFileDescriptorProto(md.ParentFile())
-	fileProto.Name = proto.String("excluded_zero_value_fixtures.proto")
+	fileProto.Name = proto.String("field_schema_fixtures.proto")
 	fileProto.Dependency = append(fileProto.Dependency, "protomcp/v1/annotations.proto")
 	messageProto := fileProto.MessageType[md.Index()]
-	wanted := make(map[string]bool, len(fieldNames))
-	for _, fieldName := range fieldNames {
-		wanted[fieldName] = true
+	wanted := make(map[string]*protomcpv1.FieldSchemaOptions, len(fieldOptions))
+	for fieldName, options := range fieldOptions {
+		wanted[fieldName] = options
 	}
 	for _, field := range messageProto.Field {
-		if wanted[field.GetName()] {
-			proto.SetExtension(field.Options, protomcpv1.E_FieldSchema, &protomcpv1.FieldSchemaOptions{Exclude: true})
+		if options, ok := wanted[field.GetName()]; ok {
+			if field.Options == nil {
+				field.Options = &descriptorpb.FieldOptions{}
+			}
+			proto.SetExtension(field.Options, protomcpv1.E_FieldSchema, options)
 			delete(wanted, field.GetName())
 		}
 	}

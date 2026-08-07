@@ -193,7 +193,7 @@ message ListTasksResponse {
 }
 
 message GetTaskRequest {
-  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  string id = 1 [(protomcp.v1.field_schema).required = true];
 }
 
 message GetTagRequest {

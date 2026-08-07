@@ -78,6 +78,17 @@ func TestGenerate_Greeter(t *testing.T) {
 	assertSubstrings(t, out, cases)
 }
 
+func TestGenerate_MCPRequired(t *testing.T) {
+	out := runGenerate(t, "mcp_required.proto")
+	assertSubstrings(t, out, []substringCase{
+		{
+			name:     "MCP-only required field enters schema required array",
+			contains: true,
+			needle:   `{"properties":{"name":{"type":"string"},"note":{"type":"string"}},"required":["name"],"type":"object"}`,
+		},
+	})
+}
+
 // TestGenerate_BadStreams_ClientErrors asserts the generator returns a
 // clear error when a client-streaming RPC is annotated with protomcp.v1.tool.
 func TestGenerate_BadStreams_ClientErrors(t *testing.T) {
@@ -698,6 +709,8 @@ func TestGenerate_PromptRequiredness(t *testing.T) {
 		{"requiredIgnoreAlways", false},
 		{"requiredIgnoreZero", false},
 		{"requiredIgnoreZeroWithPresence", true},
+		{"mcpRequired", true},
+		{"mcpOptional", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

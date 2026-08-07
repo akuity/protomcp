@@ -29,6 +29,8 @@ message PromptRequirednessRequest {
     (buf.validate.field).required = true,
     (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE
   ];
+  string mcp_required = 6 [(protomcp.v1.field_schema).required = true];
+  string mcp_optional = 7 [(protomcp.v1.field_schema).required = false];
 }
 
 message PromptRequirednessReply {

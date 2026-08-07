@@ -136,12 +136,16 @@ func ValidateInputExclusions(md protoreflect.MessageDescriptor) error {
 }
 
 func isExcluded(fd protoreflect.FieldDescriptor) bool {
+	return fieldSchemaOptions(fd).GetExclude()
+}
+
+func fieldSchemaOptions(fd protoreflect.FieldDescriptor) *protomcpv1.FieldSchemaOptions {
 	opts := fd.Options()
 	if opts == nil || !proto.HasExtension(opts, protomcpv1.E_FieldSchema) {
-		return false
+		return nil
 	}
 	fso, _ := proto.GetExtension(opts, protomcpv1.E_FieldSchema).(*protomcpv1.FieldSchemaOptions)
-	return fso.GetExclude()
+	return fso
 }
 
 func validateInputExclusions(md protoreflect.MessageDescriptor, seen map[protoreflect.FullName]bool) error {
@@ -710,11 +714,15 @@ func kindToJSONType(k protoreflect.Kind) string {
 	}
 }
 
-// IsRequired reports whether fd is required by
-// google.api.field_behavior=REQUIRED (AIP-203) or
-// buf.validate.field.required. IGNORE_ALWAYS disables the latter;
-// IGNORE_IF_ZERO_VALUE also disables it for fields without presence.
+// IsRequired reports whether fd is required by field_schema.required,
+// google.api.field_behavior=REQUIRED (AIP-203), or
+// buf.validate.field.required. These mechanisms compose additively.
+// IGNORE_ALWAYS disables only the buf.validate rule;
+// IGNORE_IF_ZERO_VALUE also disables that rule for fields without presence.
 func IsRequired(fd protoreflect.FieldDescriptor) bool {
+	if fieldSchemaOptions(fd).GetRequired() {
+		return true
+	}
 	if proto.HasExtension(fd.Options(), annotations.E_FieldBehavior) {
 		behaviors, _ := proto.GetExtension(fd.Options(), annotations.E_FieldBehavior).([]annotations.FieldBehavior)
 		if slices.Contains(behaviors, annotations.FieldBehavior_REQUIRED) {

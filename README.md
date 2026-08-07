@@ -401,15 +401,17 @@ Hard codegen error when used without a companion `tool`, or on a streaming RPC.
 
 **Scope, confirm-only by design.** MCP's form and URL elicitation modes need stateful handshakes that do not map onto a unary gRPC call. If you need structured input from the user, collect it as tool arguments; they already become JSON Schema properties on `inputSchema`.
 
-### `protomcp.v1.field_schema`, field option (schema masking)
+### `protomcp.v1.field_schema`, field option (schema shaping)
 
 | Field | Default | Effect |
 |---|---|---|
-| `exclude` | false | Masks the field from the generated tool input **and** output JSON Schemas, and masks it at runtime in both directions: client-supplied values are cleared after unmarshal (`protomcp.ClearSchemaExcluded`, recursive: nested, repeated, map) before the gRPC call, and server-set values are stripped from the serialized response JSON before it reaches the MCP client (`MarshalProtoMasked`; the proto message in `GRPCData.Output` is left untouched so trusted result processors, e.g. pagination, can still read backend-only fields). The response-side masking applies to every generated surface that marshals the RPC response: tool results, resource reads, resource-list items, and prompt rendering. Referencing an excluded field from a URI binding, `item_path`, `name_field`/`description_field`, `blob_field`, prompt template, or elicitation message is a codegen error, and excluded request fields are dropped from prompt arguments. Use it to slim tools generated from very large proto messages, or to keep internal-only fields out of LLM-visible schemas. Excluding a required field is a codegen error because the upstream call could never succeed. Required fields are identified by `google.api.field_behavior = REQUIRED` or `buf.validate` `required`; `IGNORE_ALWAYS`, and `IGNORE_IF_ZERO_VALUE` on fields without presence, make the latter constraint inert. |
+| `required` | false | Adds the field to the generated MCP JSON Schema parent's `required[]` and marks a corresponding prompt argument as required. This option is codegen-only: it does not change protobuf validation or OpenAPI output. It composes additively with `google.api.field_behavior = REQUIRED` and effective `buf.validate.field.required`; `false` never cancels either. An input field cannot be both `required` and `exclude`. |
+| `exclude` | false | Masks the field from the generated tool input **and** output JSON Schemas, and masks it at runtime in both directions: client-supplied values are cleared after unmarshal (`protomcp.ClearSchemaExcluded`, recursive: nested, repeated, map) before the gRPC call, and server-set values are stripped from the serialized response JSON before it reaches the MCP client (`MarshalProtoMasked`; the proto message in `GRPCData.Output` is left untouched so trusted result processors, e.g. pagination, can still read backend-only fields). The response-side masking applies to every generated surface that marshals the RPC response: tool results, resource reads, resource-list items, and prompt rendering. Referencing an excluded field from a URI binding, `item_path`, `name_field`/`description_field`, `blob_field`, prompt template, or elicitation message is a codegen error, and excluded request fields are dropped from prompt arguments. Use it to slim tools generated from very large proto messages, or to keep internal-only fields out of LLM-visible schemas. Excluding a required field is a codegen error because the upstream call could never succeed. Required fields are identified by `field_schema.required`, `google.api.field_behavior = REQUIRED`, or effective `buf.validate` `required`; `IGNORE_ALWAYS`, and `IGNORE_IF_ZERO_VALUE` on fields without presence, make the latter constraint inert. |
 
 ```proto
 message ApplySpec {
-  string name = 1;
+  // Required for MCP callers without changing the protobuf/OpenAPI contract:
+  string name = 1 [(protomcp.v1.field_schema).required = true];
   // Too large / too internal for an LLM-facing schema:
   InternalConfig raw_config = 2 [(protomcp.v1.field_schema).exclude = true];
 }

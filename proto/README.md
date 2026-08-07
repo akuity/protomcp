@@ -22,6 +22,11 @@ service Greeter {
     };
   }
 }
+
+message HelloRequest {
+  // Required by the generated MCP schema only.
+  string name = 1 [(protomcp.v1.field_schema).required = true];
+}
 ```
 
 Unannotated RPCs are **not exposed**; presence of the annotation is
@@ -46,7 +51,7 @@ For the runtime library, generator plugin, quickstart, examples, authentication,
 
 | File | Purpose |
 |---|---|
-| [`protomcp/v1/annotations.proto`](./protomcp/v1/annotations.proto) | `ToolOptions`, `ResourceTemplateOptions`, `ResourceListOptions`, `ResourceListChangedOptions`, `PromptOptions`, `ElicitationOptions` (method-level), `ServiceOptions` (service-level), `PlaceholderBinding` |
+| [`protomcp/v1/annotations.proto`](./protomcp/v1/annotations.proto) | `ToolOptions`, `ResourceTemplateOptions`, `ResourceListOptions`, `ResourceListChangedOptions`, `PromptOptions`, `ElicitationOptions` (method-level), `ServiceOptions` (service-level), `FieldSchemaOptions` (field-level), `PlaceholderBinding` |
 
 ## License
 

@@ -58,8 +58,8 @@ type promptArgument struct {
 	// Name is the wire (JSON) name.
 	Name        string
 	Description string
-	// Required is set by field_behavior=REQUIRED or
-	// an active buf.validate.required rule.
+	// Required is set by field_schema.required, field_behavior=REQUIRED,
+	// or an active buf.validate.required rule.
 	Required bool
 	// CompletionValues lists known completion suggestions (enum
 	// values or buf.validate.string.in values).

@@ -935,9 +935,9 @@ const file_examples_tasks_v1_tasks_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tB\x03\xe0A\x02R\x04name\"\x12\n" +
 	"\x10ListTasksRequest\"K\n" +
 	"\x11ListTasksResponse\x126\n" +
-	"\x05tasks\x18\x01 \x03(\v2 .protomcp.examples.tasks.v1.TaskR\x05tasks\"%\n" +
-	"\x0eGetTaskRequest\x12\x13\n" +
-	"\x02id\x18\x01 \x01(\tB\x03\xe0A\x02R\x02id\"$\n" +
+	"\x05tasks\x18\x01 \x03(\v2 .protomcp.examples.tasks.v1.TaskR\x05tasks\"(\n" +
+	"\x0eGetTaskRequest\x12\x16\n" +
+	"\x02id\x18\x01 \x01(\tB\x06ʵ\x18\x02\x10\x01R\x02id\"$\n" +
 	"\rGetTagRequest\x12\x13\n" +
 	"\x02id\x18\x01 \x01(\tB\x03\xe0A\x02R\x02id\"N\n" +
 	"\x11CreateTaskRequest\x129\n" +

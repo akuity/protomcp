@@ -8,6 +8,7 @@ package greeterv1
 
 import (
 	_ "github.com/akuity/protomcp/pkg/api/gen/protomcp/v1"
+	httpbody "google.golang.org/genproto/googleapis/api/httpbody"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -114,15 +115,16 @@ var File_greeter_proto protoreflect.FileDescriptor
 
 const file_greeter_proto_rawDesc = "" +
 	"\n" +
-	"\rgreeter.proto\x12 protomcp.gen.testdata.greeter.v1\x1a\x1dprotomcp/v1/annotations.proto\"\"\n" +
+	"\rgreeter.proto\x12 protomcp.gen.testdata.greeter.v1\x1a\x19google/api/httpbody.proto\x1a\x1dprotomcp/v1/annotations.proto\"\"\n" +
 	"\fHelloRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"&\n" +
 	"\n" +
 	"HelloReply\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2\xd6\x04\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage2\xd1\x05\n" +
 	"\aGreeter\x12{\n" +
 	"\bSayHello\x12..protomcp.gen.testdata.greeter.v1.HelloRequest\x1a,.protomcp.gen.testdata.greeter.v1.HelloReply\"\x11\x8a\xb5\x18\r\x12\tSay Hello \x01\x12\x8b\x01\n" +
-	"\x0fStreamGreetings\x12..protomcp.gen.testdata.greeter.v1.HelloRequest\x1a,.protomcp.gen.testdata.greeter.v1.HelloReply\"\x18\x8a\xb5\x18\x14\x12\x10Stream Greetings \x010\x01\x12h\n" +
+	"\x0fStreamGreetings\x12..protomcp.gen.testdata.greeter.v1.HelloRequest\x1a,.protomcp.gen.testdata.greeter.v1.HelloReply\"\x18\x8a\xb5\x18\x14\x12\x10Stream Greetings \x010\x01\x12y\n" +
+	"\x12DownloadTranscript\x12..protomcp.gen.testdata.greeter.v1.HelloRequest\x1a\x14.google.api.HttpBody\"\x1b\x8a\xb5\x18\x17\x12\x13Download Transcript \x010\x01\x12h\n" +
 	"\bInternal\x12..protomcp.gen.testdata.greeter.v1.HelloRequest\x1a,.protomcp.gen.testdata.greeter.v1.HelloReply\x12l\n" +
 	"\n" +
 	"BatchGreet\x12..protomcp.gen.testdata.greeter.v1.HelloRequest\x1a,.protomcp.gen.testdata.greeter.v1.HelloReply(\x01\x12h\n" +
@@ -142,22 +144,25 @@ func file_greeter_proto_rawDescGZIP() []byte {
 
 var file_greeter_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_greeter_proto_goTypes = []any{
-	(*HelloRequest)(nil), // 0: protomcp.gen.testdata.greeter.v1.HelloRequest
-	(*HelloReply)(nil),   // 1: protomcp.gen.testdata.greeter.v1.HelloReply
+	(*HelloRequest)(nil),      // 0: protomcp.gen.testdata.greeter.v1.HelloRequest
+	(*HelloReply)(nil),        // 1: protomcp.gen.testdata.greeter.v1.HelloReply
+	(*httpbody.HttpBody)(nil), // 2: google.api.HttpBody
 }
 var file_greeter_proto_depIdxs = []int32{
 	0, // 0: protomcp.gen.testdata.greeter.v1.Greeter.SayHello:input_type -> protomcp.gen.testdata.greeter.v1.HelloRequest
 	0, // 1: protomcp.gen.testdata.greeter.v1.Greeter.StreamGreetings:input_type -> protomcp.gen.testdata.greeter.v1.HelloRequest
-	0, // 2: protomcp.gen.testdata.greeter.v1.Greeter.Internal:input_type -> protomcp.gen.testdata.greeter.v1.HelloRequest
-	0, // 3: protomcp.gen.testdata.greeter.v1.Greeter.BatchGreet:input_type -> protomcp.gen.testdata.greeter.v1.HelloRequest
-	0, // 4: protomcp.gen.testdata.greeter.v1.Greeter.Chat:input_type -> protomcp.gen.testdata.greeter.v1.HelloRequest
-	1, // 5: protomcp.gen.testdata.greeter.v1.Greeter.SayHello:output_type -> protomcp.gen.testdata.greeter.v1.HelloReply
-	1, // 6: protomcp.gen.testdata.greeter.v1.Greeter.StreamGreetings:output_type -> protomcp.gen.testdata.greeter.v1.HelloReply
-	1, // 7: protomcp.gen.testdata.greeter.v1.Greeter.Internal:output_type -> protomcp.gen.testdata.greeter.v1.HelloReply
-	1, // 8: protomcp.gen.testdata.greeter.v1.Greeter.BatchGreet:output_type -> protomcp.gen.testdata.greeter.v1.HelloReply
-	1, // 9: protomcp.gen.testdata.greeter.v1.Greeter.Chat:output_type -> protomcp.gen.testdata.greeter.v1.HelloReply
-	5, // [5:10] is the sub-list for method output_type
-	0, // [0:5] is the sub-list for method input_type
+	0, // 2: protomcp.gen.testdata.greeter.v1.Greeter.DownloadTranscript:input_type -> protomcp.gen.testdata.greeter.v1.HelloRequest
+	0, // 3: protomcp.gen.testdata.greeter.v1.Greeter.Internal:input_type -> protomcp.gen.testdata.greeter.v1.HelloRequest
+	0, // 4: protomcp.gen.testdata.greeter.v1.Greeter.BatchGreet:input_type -> protomcp.gen.testdata.greeter.v1.HelloRequest
+	0, // 5: protomcp.gen.testdata.greeter.v1.Greeter.Chat:input_type -> protomcp.gen.testdata.greeter.v1.HelloRequest
+	1, // 6: protomcp.gen.testdata.greeter.v1.Greeter.SayHello:output_type -> protomcp.gen.testdata.greeter.v1.HelloReply
+	1, // 7: protomcp.gen.testdata.greeter.v1.Greeter.StreamGreetings:output_type -> protomcp.gen.testdata.greeter.v1.HelloReply
+	2, // 8: protomcp.gen.testdata.greeter.v1.Greeter.DownloadTranscript:output_type -> google.api.HttpBody
+	1, // 9: protomcp.gen.testdata.greeter.v1.Greeter.Internal:output_type -> protomcp.gen.testdata.greeter.v1.HelloReply
+	1, // 10: protomcp.gen.testdata.greeter.v1.Greeter.BatchGreet:output_type -> protomcp.gen.testdata.greeter.v1.HelloReply
+	1, // 11: protomcp.gen.testdata.greeter.v1.Greeter.Chat:output_type -> protomcp.gen.testdata.greeter.v1.HelloReply
+	6, // [6:12] is the sub-list for method output_type
+	0, // [0:6] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name

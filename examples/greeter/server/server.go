@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 
+	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -90,6 +91,38 @@ func (s *Server) Slow(ctx context.Context, _ *greeterv1.HelloRequest) (*greeterv
 		return nil, status.Error(codes.DeadlineExceeded, err.Error())
 	}
 	return nil, status.Error(codes.Canceled, "canceled")
+}
+
+func (s *Server) DownloadTranscript(req *greeterv1.DownloadTranscriptRequest, stream greeterv1.Greeter_DownloadTranscriptServer) error {
+	if req.GetBinary() {
+		contentType := req.GetContentType()
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+		return stream.Send(&httpbody.HttpBody{
+			ContentType: contentType,
+			Data:        []byte{0xff, 0xfe, 0x00, 0x01},
+		})
+	}
+	turns := int(req.GetTurns())
+	if turns <= 0 {
+		turns = 1
+	}
+	var transcript string
+	for i := 1; i <= turns; i++ {
+		transcript += fmt.Sprintf("Turn %d: hello, %s!\n", i, req.GetName())
+	}
+	const chunkSize = 10
+	for start := 0; start < len(transcript); start += chunkSize {
+		end := min(start+chunkSize, len(transcript))
+		if err := stream.Send(&httpbody.HttpBody{
+			ContentType: "text/plain; charset=utf-8",
+			Data:        []byte(transcript[start:end]),
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Server) Internal(_ context.Context, req *greeterv1.HelloRequest) (*greeterv1.HelloReply, error) {

@@ -8,7 +8,9 @@
 		Description: {{printf "%q" .Description}},
 {{- end}}
 		InputSchema:  {{.InputSchemaVar}},
+{{- if .OutputSchemaVar}}
 		OutputSchema: {{.OutputSchemaVar}},
+{{- end}}
 {{- if .AnnotationsLiteral}}
 		Annotations: {{.AnnotationsLiteral}},
 {{- end}}
@@ -51,7 +53,73 @@
 			}
 		}
 {{- end}}
-{{if .IsServerStreaming}}
+{{if .IsHTTPBodyStream}}
+		final := func(ctx {{.QContext}}, req *{{.QMCPCallReq}}, g *{{.QProtomcpGRPCReq}}) (*{{.QMCPCallResult}}, error) {
+			ctx = {{.QProtomcpOutgoingContext}}(ctx, g.Metadata)
+			upstream, ok := g.Input.(*{{.InputTypeRef}})
+			if !ok {
+				return nil, {{.QFmtErrorf}}("GRPCData.Input: want *%s, got %T", "{{.InputTypeRef}}", g.Input)
+			}
+			stream, err := {{.ClientMethod}}(ctx, upstream)
+			if err != nil {
+				return nil, err
+			}
+			limit := srv.HTTPBodyDocumentLimit()
+			var first *{{.QHTTPBody}}
+			var document []byte
+			var count int
+			for {
+				msg, rErr := stream.Recv()
+				if {{.QErrorsIs}}(rErr, {{.QIOEOF}}) {
+					break
+				}
+				if rErr != nil {
+					return nil, rErr
+				}
+				if limit > 0 && len(document)+len(msg.GetData()) > limit {
+					return nil, {{.QFmtErrorf}}("%s: the reassembled HttpBody document exceeds the %d-byte limit; raise it with protomcp.WithHTTPBodyDocumentLimit or serve the document out-of-band", {{printf "%q" .ToolName}}, limit)
+				}
+				if first == nil {
+					first = msg
+				}
+				document = append(document, msg.GetData()...)
+				count++
+				if token := req.Params.GetProgressToken(); token != nil && req.Session != nil {
+					if nErr := req.Session.NotifyProgress(ctx, &{{.QMCPProgressParams}}{
+						ProgressToken: token,
+						Progress:      float64(count),
+						Message:       {{.QFmtSprintf}}("%d bytes", len(document)),
+					}); nErr != nil {
+						if cErr := ctx.Err(); cErr != nil {
+							return nil, cErr
+						}
+					}
+				}
+			}
+			contentType := first.GetContentType()
+			g.Output = &{{.QHTTPBody}}{
+				ContentType: contentType,
+				Extensions:  first.GetExtensions(),
+				Data:        document,
+			}
+			switch {
+			case {{.QStringsHasPrefix}}(contentType, "image/"):
+				return &{{.QMCPCallResult}}{
+					Content: []{{.QMCPContent}}{&{{.QMCPImageContent}}{Data: document, MIMEType: contentType}},
+				}, nil
+			case {{.QStringsHasPrefix}}(contentType, "audio/"):
+				return &{{.QMCPCallResult}}{
+					Content: []{{.QMCPContent}}{&{{.QMCPAudioContent}}{Data: document, MIMEType: contentType}},
+				}, nil
+			}
+			if !{{.QUTF8Valid}}(document) {
+				return nil, {{.QFmtErrorf}}("%s: the upstream HttpBody payload (%q, %d bytes) is neither a media content type nor valid UTF-8 text; serve it as a resource or fetch it out-of-band", {{printf "%q" .ToolName}}, contentType, len(document))
+			}
+			return &{{.QMCPCallResult}}{
+				Content: []{{.QMCPContent}}{&{{.QMCPTextContent}}{Text: string(document)}},
+			}, nil
+		}
+{{else if .IsServerStreaming}}
 		final := func(ctx {{.QContext}}, req *{{.QMCPCallReq}}, g *{{.QProtomcpGRPCReq}}) (*{{.QMCPCallResult}}, error) {
 			ctx = {{.QProtomcpOutgoingContext}}(ctx, g.Metadata)
 			upstream, ok := g.Input.(*{{.InputTypeRef}})

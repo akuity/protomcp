@@ -8,6 +8,7 @@ package greeterv1
 
 import (
 	context "context"
+	httpbody "google.golang.org/genproto/googleapis/api/httpbody"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -19,12 +20,13 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Greeter_SayHello_FullMethodName        = "/protomcp.examples.greeter.v1.Greeter/SayHello"
-	Greeter_StreamGreetings_FullMethodName = "/protomcp.examples.greeter.v1.Greeter/StreamGreetings"
-	Greeter_FailWith_FullMethodName        = "/protomcp.examples.greeter.v1.Greeter/FailWith"
-	Greeter_EchoComplex_FullMethodName     = "/protomcp.examples.greeter.v1.Greeter/EchoComplex"
-	Greeter_Slow_FullMethodName            = "/protomcp.examples.greeter.v1.Greeter/Slow"
-	Greeter_Internal_FullMethodName        = "/protomcp.examples.greeter.v1.Greeter/Internal"
+	Greeter_SayHello_FullMethodName           = "/protomcp.examples.greeter.v1.Greeter/SayHello"
+	Greeter_StreamGreetings_FullMethodName    = "/protomcp.examples.greeter.v1.Greeter/StreamGreetings"
+	Greeter_FailWith_FullMethodName           = "/protomcp.examples.greeter.v1.Greeter/FailWith"
+	Greeter_EchoComplex_FullMethodName        = "/protomcp.examples.greeter.v1.Greeter/EchoComplex"
+	Greeter_Slow_FullMethodName               = "/protomcp.examples.greeter.v1.Greeter/Slow"
+	Greeter_DownloadTranscript_FullMethodName = "/protomcp.examples.greeter.v1.Greeter/DownloadTranscript"
+	Greeter_Internal_FullMethodName           = "/protomcp.examples.greeter.v1.Greeter/Internal"
 )
 
 // GreeterClient is the client API for Greeter service.
@@ -53,6 +55,10 @@ type GreeterClient interface {
 	// context cancellation propagates through the SDK into the server.
 	// Returns DeadlineExceeded / Canceled based on ctx.Err().
 	Slow(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error)
+	// DownloadTranscript streams a transcript as chunked google.api.HttpBody
+	// messages. The generated tool reassembles the chunks, in order, into one
+	// text document and advertises no output schema.
+	DownloadTranscript(ctx context.Context, in *DownloadTranscriptRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[httpbody.HttpBody], error)
 	// Internal is intentionally unannotated, it must not be generated.
 	Internal(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error)
 }
@@ -124,6 +130,25 @@ func (c *greeterClient) Slow(ctx context.Context, in *HelloRequest, opts ...grpc
 	return out, nil
 }
 
+func (c *greeterClient) DownloadTranscript(ctx context.Context, in *DownloadTranscriptRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[httpbody.HttpBody], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Greeter_ServiceDesc.Streams[1], Greeter_DownloadTranscript_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[DownloadTranscriptRequest, httpbody.HttpBody]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Greeter_DownloadTranscriptClient = grpc.ServerStreamingClient[httpbody.HttpBody]
+
 func (c *greeterClient) Internal(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(HelloReply)
@@ -160,6 +185,10 @@ type GreeterServer interface {
 	// context cancellation propagates through the SDK into the server.
 	// Returns DeadlineExceeded / Canceled based on ctx.Err().
 	Slow(context.Context, *HelloRequest) (*HelloReply, error)
+	// DownloadTranscript streams a transcript as chunked google.api.HttpBody
+	// messages. The generated tool reassembles the chunks, in order, into one
+	// text document and advertises no output schema.
+	DownloadTranscript(*DownloadTranscriptRequest, grpc.ServerStreamingServer[httpbody.HttpBody]) error
 	// Internal is intentionally unannotated, it must not be generated.
 	Internal(context.Context, *HelloRequest) (*HelloReply, error)
 	mustEmbedUnimplementedGreeterServer()
@@ -186,6 +215,9 @@ func (UnimplementedGreeterServer) EchoComplex(context.Context, *EchoComplexReque
 }
 func (UnimplementedGreeterServer) Slow(context.Context, *HelloRequest) (*HelloReply, error) {
 	return nil, status.Error(codes.Unimplemented, "method Slow not implemented")
+}
+func (UnimplementedGreeterServer) DownloadTranscript(*DownloadTranscriptRequest, grpc.ServerStreamingServer[httpbody.HttpBody]) error {
+	return status.Error(codes.Unimplemented, "method DownloadTranscript not implemented")
 }
 func (UnimplementedGreeterServer) Internal(context.Context, *HelloRequest) (*HelloReply, error) {
 	return nil, status.Error(codes.Unimplemented, "method Internal not implemented")
@@ -294,6 +326,17 @@ func _Greeter_Slow_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Greeter_DownloadTranscript_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(DownloadTranscriptRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(GreeterServer).DownloadTranscript(m, &grpc.GenericServerStream[DownloadTranscriptRequest, httpbody.HttpBody]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Greeter_DownloadTranscriptServer = grpc.ServerStreamingServer[httpbody.HttpBody]
+
 func _Greeter_Internal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(HelloRequest)
 	if err := dec(in); err != nil {
@@ -344,6 +387,11 @@ var Greeter_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "StreamGreetings",
 			Handler:       _Greeter_StreamGreetings_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "DownloadTranscript",
+			Handler:       _Greeter_DownloadTranscript_Handler,
 			ServerStreams: true,
 		},
 	},

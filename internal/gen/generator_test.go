@@ -70,6 +70,15 @@ func TestGenerate_Greeter(t *testing.T) {
 		{"server-streaming emits progress loop", true, "NotifyProgress"},
 		{"unary handler path", true, "client.SayHello(ctx, upstream)"},
 		{"streaming handler path", true, "client.StreamGreetings(ctx, upstream)"},
+		{"HttpBody document stream tool", true, `"Greeter_DownloadTranscript"`},
+		{"HttpBody stream reassembles chunks instead of keeping the last message", true, "append(document, msg.GetData()...)"},
+		{"HttpBody stream validates UTF-8 before returning text", true, "utf8.Valid(document)"},
+		{"HttpBody stream enforces the document byte limit", true, "srv.HTTPBodyDocumentLimit()"},
+		{"HttpBody stream maps image content types", true, ".ImageContent{Data: document"},
+		{"HttpBody stream maps audio content types", true, ".AudioContent{Data: document"},
+		{"HttpBody stream hands processors the reassembled document", true, "g.Output = &httpbody.HttpBody{"},
+		{"HttpBody stream advertises no output schema", false, "Greeter_DownloadTranscript_OutputSchema"},
+		{"non-HttpBody streaming keeps last-message semantics", true, "messages; last:"},
 		{"reads Input from GRPCData (type-assert)", true, "g.Input.(*"},
 		// Client-controlled progress-token values MUST be sanitized
 		// before landing in outgoing gRPC metadata (CR/LF/NUL stripped).

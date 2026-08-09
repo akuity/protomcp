@@ -9,6 +9,7 @@ package greeterv1
 import (
 	_ "github.com/akuity/protomcp/pkg/api/gen/protomcp/v1"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
+	httpbody "google.golang.org/genproto/googleapis/api/httpbody"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -76,6 +77,78 @@ func (Mood) EnumDescriptor() ([]byte, []int) {
 	return file_examples_greeter_v1_greeter_proto_rawDescGZIP(), []int{0}
 }
 
+// DownloadTranscriptRequest selects the transcript to stream. binary makes
+// the server emit a single non-UTF-8 chunk, tagged with content_type when
+// set (default application/octet-stream), so tests can exercise the tool's
+// media mapping and its binary rejection policy.
+type DownloadTranscriptRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Turns         int32                  `protobuf:"varint,2,opt,name=turns,proto3" json:"turns,omitempty"`
+	Binary        bool                   `protobuf:"varint,3,opt,name=binary,proto3" json:"binary,omitempty"`
+	ContentType   string                 `protobuf:"bytes,4,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DownloadTranscriptRequest) Reset() {
+	*x = DownloadTranscriptRequest{}
+	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DownloadTranscriptRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DownloadTranscriptRequest) ProtoMessage() {}
+
+func (x *DownloadTranscriptRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DownloadTranscriptRequest.ProtoReflect.Descriptor instead.
+func (*DownloadTranscriptRequest) Descriptor() ([]byte, []int) {
+	return file_examples_greeter_v1_greeter_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *DownloadTranscriptRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DownloadTranscriptRequest) GetTurns() int32 {
+	if x != nil {
+		return x.Turns
+	}
+	return 0
+}
+
+func (x *DownloadTranscriptRequest) GetBinary() bool {
+	if x != nil {
+		return x.Binary
+	}
+	return false
+}
+
+func (x *DownloadTranscriptRequest) GetContentType() string {
+	if x != nil {
+		return x.ContentType
+	}
+	return ""
+}
+
 // FailWithRequest selects which gRPC status code the server should emit.
 type FailWithRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -89,7 +162,7 @@ type FailWithRequest struct {
 
 func (x *FailWithRequest) Reset() {
 	*x = FailWithRequest{}
-	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[0]
+	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -101,7 +174,7 @@ func (x *FailWithRequest) String() string {
 func (*FailWithRequest) ProtoMessage() {}
 
 func (x *FailWithRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[0]
+	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -114,7 +187,7 @@ func (x *FailWithRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FailWithRequest.ProtoReflect.Descriptor instead.
 func (*FailWithRequest) Descriptor() ([]byte, []int) {
-	return file_examples_greeter_v1_greeter_proto_rawDescGZIP(), []int{0}
+	return file_examples_greeter_v1_greeter_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *FailWithRequest) GetCode() int32 {
@@ -144,7 +217,7 @@ type Address struct {
 
 func (x *Address) Reset() {
 	*x = Address{}
-	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[1]
+	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -156,7 +229,7 @@ func (x *Address) String() string {
 func (*Address) ProtoMessage() {}
 
 func (x *Address) ProtoReflect() protoreflect.Message {
-	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[1]
+	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -169,7 +242,7 @@ func (x *Address) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Address.ProtoReflect.Descriptor instead.
 func (*Address) Descriptor() ([]byte, []int) {
-	return file_examples_greeter_v1_greeter_proto_rawDescGZIP(), []int{1}
+	return file_examples_greeter_v1_greeter_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Address) GetStreet() string {
@@ -207,7 +280,7 @@ type EchoComplexRequest struct {
 
 func (x *EchoComplexRequest) Reset() {
 	*x = EchoComplexRequest{}
-	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[2]
+	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -219,7 +292,7 @@ func (x *EchoComplexRequest) String() string {
 func (*EchoComplexRequest) ProtoMessage() {}
 
 func (x *EchoComplexRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[2]
+	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -232,7 +305,7 @@ func (x *EchoComplexRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EchoComplexRequest.ProtoReflect.Descriptor instead.
 func (*EchoComplexRequest) Descriptor() ([]byte, []int) {
-	return file_examples_greeter_v1_greeter_proto_rawDescGZIP(), []int{2}
+	return file_examples_greeter_v1_greeter_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *EchoComplexRequest) GetName() string {
@@ -291,7 +364,7 @@ type EchoComplexResponse struct {
 
 func (x *EchoComplexResponse) Reset() {
 	*x = EchoComplexResponse{}
-	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[3]
+	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -303,7 +376,7 @@ func (x *EchoComplexResponse) String() string {
 func (*EchoComplexResponse) ProtoMessage() {}
 
 func (x *EchoComplexResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[3]
+	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -316,7 +389,7 @@ func (x *EchoComplexResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EchoComplexResponse.ProtoReflect.Descriptor instead.
 func (*EchoComplexResponse) Descriptor() ([]byte, []int) {
-	return file_examples_greeter_v1_greeter_proto_rawDescGZIP(), []int{3}
+	return file_examples_greeter_v1_greeter_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *EchoComplexResponse) GetName() string {
@@ -370,7 +443,7 @@ type HelloRequest struct {
 
 func (x *HelloRequest) Reset() {
 	*x = HelloRequest{}
-	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[4]
+	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -382,7 +455,7 @@ func (x *HelloRequest) String() string {
 func (*HelloRequest) ProtoMessage() {}
 
 func (x *HelloRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[4]
+	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -395,7 +468,7 @@ func (x *HelloRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HelloRequest.ProtoReflect.Descriptor instead.
 func (*HelloRequest) Descriptor() ([]byte, []int) {
-	return file_examples_greeter_v1_greeter_proto_rawDescGZIP(), []int{4}
+	return file_examples_greeter_v1_greeter_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *HelloRequest) GetName() string {
@@ -414,7 +487,7 @@ type HelloReply struct {
 
 func (x *HelloReply) Reset() {
 	*x = HelloReply{}
-	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[5]
+	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -426,7 +499,7 @@ func (x *HelloReply) String() string {
 func (*HelloReply) ProtoMessage() {}
 
 func (x *HelloReply) ProtoReflect() protoreflect.Message {
-	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[5]
+	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -439,7 +512,7 @@ func (x *HelloReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HelloReply.ProtoReflect.Descriptor instead.
 func (*HelloReply) Descriptor() ([]byte, []int) {
-	return file_examples_greeter_v1_greeter_proto_rawDescGZIP(), []int{5}
+	return file_examples_greeter_v1_greeter_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *HelloReply) GetMessage() string {
@@ -459,7 +532,7 @@ type StreamGreetingsRequest struct {
 
 func (x *StreamGreetingsRequest) Reset() {
 	*x = StreamGreetingsRequest{}
-	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[6]
+	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -471,7 +544,7 @@ func (x *StreamGreetingsRequest) String() string {
 func (*StreamGreetingsRequest) ProtoMessage() {}
 
 func (x *StreamGreetingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[6]
+	mi := &file_examples_greeter_v1_greeter_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -484,7 +557,7 @@ func (x *StreamGreetingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamGreetingsRequest.ProtoReflect.Descriptor instead.
 func (*StreamGreetingsRequest) Descriptor() ([]byte, []int) {
-	return file_examples_greeter_v1_greeter_proto_rawDescGZIP(), []int{6}
+	return file_examples_greeter_v1_greeter_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *StreamGreetingsRequest) GetName() string {
@@ -505,7 +578,12 @@ var File_examples_greeter_v1_greeter_proto protoreflect.FileDescriptor
 
 const file_examples_greeter_v1_greeter_proto_rawDesc = "" +
 	"\n" +
-	"!examples/greeter/v1/greeter.proto\x12\x1cprotomcp.examples.greeter.v1\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1dprotomcp/v1/annotations.proto\"D\n" +
+	"!examples/greeter/v1/greeter.proto\x12\x1cprotomcp.examples.greeter.v1\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/httpbody.proto\x1a\x1dprotomcp/v1/annotations.proto\"\x85\x01\n" +
+	"\x19DownloadTranscriptRequest\x12\x17\n" +
+	"\x04name\x18\x01 \x01(\tB\x03\xe0A\x02R\x04name\x12\x14\n" +
+	"\x05turns\x18\x02 \x01(\x05R\x05turns\x12\x16\n" +
+	"\x06binary\x18\x03 \x01(\bR\x06binary\x12!\n" +
+	"\fcontent_type\x18\x04 \x01(\tR\vcontentType\"D\n" +
 	"\x0fFailWithRequest\x12\x17\n" +
 	"\x04code\x18\x01 \x01(\x05B\x03\xe0A\x02R\x04code\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"G\n" +
@@ -546,13 +624,14 @@ const file_examples_greeter_v1_greeter_proto_rawDesc = "" +
 	"\n" +
 	"MOOD_HAPPY\x10\x01\x12\f\n" +
 	"\bMOOD_SAD\x10\x02\x12\x10\n" +
-	"\fMOOD_EXCITED\x10\x032\xff\a\n" +
+	"\fMOOD_EXCITED\x10\x032\xd5\t\n" +
 	"\aGreeter\x12\x8d\x01\n" +
 	"\bSayHello\x12*.protomcp.examples.greeter.v1.HelloRequest\x1a(.protomcp.examples.greeter.v1.HelloReply\"+\x8a\xb5\x18'\x12\tSay Hello\x1a\x18Greets a caller by name. \x01\x12\xcd\x01\n" +
 	"\x0fStreamGreetings\x124.protomcp.examples.greeter.v1.StreamGreetingsRequest\x1a(.protomcp.examples.greeter.v1.HelloReply\"X\x8a\xb5\x18T\x12\x10Stream Greetings\x1a>Emits a greeting for each turn, one per progress notification. \x010\x01\x12\xaf\x01\n" +
 	"\bFailWith\x12-.protomcp.examples.greeter.v1.FailWithRequest\x1a(.protomcp.examples.greeter.v1.HelloReply\"J\x8a\xb5\x18F\x12\x0eFail With Code\x1a4Returns a gRPC status error with the requested code.\x12\xce\x01\n" +
 	"\vEchoComplex\x120.protomcp.examples.greeter.v1.EchoComplexRequest\x1a1.protomcp.examples.greeter.v1.EchoComplexResponse\"Z\x8a\xb5\x18V\x12\fEcho Complex\x1aDEchoes a structured request to verify protojson round-trip fidelity. \x01\x12\xae\x01\n" +
-	"\x04Slow\x12*.protomcp.examples.greeter.v1.HelloRequest\x1a(.protomcp.examples.greeter.v1.HelloReply\"P\x8a\xb5\x18L\x12\x04Slow\x1aDBlocks until ctx is cancelled; for testing cancellation propagation.\x12`\n" +
+	"\x04Slow\x12*.protomcp.examples.greeter.v1.HelloRequest\x1a(.protomcp.examples.greeter.v1.HelloReply\"P\x8a\xb5\x18L\x12\x04Slow\x1aDBlocks until ctx is cancelled; for testing cancellation propagation.\x12\xd3\x01\n" +
+	"\x12DownloadTranscript\x127.protomcp.examples.greeter.v1.DownloadTranscriptRequest\x1a\x14.google.api.HttpBody\"l\x8a\xb5\x18h\x12\x13Download Transcript\x1aOStreams a transcript document in chunks; the tool returns the reassembled text. \x010\x01\x12`\n" +
 	"\bInternal\x12*.protomcp.examples.greeter.v1.HelloRequest\x1a(.protomcp.examples.greeter.v1.HelloReplyB\x89\x02\n" +
 	" com.protomcp.examples.greeter.v1B\fGreeterProtoP\x01ZDgithub.com/akuity/protomcp/pkg/api/gen/examples/greeter/v1;greeterv1\xa2\x02\x03PEG\xaa\x02\x1cProtomcp.Examples.Greeter.V1\xca\x02\x1cProtomcp\\Examples\\Greeter\\V1\xe2\x02(Protomcp\\Examples\\Greeter\\V1\\GPBMetadata\xea\x02\x1fProtomcp::Examples::Greeter::V1b\x06proto3"
 
@@ -569,40 +648,44 @@ func file_examples_greeter_v1_greeter_proto_rawDescGZIP() []byte {
 }
 
 var file_examples_greeter_v1_greeter_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_examples_greeter_v1_greeter_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_examples_greeter_v1_greeter_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_examples_greeter_v1_greeter_proto_goTypes = []any{
-	(Mood)(0),                      // 0: protomcp.examples.greeter.v1.Mood
-	(*FailWithRequest)(nil),        // 1: protomcp.examples.greeter.v1.FailWithRequest
-	(*Address)(nil),                // 2: protomcp.examples.greeter.v1.Address
-	(*EchoComplexRequest)(nil),     // 3: protomcp.examples.greeter.v1.EchoComplexRequest
-	(*EchoComplexResponse)(nil),    // 4: protomcp.examples.greeter.v1.EchoComplexResponse
-	(*HelloRequest)(nil),           // 5: protomcp.examples.greeter.v1.HelloRequest
-	(*HelloReply)(nil),             // 6: protomcp.examples.greeter.v1.HelloReply
-	(*StreamGreetingsRequest)(nil), // 7: protomcp.examples.greeter.v1.StreamGreetingsRequest
-	nil,                            // 8: protomcp.examples.greeter.v1.EchoComplexRequest.CountersEntry
-	nil,                            // 9: protomcp.examples.greeter.v1.EchoComplexResponse.CountersEntry
+	(Mood)(0),                         // 0: protomcp.examples.greeter.v1.Mood
+	(*DownloadTranscriptRequest)(nil), // 1: protomcp.examples.greeter.v1.DownloadTranscriptRequest
+	(*FailWithRequest)(nil),           // 2: protomcp.examples.greeter.v1.FailWithRequest
+	(*Address)(nil),                   // 3: protomcp.examples.greeter.v1.Address
+	(*EchoComplexRequest)(nil),        // 4: protomcp.examples.greeter.v1.EchoComplexRequest
+	(*EchoComplexResponse)(nil),       // 5: protomcp.examples.greeter.v1.EchoComplexResponse
+	(*HelloRequest)(nil),              // 6: protomcp.examples.greeter.v1.HelloRequest
+	(*HelloReply)(nil),                // 7: protomcp.examples.greeter.v1.HelloReply
+	(*StreamGreetingsRequest)(nil),    // 8: protomcp.examples.greeter.v1.StreamGreetingsRequest
+	nil,                               // 9: protomcp.examples.greeter.v1.EchoComplexRequest.CountersEntry
+	nil,                               // 10: protomcp.examples.greeter.v1.EchoComplexResponse.CountersEntry
+	(*httpbody.HttpBody)(nil),         // 11: google.api.HttpBody
 }
 var file_examples_greeter_v1_greeter_proto_depIdxs = []int32{
 	0,  // 0: protomcp.examples.greeter.v1.EchoComplexRequest.mood:type_name -> protomcp.examples.greeter.v1.Mood
-	2,  // 1: protomcp.examples.greeter.v1.EchoComplexRequest.address:type_name -> protomcp.examples.greeter.v1.Address
-	8,  // 2: protomcp.examples.greeter.v1.EchoComplexRequest.counters:type_name -> protomcp.examples.greeter.v1.EchoComplexRequest.CountersEntry
+	3,  // 1: protomcp.examples.greeter.v1.EchoComplexRequest.address:type_name -> protomcp.examples.greeter.v1.Address
+	9,  // 2: protomcp.examples.greeter.v1.EchoComplexRequest.counters:type_name -> protomcp.examples.greeter.v1.EchoComplexRequest.CountersEntry
 	0,  // 3: protomcp.examples.greeter.v1.EchoComplexResponse.mood:type_name -> protomcp.examples.greeter.v1.Mood
-	2,  // 4: protomcp.examples.greeter.v1.EchoComplexResponse.address:type_name -> protomcp.examples.greeter.v1.Address
-	9,  // 5: protomcp.examples.greeter.v1.EchoComplexResponse.counters:type_name -> protomcp.examples.greeter.v1.EchoComplexResponse.CountersEntry
-	5,  // 6: protomcp.examples.greeter.v1.Greeter.SayHello:input_type -> protomcp.examples.greeter.v1.HelloRequest
-	7,  // 7: protomcp.examples.greeter.v1.Greeter.StreamGreetings:input_type -> protomcp.examples.greeter.v1.StreamGreetingsRequest
-	1,  // 8: protomcp.examples.greeter.v1.Greeter.FailWith:input_type -> protomcp.examples.greeter.v1.FailWithRequest
-	3,  // 9: protomcp.examples.greeter.v1.Greeter.EchoComplex:input_type -> protomcp.examples.greeter.v1.EchoComplexRequest
-	5,  // 10: protomcp.examples.greeter.v1.Greeter.Slow:input_type -> protomcp.examples.greeter.v1.HelloRequest
-	5,  // 11: protomcp.examples.greeter.v1.Greeter.Internal:input_type -> protomcp.examples.greeter.v1.HelloRequest
-	6,  // 12: protomcp.examples.greeter.v1.Greeter.SayHello:output_type -> protomcp.examples.greeter.v1.HelloReply
-	6,  // 13: protomcp.examples.greeter.v1.Greeter.StreamGreetings:output_type -> protomcp.examples.greeter.v1.HelloReply
-	6,  // 14: protomcp.examples.greeter.v1.Greeter.FailWith:output_type -> protomcp.examples.greeter.v1.HelloReply
-	4,  // 15: protomcp.examples.greeter.v1.Greeter.EchoComplex:output_type -> protomcp.examples.greeter.v1.EchoComplexResponse
-	6,  // 16: protomcp.examples.greeter.v1.Greeter.Slow:output_type -> protomcp.examples.greeter.v1.HelloReply
-	6,  // 17: protomcp.examples.greeter.v1.Greeter.Internal:output_type -> protomcp.examples.greeter.v1.HelloReply
-	12, // [12:18] is the sub-list for method output_type
-	6,  // [6:12] is the sub-list for method input_type
+	3,  // 4: protomcp.examples.greeter.v1.EchoComplexResponse.address:type_name -> protomcp.examples.greeter.v1.Address
+	10, // 5: protomcp.examples.greeter.v1.EchoComplexResponse.counters:type_name -> protomcp.examples.greeter.v1.EchoComplexResponse.CountersEntry
+	6,  // 6: protomcp.examples.greeter.v1.Greeter.SayHello:input_type -> protomcp.examples.greeter.v1.HelloRequest
+	8,  // 7: protomcp.examples.greeter.v1.Greeter.StreamGreetings:input_type -> protomcp.examples.greeter.v1.StreamGreetingsRequest
+	2,  // 8: protomcp.examples.greeter.v1.Greeter.FailWith:input_type -> protomcp.examples.greeter.v1.FailWithRequest
+	4,  // 9: protomcp.examples.greeter.v1.Greeter.EchoComplex:input_type -> protomcp.examples.greeter.v1.EchoComplexRequest
+	6,  // 10: protomcp.examples.greeter.v1.Greeter.Slow:input_type -> protomcp.examples.greeter.v1.HelloRequest
+	1,  // 11: protomcp.examples.greeter.v1.Greeter.DownloadTranscript:input_type -> protomcp.examples.greeter.v1.DownloadTranscriptRequest
+	6,  // 12: protomcp.examples.greeter.v1.Greeter.Internal:input_type -> protomcp.examples.greeter.v1.HelloRequest
+	7,  // 13: protomcp.examples.greeter.v1.Greeter.SayHello:output_type -> protomcp.examples.greeter.v1.HelloReply
+	7,  // 14: protomcp.examples.greeter.v1.Greeter.StreamGreetings:output_type -> protomcp.examples.greeter.v1.HelloReply
+	7,  // 15: protomcp.examples.greeter.v1.Greeter.FailWith:output_type -> protomcp.examples.greeter.v1.HelloReply
+	5,  // 16: protomcp.examples.greeter.v1.Greeter.EchoComplex:output_type -> protomcp.examples.greeter.v1.EchoComplexResponse
+	7,  // 17: protomcp.examples.greeter.v1.Greeter.Slow:output_type -> protomcp.examples.greeter.v1.HelloReply
+	11, // 18: protomcp.examples.greeter.v1.Greeter.DownloadTranscript:output_type -> google.api.HttpBody
+	7,  // 19: protomcp.examples.greeter.v1.Greeter.Internal:output_type -> protomcp.examples.greeter.v1.HelloReply
+	13, // [13:20] is the sub-list for method output_type
+	6,  // [6:13] is the sub-list for method input_type
 	6,  // [6:6] is the sub-list for extension type_name
 	6,  // [6:6] is the sub-list for extension extendee
 	0,  // [0:6] is the sub-list for field type_name
@@ -619,7 +702,7 @@ func file_examples_greeter_v1_greeter_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_examples_greeter_v1_greeter_proto_rawDesc), len(file_examples_greeter_v1_greeter_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   9,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

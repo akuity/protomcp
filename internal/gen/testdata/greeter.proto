@@ -2,15 +2,17 @@ syntax = "proto3";
 
 package protomcp.gen.testdata.greeter.v1;
 
+import "google/api/httpbody.proto";
 import "protomcp/v1/annotations.proto";
 
 option go_package = "github.com/akuity/protomcp/internal/gen/testdata/greeter;greeterv1";
 
 // Greeter is a minimal fixture used by the protoc-gen-mcp generator tests.
-// It contains one unary, one server-streaming, one unannotated unary, and
-// two unannotated streaming RPCs so the generator's handling of each shape
-// can be asserted in isolation. Annotated client/bidi streaming is tested
-// separately in bad_streams.proto, those are expected to fail generation.
+// It contains one unary, one server-streaming, one server-streaming
+// google.api.HttpBody, one unannotated unary, and two unannotated streaming
+// RPCs so the generator's handling of each shape can be asserted in
+// isolation. Annotated client/bidi streaming is tested separately in
+// bad_streams.proto, those are expected to fail generation.
 service Greeter {
   // Greets a caller by name. (Unary; annotated; read-only.)
   rpc SayHello(HelloRequest) returns (HelloReply) {
@@ -24,6 +26,16 @@ service Greeter {
   rpc StreamGreetings(HelloRequest) returns (stream HelloReply) {
     option (protomcp.v1.tool) = {
       title: "Stream Greetings"
+      read_only: true
+    };
+  }
+
+  // DownloadTranscript is an annotated server-streaming google.api.HttpBody
+  // RPC: the generated tool reassembles the chunked document instead of
+  // keeping only the last message, and advertises no output schema.
+  rpc DownloadTranscript(HelloRequest) returns (stream google.api.HttpBody) {
+    option (protomcp.v1.tool) = {
+      title: "Download Transcript"
       read_only: true
     };
   }

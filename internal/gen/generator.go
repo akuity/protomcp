@@ -28,7 +28,12 @@ const (
 	importGRPCMetadata = protogen.GoImportPath("google.golang.org/grpc/metadata")
 	importURITemplate  = protogen.GoImportPath("github.com/yosida95/uritemplate/v3")
 	importMustache     = protogen.GoImportPath("github.com/cbroglie/mustache")
+	importUTF8         = protogen.GoImportPath("unicode/utf8")
+	importStrings      = protogen.GoImportPath("strings")
+	importHTTPBody     = protogen.GoImportPath("google.golang.org/genproto/googleapis/api/httpbody")
 )
+
+const httpBodyFullName = "google.api.HttpBody"
 
 // Options controls generator behavior tunable from plugin flags.
 type Options struct {
@@ -103,6 +108,13 @@ type toolTemplateData struct {
 	ClientMethod string
 
 	IsServerStreaming bool
+	IsHTTPBodyStream  bool
+
+	QUTF8Valid        string
+	QStringsHasPrefix string
+	QHTTPBody         string
+	QMCPImageContent  string
+	QMCPAudioContent  string
 
 	commonQuals
 
@@ -485,8 +497,12 @@ func buildFileTemplateData(g *protogen.GeneratedFile, f *protogen.File, opts Opt
 				emitted[tool.ToolName] = origin
 				data.SchemaVars = append(data.SchemaVars,
 					schemaVar{Name: tool.InputSchemaVar, JSON: tool.InputSchemaJSON},
-					schemaVar{Name: tool.OutputSchemaVar, JSON: tool.OutputSchemaJSON},
 				)
+				if tool.OutputSchemaVar != "" {
+					data.SchemaVars = append(data.SchemaVars,
+						schemaVar{Name: tool.OutputSchemaVar, JSON: tool.OutputSchemaJSON},
+					)
+				}
 				svcData.Tools = append(svcData.Tools, tool)
 			}
 
@@ -620,24 +636,30 @@ func buildToolTemplateData(
 	toolName := deriveToolName(svc, svcOpts, m, to)
 	baseVar := "_" + svc.GoName + "_" + m.GoName
 
+	isStream := m.Desc.IsStreamingServer() && !m.Desc.IsStreamingClient()
+	isHTTPBodyStream := isStream && m.Output.Desc.FullName() == httpBodyFullName
+
 	schemaOpts := schema.Options{MaxRecursionDepth: opts.MaxRecursionDepth}
 
 	inSchema, err := schema.ForInputE(m.Input.Desc, schemaOpts)
 	if err != nil {
 		return toolTemplateData{}, fmt.Errorf("build input schema for %s.%s: %w", svc.GoName, m.GoName, err)
 	}
-	outSchema, err := schema.ForOutputE(m.Output.Desc, schemaOpts)
-	if err != nil {
-		return toolTemplateData{}, fmt.Errorf("build output schema for %s.%s: %w", svc.GoName, m.GoName, err)
-	}
 	// json.Marshal sorts object keys so output is stable run-to-run.
 	inSchemaJSON, err := marshalSchema(inSchema)
 	if err != nil {
 		return toolTemplateData{}, fmt.Errorf("build input schema for %s.%s: %w", svc.GoName, m.GoName, err)
 	}
-	outSchemaJSON, err := marshalSchema(outSchema)
-	if err != nil {
-		return toolTemplateData{}, fmt.Errorf("build output schema for %s.%s: %w", svc.GoName, m.GoName, err)
+	outSchemaJSON := ""
+	if !isHTTPBodyStream {
+		outSchema, err := schema.ForOutputE(m.Output.Desc, schemaOpts)
+		if err != nil {
+			return toolTemplateData{}, fmt.Errorf("build output schema for %s.%s: %w", svc.GoName, m.GoName, err)
+		}
+		outSchemaJSON, err = marshalSchema(outSchema)
+		if err != nil {
+			return toolTemplateData{}, fmt.Errorf("build output schema for %s.%s: %w", svc.GoName, m.GoName, err)
+		}
 	}
 	if opts.MaxToolSchemaBytes > 0 {
 		if total := len(inSchemaJSON) + len(outSchemaJSON); total > opts.MaxToolSchemaBytes {
@@ -659,16 +681,25 @@ func buildToolTemplateData(
 
 	// errors.Is and io.EOF are only used by the streaming template;
 	// unconditional registration leaks unused imports.
-	isStream := m.Desc.IsStreamingServer() && !m.Desc.IsStreamingClient()
 	var errIs, ioEOF string
 	if isStream {
 		errIs = q("Is", importErrors)
 		ioEOF = q("EOF", importIO)
 	}
+	var utf8Valid, stringsHasPrefix, httpBodyRef string
+	if isHTTPBodyStream {
+		utf8Valid = q("Valid", importUTF8)
+		stringsHasPrefix = q("HasPrefix", importStrings)
+		httpBodyRef = q("HttpBody", importHTTPBody)
+	}
+	outputSchemaVar := baseVar + "_OutputSchema"
+	if isHTTPBodyStream {
+		outputSchemaVar = ""
+	}
 
 	return toolTemplateData{
 		InputSchemaVar:     baseVar + "_InputSchema",
-		OutputSchemaVar:    baseVar + "_OutputSchema",
+		OutputSchemaVar:    outputSchemaVar,
 		InputSchemaJSON:    safeRawString(inSchemaJSON),
 		OutputSchemaJSON:   safeRawString(outSchemaJSON),
 		ToolName:           toolName,
@@ -678,6 +709,12 @@ func buildToolTemplateData(
 		InputTypeRef:       g.QualifiedGoIdent(m.Input.GoIdent),
 		ClientMethod:       "client." + m.GoName,
 		IsServerStreaming:  isStream,
+		IsHTTPBodyStream:   isHTTPBodyStream,
+		QUTF8Valid:         utf8Valid,
+		QStringsHasPrefix:  stringsHasPrefix,
+		QHTTPBody:          httpBodyRef,
+		QMCPImageContent:   mcpPkg + ".ImageContent",
+		QMCPAudioContent:   mcpPkg + ".AudioContent",
 
 		commonQuals: commonQuals{
 			QContext:    q("Context", importContext),

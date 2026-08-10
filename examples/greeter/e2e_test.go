@@ -9,10 +9,12 @@
 package greeter_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -204,4 +206,242 @@ func TestServerStreamingEmitsProgress(t *testing.T) {
 		}
 	}
 	_ = out // silence the out-unused warning in the non-race branch
+}
+
+func TestHTTPBodyStreamToolReassemblesTheDocument(t *testing.T) {
+	grpcClient := startGRPC(t)
+	srv := protomcp.New("greeter", "0.1.0")
+	greeterv1.RegisterGreeterMCPTools(srv, grpcClient)
+
+	ctx := context.Background()
+	cs := connect(ctx, t, srv, nil)
+
+	turns := 5
+	out, err := cs.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "Greeter_DownloadTranscript",
+		Arguments: json.RawMessage(fmt.Sprintf(`{"name":"world","turns":%d}`, turns)),
+	})
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if out.IsError {
+		t.Fatalf("unexpected IsError: %+v", out)
+	}
+
+	want := ""
+	for i := 1; i <= turns; i++ {
+		want += fmt.Sprintf("Turn %d: hello, world!\n", i)
+	}
+	if len(out.Content) != 1 {
+		t.Fatalf("content items: got %d, want 1 (%+v)", len(out.Content), out.Content)
+	}
+	text, ok := out.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("content type: got %T, want *mcp.TextContent", out.Content[0])
+	}
+	if text.Text != want {
+		t.Errorf("document: got %q, want %q", text.Text, want)
+	}
+	if out.StructuredContent != nil {
+		t.Errorf("document tool must not return structured content, got %v", out.StructuredContent)
+	}
+}
+
+func TestHTTPBodyStreamToolAdvertisesNoOutputSchema(t *testing.T) {
+	grpcClient := startGRPC(t)
+	srv := protomcp.New("greeter", "0.1.0")
+	greeterv1.RegisterGreeterMCPTools(srv, grpcClient)
+
+	ctx := context.Background()
+	cs := connect(ctx, t, srv, nil)
+
+	list, err := cs.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	for _, tt := range list.Tools {
+		if tt.Name != "Greeter_DownloadTranscript" {
+			continue
+		}
+		if tt.OutputSchema != nil {
+			t.Errorf("document tool must advertise no output schema, got %v", tt.OutputSchema)
+		}
+		if tt.InputSchema == nil {
+			t.Errorf("document tool must still advertise its input schema")
+		}
+		return
+	}
+	t.Fatalf("Greeter_DownloadTranscript missing from tools/list")
+}
+
+func TestHTTPBodyStreamToolRejectsNonUTF8(t *testing.T) {
+	grpcClient := startGRPC(t)
+	srv := protomcp.New("greeter", "0.1.0")
+	greeterv1.RegisterGreeterMCPTools(srv, grpcClient)
+
+	ctx := context.Background()
+	cs := connect(ctx, t, srv, nil)
+
+	out, err := cs.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "Greeter_DownloadTranscript",
+		Arguments: json.RawMessage(`{"name":"world","binary":true}`),
+	})
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if !out.IsError {
+		t.Fatalf("a non-UTF-8 payload must produce a tool error, got %+v", out)
+	}
+	text, ok := out.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("content type: got %T, want *mcp.TextContent", out.Content[0])
+	}
+	if !strings.Contains(text.Text, "valid UTF-8") {
+		t.Errorf("error text should name the UTF-8 policy, got %q", text.Text)
+	}
+}
+
+func TestHTTPBodyStreamToolMapsMediaContentTypes(t *testing.T) {
+	grpcClient := startGRPC(t)
+	srv := protomcp.New("greeter", "0.1.0")
+	greeterv1.RegisterGreeterMCPTools(srv, grpcClient)
+
+	ctx := context.Background()
+	cs := connect(ctx, t, srv, nil)
+
+	out, err := cs.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "Greeter_DownloadTranscript",
+		Arguments: json.RawMessage(`{"name":"world","binary":true,"contentType":"image/png"}`),
+	})
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if out.IsError {
+		t.Fatalf("a media payload must not be rejected for being non-UTF-8, got %+v", out)
+	}
+	img, ok := out.Content[0].(*mcp.ImageContent)
+	if !ok {
+		t.Fatalf("content type: got %T, want *mcp.ImageContent", out.Content[0])
+	}
+	if img.MIMEType != "image/png" {
+		t.Errorf("MIMEType: got %q, want %q", img.MIMEType, "image/png")
+	}
+	if !bytes.Equal(img.Data, []byte{0xff, 0xfe, 0x00, 0x01}) {
+		t.Errorf("image data: got %v, want the server's raw bytes", img.Data)
+	}
+}
+
+func TestHTTPBodyStreamToolReportsCumulativeByteProgress(t *testing.T) {
+	grpcClient := startGRPC(t)
+	srv := protomcp.New("greeter", "0.1.0")
+	greeterv1.RegisterGreeterMCPTools(srv, grpcClient)
+
+	var (
+		mu       sync.Mutex
+		progress []string
+		counters []float64
+	)
+	opts := &mcp.ClientOptions{
+		ProgressNotificationHandler: func(_ context.Context, p *mcp.ProgressNotificationClientRequest) {
+			mu.Lock()
+			defer mu.Unlock()
+			progress = append(progress, p.Params.Message)
+			counters = append(counters, p.Params.Progress)
+		},
+	}
+
+	ctx := context.Background()
+	cs := connect(ctx, t, srv, opts)
+
+	turns := 3
+	transcript := ""
+	for i := 1; i <= turns; i++ {
+		transcript += fmt.Sprintf("Turn %d: hello, %s!\n", i, "world")
+	}
+	const chunkSize = 10
+	wantChunks := (len(transcript) + chunkSize - 1) / chunkSize
+
+	out, err := cs.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "Greeter_DownloadTranscript",
+		Arguments: json.RawMessage(fmt.Sprintf(`{"name":"world","turns":%d}`, turns)),
+		Meta:      mcp.Meta{"progressToken": "transcript-progress-1"},
+	})
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if out.IsError {
+		t.Fatalf("unexpected IsError: %+v", out)
+	}
+
+	var got []string
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		mu.Lock()
+		got = append([]string(nil), progress...)
+		mu.Unlock()
+		if len(got) >= wantChunks {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if len(got) != wantChunks {
+		t.Fatalf("progress events: got %d, want %d (msgs=%v)", len(got), wantChunks, got)
+	}
+	if last := got[len(got)-1]; last != fmt.Sprintf("%d bytes", len(transcript)) {
+		t.Errorf("final progress message: got %q, want %q", last, fmt.Sprintf("%d bytes", len(transcript)))
+	}
+	for i, m := range got {
+		if !strings.HasSuffix(m, " bytes") {
+			t.Errorf("progress[%d] should report cumulative bytes, got %q", i, m)
+		}
+	}
+
+	mu.Lock()
+	gotCounters := append([]float64(nil), counters...)
+	mu.Unlock()
+	for i := 1; i < len(gotCounters); i++ {
+		if gotCounters[i] <= gotCounters[i-1] {
+			t.Errorf("progress counter not monotonic: [%d]=%v [%d]=%v (full=%v)",
+				i-1, gotCounters[i-1], i, gotCounters[i], gotCounters)
+			break
+		}
+	}
+}
+
+func TestHTTPBodyStreamToolEnforcesTheDocumentLimit(t *testing.T) {
+	grpcClient := startGRPC(t)
+	srv := protomcp.New("greeter", "0.1.0", protomcp.WithHTTPBodyDocumentLimit(32))
+	greeterv1.RegisterGreeterMCPTools(srv, grpcClient)
+
+	ctx := context.Background()
+	cs := connect(ctx, t, srv, nil)
+
+	out, err := cs.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "Greeter_DownloadTranscript",
+		Arguments: json.RawMessage(`{"name":"world","turns":5}`),
+	})
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if !out.IsError {
+		t.Fatalf("a document above the limit must produce a tool error, got %+v", out)
+	}
+	text, ok := out.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("content type: got %T, want *mcp.TextContent", out.Content[0])
+	}
+	if !strings.Contains(text.Text, "32-byte limit") {
+		t.Errorf("error text should name the limit, got %q", text.Text)
+	}
+
+	within, err := cs.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "Greeter_DownloadTranscript",
+		Arguments: json.RawMessage(`{"name":"jo","turns":1}`),
+	})
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if within.IsError {
+		t.Fatalf("a document within the limit must succeed, got %+v", within)
+	}
 }

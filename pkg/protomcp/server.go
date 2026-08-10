@@ -16,6 +16,14 @@ import (
 // handlers use to forward the MCP client's progress token upstream.
 const ProgressTokenHeader = "mcp-progress-token"
 
+// DefaultHTTPBodyDocumentLimit is the default cap on the aggregate size of
+// a document reassembled from a server-streaming google.api.HttpBody tool.
+// It is a tool-result policy, not a transport limit: results feed a model's
+// context window, and most MCP hosts refuse or truncate results well below
+// this, so 4 MiB is a generous ceiling for legitimate documents while
+// bounding what one call can buffer in the server.
+const DefaultHTTPBodyDocumentLimit = 4 << 20
+
 // Server wraps an mcp.Server with composable middleware chains, error
 // handlers, and result processors per MCP primitive. Implements
 // http.Handler.
@@ -43,6 +51,8 @@ type Server struct {
 	promptNames       map[string]bool
 
 	progressTokenHeader string
+
+	httpBodyDocumentLimit int
 
 	promptCompletionsMu sync.RWMutex
 	promptCompletions   map[promptArgKey][]string
@@ -104,6 +114,17 @@ func WithProgressTokenHeader(name string) ServerOption {
 		if name != "" {
 			s.progressTokenHeader = name
 		}
+	}
+}
+
+// WithHTTPBodyDocumentLimit overrides the byte cap on a document
+// reassembled from a server-streaming google.api.HttpBody tool. A call
+// whose reassembled document would exceed the cap fails instead of
+// returning a truncated document. Zero keeps the default
+// (DefaultHTTPBodyDocumentLimit); negative disables the cap.
+func WithHTTPBodyDocumentLimit(limit int) ServerOption {
+	return func(s *Server) {
+		s.httpBodyDocumentLimit = limit
 	}
 }
 
@@ -169,6 +190,20 @@ func (s *Server) ProgressTokenHeader() string {
 		return ProgressTokenHeader
 	}
 	return s.progressTokenHeader
+}
+
+// HTTPBodyDocumentLimit returns the effective byte cap for documents
+// reassembled from server-streaming google.api.HttpBody tools: the
+// configured value, the default when unset, or 0 (no cap) when
+// configured negative.
+func (s *Server) HTTPBodyDocumentLimit() int {
+	if s.httpBodyDocumentLimit == 0 {
+		return DefaultHTTPBodyDocumentLimit
+	}
+	if s.httpBodyDocumentLimit < 0 {
+		return 0
+	}
+	return s.httpBodyDocumentLimit
 }
 
 // SDK returns the underlying mcp.Server. Primitives registered directly

@@ -3,6 +3,7 @@ syntax = "proto3";
 package protomcp.examples.greeter.v1;
 
 import "google/api/field_behavior.proto";
+import "google/api/httpbody.proto";
 import "protomcp/v1/annotations.proto";
 
 option go_package = "github.com/akuity/protomcp/examples/greeter/gen;greeterv1";
@@ -62,8 +63,30 @@ service Greeter {
     };
   }
 
+  // DownloadTranscript streams a transcript as chunked google.api.HttpBody
+  // messages. The generated tool reassembles the chunks, in order, into one
+  // text document and advertises no output schema.
+  rpc DownloadTranscript(DownloadTranscriptRequest) returns (stream google.api.HttpBody) {
+    option (protomcp.v1.tool) = {
+      title: "Download Transcript"
+      description: "Streams a transcript document in chunks; the tool returns the reassembled text."
+      read_only: true
+    };
+  }
+
   // Internal is intentionally unannotated, it must not be generated.
   rpc Internal(HelloRequest) returns (HelloReply);
+}
+
+// DownloadTranscriptRequest selects the transcript to stream. binary makes
+// the server emit a single non-UTF-8 chunk, tagged with content_type when
+// set (default application/octet-stream), so tests can exercise the tool's
+// media mapping and its binary rejection policy.
+message DownloadTranscriptRequest {
+  string name         = 1 [(google.api.field_behavior) = REQUIRED];
+  int32  turns        = 2;
+  bool   binary       = 3;
+  string content_type = 4;
 }
 
 // FailWithRequest selects which gRPC status code the server should emit.

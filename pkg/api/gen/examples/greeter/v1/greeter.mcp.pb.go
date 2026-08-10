@@ -10,8 +10,11 @@ import (
 	fmt "fmt"
 	protomcp "github.com/akuity/protomcp/pkg/protomcp"
 	mcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	httpbody "google.golang.org/genproto/googleapis/api/httpbody"
 	metadata "google.golang.org/grpc/metadata"
 	io "io"
+	strings "strings"
+	utf8 "unicode/utf8"
 )
 
 var _Greeter_SayHello_InputSchema = protomcp.MustParseSchema(`{"properties":{"name":{"type":"string"}},"required":["name"],"type":"object"}`)
@@ -24,6 +27,7 @@ var _Greeter_EchoComplex_InputSchema = protomcp.MustParseSchema(`{"properties":{
 var _Greeter_EchoComplex_OutputSchema = protomcp.MustParseSchema(`{"properties":{"address":{"properties":{"city":{"type":"string"},"street":{"type":"string"},"zip":{"type":"string"}},"type":"object"},"counters":{"additionalProperties":{"type":"integer"},"propertyNames":{"type":"string"},"type":"object"},"mood":{"description":"Mood is an enum used by EchoComplex to verify enum round-tripping.","enum":["MOOD_UNSPECIFIED","MOOD_HAPPY","MOOD_SAD","MOOD_EXCITED"],"type":"string"},"name":{"type":"string"},"tags":{"items":{"type":"string"},"type":"array"}},"type":"object"}`)
 var _Greeter_Slow_InputSchema = protomcp.MustParseSchema(`{"properties":{"name":{"type":"string"}},"required":["name"],"type":"object"}`)
 var _Greeter_Slow_OutputSchema = protomcp.MustParseSchema(`{"properties":{"message":{"type":"string"}},"type":"object"}`)
+var _Greeter_DownloadTranscript_InputSchema = protomcp.MustParseSchema(`{"properties":{"binary":{"type":"boolean"},"contentType":{"type":"string"},"name":{"type":"string"},"turns":{"type":"integer"}},"required":["name"],"type":"object"}`)
 
 // Greeter is a tiny gRPC service that exists only to exercise protoc-gen-mcp
 // end-to-end: one annotated unary RPC, one annotated server-streaming RPC,
@@ -310,6 +314,100 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 			return &mcp.CallToolResult{
 				Content:           []mcp.Content{&mcp.TextContent{Text: string(outBytes)}},
 				StructuredContent: json.RawMessage(outBytes),
+			}, nil
+		}
+
+		result, err := srv.ToolChain(final)(ctx, req, g)
+		return srv.FinishToolCall(ctx, req, g, result, err)
+	})
+
+	protomcp.MustAddTool(srv, &mcp.Tool{
+		Name:        "Greeter_DownloadTranscript",
+		Title:       "Download Transcript",
+		Description: "Streams a transcript document in chunks; the tool returns the reassembled text.",
+		InputSchema: _Greeter_DownloadTranscript_InputSchema,
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
+	}, func(ctx context.Context, req *mcp.CallToolRequest, raw json.RawMessage) (*mcp.CallToolResult, any, error) {
+		var in DownloadTranscriptRequest
+		if err := srv.UnmarshalProto(raw, &in); err != nil {
+			return srv.FinishToolCall(ctx, req, nil, nil, fmt.Errorf("invalid arguments: %w", err))
+		}
+		// Clear OUTPUT_ONLY fields: the schema hides them but the
+		// wire format does not, so the upstream gRPC server must
+		// never see client-supplied values for server-computed fields.
+		srv.ClearOutputOnly(&in)
+		// ToolMiddleware may mutate &in or replace the pointer; the
+		// final handler reads from g.Input so both forms propagate.
+		g := &protomcp.GRPCData{Input: &in, Metadata: metadata.MD{}}
+		// Forward the MCP progress token as a gRPC metadata header so
+		// downstream interceptors can correlate logs and traces.
+		if tok := req.Params.GetProgressToken(); tok != nil {
+			g.Metadata.Set(srv.ProgressTokenHeader(), protomcp.SanitizeMetadataValue(fmt.Sprintf("%v", tok)))
+		}
+
+		final := func(ctx context.Context, req *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {
+			ctx = protomcp.OutgoingContext(ctx, g.Metadata)
+			upstream, ok := g.Input.(*DownloadTranscriptRequest)
+			if !ok {
+				return nil, fmt.Errorf("GRPCData.Input: want *%s, got %T", "DownloadTranscriptRequest", g.Input)
+			}
+			stream, err := client.DownloadTranscript(ctx, upstream)
+			if err != nil {
+				return nil, err
+			}
+			limit := srv.HTTPBodyDocumentLimit()
+			var first *httpbody.HttpBody
+			var document []byte
+			var count int
+			for {
+				msg, rErr := stream.Recv()
+				if errors.Is(rErr, io.EOF) {
+					break
+				}
+				if rErr != nil {
+					return nil, rErr
+				}
+				if limit > 0 && len(document)+len(msg.GetData()) > limit {
+					return nil, fmt.Errorf("%s: the reassembled HttpBody document exceeds the %d-byte limit; raise it with protomcp.WithHTTPBodyDocumentLimit or serve the document out-of-band", "Greeter_DownloadTranscript", limit)
+				}
+				if first == nil {
+					first = msg
+				}
+				document = append(document, msg.GetData()...)
+				count++
+				if token := req.Params.GetProgressToken(); token != nil && req.Session != nil {
+					if nErr := req.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
+						ProgressToken: token,
+						Progress:      float64(count),
+						Message:       fmt.Sprintf("%d bytes", len(document)),
+					}); nErr != nil {
+						if cErr := ctx.Err(); cErr != nil {
+							return nil, cErr
+						}
+					}
+				}
+			}
+			contentType := first.GetContentType()
+			g.Output = &httpbody.HttpBody{
+				ContentType: contentType,
+				Extensions:  first.GetExtensions(),
+				Data:        document,
+			}
+			switch {
+			case strings.HasPrefix(contentType, "image/"):
+				return &mcp.CallToolResult{
+					Content: []mcp.Content{&mcp.ImageContent{Data: document, MIMEType: contentType}},
+				}, nil
+			case strings.HasPrefix(contentType, "audio/"):
+				return &mcp.CallToolResult{
+					Content: []mcp.Content{&mcp.AudioContent{Data: document, MIMEType: contentType}},
+				}, nil
+			}
+			if !utf8.Valid(document) {
+				return nil, fmt.Errorf("%s: the upstream HttpBody payload (%q, %d bytes) is neither a media content type nor valid UTF-8 text; serve it as a resource or fetch it out-of-band", "Greeter_DownloadTranscript", contentType, len(document))
+			}
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: string(document)}},
 			}, nil
 		}
 

@@ -230,10 +230,15 @@ error is discarded, so no error surfaces to the application. A later
 still believes it is subscribed — recovery is `Unsubscribe` (which
 clears that client-side entry) followed by a fresh `Subscribe`, and any
 replica can answer the new stream. A client that must survive
-connection drops therefore needs its own liveness signal — e.g. a
-subscribed heartbeat resource the server touches on an interval, or
-periodic re-reads of the watched resource — to detect a dead stream and
-re-subscribe.
+connection drops therefore needs a liveness signal that rides the
+stream itself: a subscribed heartbeat resource the server touches on an
+interval, where a missed-heartbeat timeout marks the stream dead and
+triggers the recovery above — or, more bluntly, an unconditional
+periodic re-subscribe. Periodic re-reads of the watched resource are a
+reconciliation fallback, not a liveness check: each read is its own
+stateless POST and succeeds whether or not the listen stream is alive,
+so polling bounds how stale a client can silently become, but an
+unchanged resource reveals nothing and a dead stream goes undetected.
 
 `PropagateRequestCancellation` ties each in-flight handler context to
 its HTTP request, so a client that goes away mid-call cancels the

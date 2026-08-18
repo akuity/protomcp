@@ -47,7 +47,7 @@ type PrefixedClient interface {
 	IdempotentOnly(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
 	// DestructiveOnly exercises only the destructive hint.
 	DestructiveOnly(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
-	// AllHints sets all three hint flags.
+	// AllHints sets all four hint flags.
 	AllHints(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
 	// NoHints leaves every hint flag unset. The generator must emit no
 	// Annotations struct at all for this method.
@@ -219,7 +219,7 @@ type PrefixedServer interface {
 	IdempotentOnly(context.Context, *Empty) (*Empty, error)
 	// DestructiveOnly exercises only the destructive hint.
 	DestructiveOnly(context.Context, *Empty) (*Empty, error)
-	// AllHints sets all three hint flags.
+	// AllHints sets all four hint flags.
 	AllHints(context.Context, *Empty) (*Empty, error)
 	// NoHints leaves every hint flag unset. The generator must emit no
 	// Annotations struct at all for this method.

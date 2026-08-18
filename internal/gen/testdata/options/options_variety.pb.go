@@ -63,14 +63,13 @@ var File_options_variety_proto protoreflect.FileDescriptor
 const file_options_variety_proto_rawDesc = "" +
 	"\n" +
 	"\x15options_variety.proto\x12'protomcp.gen.testdata.optionsvariety.v1\x1a\x1dprotomcp/v1/annotations.proto\"\a\n" +
-	"\x05Empty2\xfa\n" +
+	"\x05Empty2\xfc\n" +
 	"\n" +
 	"\bPrefixed\x12v\n" +
 	"\fReadOnlyOnly\x12..protomcp.gen.testdata.optionsvariety.v1.Empty\x1a..protomcp.gen.testdata.optionsvariety.v1.Empty\"\x06\x8a\xb5\x18\x02 \x01\x12x\n" +
 	"\x0eIdempotentOnly\x12..protomcp.gen.testdata.optionsvariety.v1.Empty\x1a..protomcp.gen.testdata.optionsvariety.v1.Empty\"\x06\x8a\xb5\x18\x02(\x01\x12y\n" +
-	"\x0fDestructiveOnly\x12..protomcp.gen.testdata.optionsvariety.v1.Empty\x1a..protomcp.gen.testdata.optionsvariety.v1.Empty\"\x06\x8a\xb5\x18\x020\x01\x12v\n" +
-	"\bAllHints\x12..protomcp.gen.testdata.optionsvariety.v1.Empty\x1a..protomcp.gen.testdata.optionsvariety.v1.Empty\"\n" +
-	"\x8a\xb5\x18\x06 \x01(\x010\x01\x12o\n" +
+	"\x0fDestructiveOnly\x12..protomcp.gen.testdata.optionsvariety.v1.Empty\x1a..protomcp.gen.testdata.optionsvariety.v1.Empty\"\x06\x8a\xb5\x18\x020\x01\x12x\n" +
+	"\bAllHints\x12..protomcp.gen.testdata.optionsvariety.v1.Empty\x1a..protomcp.gen.testdata.optionsvariety.v1.Empty\"\f\x8a\xb5\x18\b \x01(\x010\x018\x01\x12o\n" +
 	"\aNoHints\x12..protomcp.gen.testdata.optionsvariety.v1.Empty\x1a..protomcp.gen.testdata.optionsvariety.v1.Empty\"\x04\x8a\xb5\x18\x00\x12~\n" +
 	"\x12ExplicitFalseHints\x12..protomcp.gen.testdata.optionsvariety.v1.Empty\x1a..protomcp.gen.testdata.optionsvariety.v1.Empty\"\b\x8a\xb5\x18\x040\x008\x00\x12\x83\x01\n" +
 	"\x17ExplicitFalsePlainHints\x12..protomcp.gen.testdata.optionsvariety.v1.Empty\x1a..protomcp.gen.testdata.optionsvariety.v1.Empty\"\b\x8a\xb5\x18\x04 \x00(\x00\x12\x82\x01\n" +

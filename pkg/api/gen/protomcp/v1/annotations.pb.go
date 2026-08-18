@@ -86,7 +86,9 @@ type ToolOptions struct {
 	// Description shown to LLM clients. Overrides the method's leading
 	// proto comment.
 	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	// Hints surfaced on MCP Tool.Annotations for client consent UX.
+	// Client-facing risk hints surfaced on MCP Tool.Annotations. These
+	// describe intended behavior; they do not enforce authorization or
+	// runtime guarantees.
 	// Each hint has explicit presence: a hint that is set is emitted
 	// verbatim (including explicit false, which matters for destructive
 	// and open_world whose MCP spec defaults are true), and a hint that
@@ -96,8 +98,9 @@ type ToolOptions struct {
 	ReadOnly    *bool `protobuf:"varint,4,opt,name=read_only,json=readOnly,proto3,oneof" json:"read_only,omitempty"`
 	Idempotent  *bool `protobuf:"varint,5,opt,name=idempotent,proto3,oneof" json:"idempotent,omitempty"`
 	Destructive *bool `protobuf:"varint,6,opt,name=destructive,proto3,oneof" json:"destructive,omitempty"`
-	// open_world signals the tool reaches outside the local server
-	// (web fetch, third-party API, search).
+	// open_world signals a deployment-specific trust-boundary crossing
+	// (web fetch, third-party API, search) whose output may carry
+	// untrusted content.
 	OpenWorld               *bool `protobuf:"varint,7,opt,name=open_world,json=openWorld,proto3,oneof" json:"open_world,omitempty"`
 	DisableReadOnlyNameLint bool  `protobuf:"varint,8,opt,name=disable_read_only_name_lint,json=disableReadOnlyNameLint,proto3" json:"disable_read_only_name_lint,omitempty"`
 	unknownFields           protoimpl.UnknownFields

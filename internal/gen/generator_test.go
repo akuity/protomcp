@@ -617,8 +617,8 @@ func TestGenerate_OptionsVariety(t *testing.T) {
 			true, "&mcp.ToolAnnotations{IdempotentHint: true}"},
 		{"DestructiveOnly has DestructiveHint",
 			true, "&mcp.ToolAnnotations{DestructiveHint: protomcp.BoolPtr(true)}"},
-		{"AllHints has all three fields",
-			true, "&mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, DestructiveHint: protomcp.BoolPtr(true)}"},
+		{"AllHints has all four fields",
+			true, "&mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, DestructiveHint: protomcp.BoolPtr(true), OpenWorldHint: protomcp.BoolPtr(true)}"},
 
 		// Hints have explicit presence: a hint set to false is emitted
 		// verbatim, which matters for destructive and open_world whose

@@ -86,14 +86,23 @@ type ToolOptions struct {
 	// Description shown to LLM clients. Overrides the method's leading
 	// proto comment.
 	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	// Hints surfaced on MCP Tool.Annotations for client consent UX.
-	ReadOnly    bool `protobuf:"varint,4,opt,name=read_only,json=readOnly,proto3" json:"read_only,omitempty"`
-	Idempotent  bool `protobuf:"varint,5,opt,name=idempotent,proto3" json:"idempotent,omitempty"`
-	Destructive bool `protobuf:"varint,6,opt,name=destructive,proto3" json:"destructive,omitempty"`
-	// open_world signals the tool reaches outside the local server
-	// (web fetch, third-party API, search).
-	OpenWorld               bool `protobuf:"varint,7,opt,name=open_world,json=openWorld,proto3" json:"open_world,omitempty"`
-	DisableReadOnlyNameLint bool `protobuf:"varint,8,opt,name=disable_read_only_name_lint,json=disableReadOnlyNameLint,proto3" json:"disable_read_only_name_lint,omitempty"`
+	// Client-facing risk hints surfaced on MCP Tool.Annotations. These
+	// describe intended behavior; they do not enforce authorization or
+	// runtime guarantees.
+	// Each hint has explicit presence: a hint that is set is emitted
+	// verbatim (including explicit false, which matters for destructive
+	// and open_world whose MCP spec defaults are true), and a hint that
+	// is absent emits nothing, leaving clients to apply the spec
+	// defaults (read_only=false, idempotent=false, destructive=true,
+	// open_world=true).
+	ReadOnly    *bool `protobuf:"varint,4,opt,name=read_only,json=readOnly,proto3,oneof" json:"read_only,omitempty"`
+	Idempotent  *bool `protobuf:"varint,5,opt,name=idempotent,proto3,oneof" json:"idempotent,omitempty"`
+	Destructive *bool `protobuf:"varint,6,opt,name=destructive,proto3,oneof" json:"destructive,omitempty"`
+	// open_world signals a deployment-specific trust-boundary crossing
+	// (web fetch, third-party API, search) whose output may carry
+	// untrusted content.
+	OpenWorld               *bool `protobuf:"varint,7,opt,name=open_world,json=openWorld,proto3,oneof" json:"open_world,omitempty"`
+	DisableReadOnlyNameLint bool  `protobuf:"varint,8,opt,name=disable_read_only_name_lint,json=disableReadOnlyNameLint,proto3" json:"disable_read_only_name_lint,omitempty"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
 }
@@ -150,29 +159,29 @@ func (x *ToolOptions) GetDescription() string {
 }
 
 func (x *ToolOptions) GetReadOnly() bool {
-	if x != nil {
-		return x.ReadOnly
+	if x != nil && x.ReadOnly != nil {
+		return *x.ReadOnly
 	}
 	return false
 }
 
 func (x *ToolOptions) GetIdempotent() bool {
-	if x != nil {
-		return x.Idempotent
+	if x != nil && x.Idempotent != nil {
+		return *x.Idempotent
 	}
 	return false
 }
 
 func (x *ToolOptions) GetDestructive() bool {
-	if x != nil {
-		return x.Destructive
+	if x != nil && x.Destructive != nil {
+		return *x.Destructive
 	}
 	return false
 }
 
 func (x *ToolOptions) GetOpenWorld() bool {
-	if x != nil {
-		return x.OpenWorld
+	if x != nil && x.OpenWorld != nil {
+		return *x.OpenWorld
 	}
 	return false
 }
@@ -771,19 +780,24 @@ const file_protomcp_v1_annotations_proto_rawDesc = "" +
 	"\x1dprotomcp/v1/annotations.proto\x12\vprotomcp.v1\x1a google/protobuf/descriptor.proto\"J\n" +
 	"\x12FieldSchemaOptions\x12\x18\n" +
 	"\aexclude\x18\x01 \x01(\bR\aexclude\x12\x1a\n" +
-	"\brequired\x18\x02 \x01(\bR\brequired\"\x95\x02\n" +
+	"\brequired\x18\x02 \x01(\bR\brequired\"\xe5\x02\n" +
 	"\vToolOptions\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
-	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1b\n" +
-	"\tread_only\x18\x04 \x01(\bR\breadOnly\x12\x1e\n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12 \n" +
+	"\tread_only\x18\x04 \x01(\bH\x00R\breadOnly\x88\x01\x01\x12#\n" +
 	"\n" +
-	"idempotent\x18\x05 \x01(\bR\n" +
-	"idempotent\x12 \n" +
-	"\vdestructive\x18\x06 \x01(\bR\vdestructive\x12\x1d\n" +
+	"idempotent\x18\x05 \x01(\bH\x01R\n" +
+	"idempotent\x88\x01\x01\x12%\n" +
+	"\vdestructive\x18\x06 \x01(\bH\x02R\vdestructive\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"open_world\x18\a \x01(\bR\topenWorld\x12<\n" +
-	"\x1bdisable_read_only_name_lint\x18\b \x01(\bR\x17disableReadOnlyNameLint\"1\n" +
+	"open_world\x18\a \x01(\bH\x03R\topenWorld\x88\x01\x01\x12<\n" +
+	"\x1bdisable_read_only_name_lint\x18\b \x01(\bR\x17disableReadOnlyNameLintB\f\n" +
+	"\n" +
+	"_read_onlyB\r\n" +
+	"\v_idempotentB\x0e\n" +
+	"\f_destructiveB\r\n" +
+	"\v_open_world\"1\n" +
 	"\x0eServiceOptions\x12\x1f\n" +
 	"\vtool_prefix\x18\x01 \x01(\tR\n" +
 	"toolPrefix\"L\n" +
@@ -883,6 +897,7 @@ func file_protomcp_v1_annotations_proto_init() {
 	if File_protomcp_v1_annotations_proto != nil {
 		return
 	}
+	file_protomcp_v1_annotations_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

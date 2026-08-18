@@ -70,13 +70,22 @@ message ToolOptions {
   // proto comment.
   string description = 3;
 
-  // Hints surfaced on MCP Tool.Annotations for client consent UX.
-  bool read_only   = 4;
-  bool idempotent  = 5;
-  bool destructive = 6;
-  // open_world signals the tool reaches outside the local server
-  // (web fetch, third-party API, search).
-  bool open_world  = 7;
+  // Client-facing risk hints surfaced on MCP Tool.Annotations. These
+  // describe intended behavior; they do not enforce authorization or
+  // runtime guarantees.
+  // Each hint has explicit presence: a hint that is set is emitted
+  // verbatim (including explicit false, which matters for destructive
+  // and open_world whose MCP spec defaults are true), and a hint that
+  // is absent emits nothing, leaving clients to apply the spec
+  // defaults (read_only=false, idempotent=false, destructive=true,
+  // open_world=true).
+  optional bool read_only = 4;
+  optional bool idempotent = 5;
+  optional bool destructive = 6;
+  // open_world signals a deployment-specific trust-boundary crossing
+  // (web fetch, third-party API, search) whose output may carry
+  // untrusted content.
+  optional bool open_world = 7;
 
   bool disable_read_only_name_lint = 8;
 }

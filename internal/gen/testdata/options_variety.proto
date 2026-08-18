@@ -49,6 +49,27 @@ service Prefixed {
     option (protomcp.v1.tool) = {};
   }
 
+  // ExplicitFalseHints sets destructive and open_world to explicit
+  // false. Both must be emitted as BoolPtr(false): their MCP spec
+  // defaults are true, so an absent hint and an explicit false mean
+  // different things to clients.
+  rpc ExplicitFalseHints(Empty) returns (Empty) {
+    option (protomcp.v1.tool) = {
+      destructive: false
+      open_world: false
+    };
+  }
+
+  // ExplicitFalsePlainHints sets read_only and idempotent to explicit
+  // false. They are plain bools on the SDK side; presence still emits
+  // them verbatim inside a non-nil Annotations struct.
+  rpc ExplicitFalsePlainHints(Empty) returns (Empty) {
+    option (protomcp.v1.tool) = {
+      read_only: false
+      idempotent: false
+    };
+  }
+
   // Renamed has an explicit tool name override. Because the service has a
   // tool_prefix, the final name must be "ns_custom.name.value" so the
   // override is preserved verbatim on top of the prefix.

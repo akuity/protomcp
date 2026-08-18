@@ -620,6 +620,14 @@ func TestGenerate_OptionsVariety(t *testing.T) {
 		{"AllHints has all three fields",
 			true, "&mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, DestructiveHint: protomcp.BoolPtr(true)}"},
 
+		// Hints have explicit presence: a hint set to false is emitted
+		// verbatim, which matters for destructive and open_world whose
+		// MCP spec defaults are true.
+		{"ExplicitFalseHints emits explicit false pointers",
+			true, "&mcp.ToolAnnotations{DestructiveHint: protomcp.BoolPtr(false), OpenWorldHint: protomcp.BoolPtr(false)}"},
+		{"ExplicitFalsePlainHints emits explicit false plain bools",
+			true, "&mcp.ToolAnnotations{ReadOnlyHint: false, IdempotentHint: false}"},
+
 		// Description override vs. leading-comment fallback.
 		// The gofmt-aligned output uses two spaces after "Description:" when
 		// it lines up with longer neighboring keys (e.g. "OutputSchema:"),

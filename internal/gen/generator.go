@@ -794,22 +794,25 @@ func validateMCPIdentifier(s string) error {
 
 // annotationsLiteral returns a Go source fragment of the form
 // "&mcp.ToolAnnotations{ReadOnlyHint: true, ...}" or "" if no hints
-// are set.
+// are set. Hints have explicit presence: a set hint is emitted with its
+// value (explicit false included — meaningful for destructive and
+// open_world, whose MCP spec defaults are true), an unset hint is
+// omitted so clients apply the spec defaults.
 func annotationsLiteral(to *protomcpv1.ToolOptions, mcpPkg, protomcpPkg string) string {
 	var fields []string
-	if to.GetReadOnly() {
-		fields = append(fields, "ReadOnlyHint: true")
+	if to.ReadOnly != nil {
+		fields = append(fields, fmt.Sprintf("ReadOnlyHint: %t", to.GetReadOnly()))
 	}
-	if to.GetIdempotent() {
-		fields = append(fields, "IdempotentHint: true")
+	if to.Idempotent != nil {
+		fields = append(fields, fmt.Sprintf("IdempotentHint: %t", to.GetIdempotent()))
 	}
-	if to.GetDestructive() {
+	if to.Destructive != nil {
 		// DestructiveHint is *bool in the SDK; BoolPtr keeps the
 		// emitted code compact.
-		fields = append(fields, "DestructiveHint: "+protomcpPkg+".BoolPtr(true)")
+		fields = append(fields, fmt.Sprintf("DestructiveHint: %s.BoolPtr(%t)", protomcpPkg, to.GetDestructive()))
 	}
-	if to.GetOpenWorld() {
-		fields = append(fields, "OpenWorldHint: "+protomcpPkg+".BoolPtr(true)")
+	if to.OpenWorld != nil {
+		fields = append(fields, fmt.Sprintf("OpenWorldHint: %s.BoolPtr(%t)", protomcpPkg, to.GetOpenWorld()))
 	}
 	if len(fields) == 0 {
 		return ""

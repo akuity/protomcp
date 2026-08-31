@@ -33,8 +33,9 @@ type harness struct {
 	url          string
 	grpcClient   tasksv1.TasksClient
 	srv          *protomcp.Server
-	subscribed   chan string // URI per SubscribeHandler invocation
-	unsubscribed chan string // URI per UnsubscribeHandler invocation
+	hb           *watchHeartbeat // tracked, but not ticking until a test runs it
+	subscribed   chan string     // URI per SubscribeHandler invocation
+	unsubscribed chan string     // URI per UnsubscribeHandler invocation
 }
 
 func startHarness(t *testing.T) *harness {
@@ -48,15 +49,18 @@ func startHarness(t *testing.T) *harness {
 
 	h := &harness{
 		grpcClient:   grpcClient,
+		hb:           newWatchHeartbeat(),
 		subscribed:   make(chan string, 16),
 		unsubscribed: make(chan string, 16),
 	}
 	h.srv = newStatelessServer(grpcClient,
 		func(_ context.Context, req *mcp.SubscribeRequest) error {
+			h.hb.subscribed(req.Params.URI)
 			h.subscribed <- req.Params.URI
 			return nil
 		},
 		func(_ context.Context, req *mcp.UnsubscribeRequest) error {
+			h.hb.unsubscribed(req.Params.URI)
 			h.unsubscribed <- req.Params.URI
 			return nil
 		},
@@ -251,6 +255,42 @@ func TestStateless_UnsubscribeTearsDown(t *testing.T) {
 	case uri := <-notif:
 		t.Fatalf("received %q after Unsubscribe", uri)
 	case <-time.After(700 * time.Millisecond):
+	}
+}
+
+// TestStateless_HeartbeatDeliversWithoutMutation pins the README's detection
+// mechanism: with the server heartbeat ticking, a subscribed client receives
+// periodic updates for its watched URI with no task mutation at all — the
+// signal a client turns into a missed-heartbeat timeout on its own stream.
+func TestStateless_HeartbeatDeliversWithoutMutation(t *testing.T) {
+	ctx := context.Background()
+	h := startHarness(t)
+
+	hbCtx, stopHB := context.WithCancel(ctx)
+	t.Cleanup(stopHB)
+	go h.hb.run(hbCtx, h.srv, 100*time.Millisecond)
+
+	notif := make(chan string, 16)
+	cs := h.connect(ctx, t, notif)
+
+	task := h.createTask(ctx, t, "heartbeat-watch")
+	uri := "tasks://" + task.Id
+	if err := cs.Subscribe(ctx, &mcp.SubscribeParams{URI: uri}); err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	waitForURI(t, h.subscribed, uri, "SubscribeHandler")
+
+	// No mutations from here on: anything received is a heartbeat. Two
+	// beats prove periodicity, not a leftover from registration.
+	for i := 1; i <= 2; i++ {
+		select {
+		case got := <-notif:
+			if got != uri {
+				t.Fatalf("heartbeat for %q, want %q", got, uri)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("no heartbeat %d within 5s", i)
+		}
 	}
 }
 

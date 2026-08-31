@@ -52,6 +52,10 @@ linters:
         - fieldalignment  # prioritise readability over struct-field packing
     misspell:
       locale: US
+      ignore-rules:
+        # MCP's own protocol vocabulary: the wire method is
+        # notifications/cancelled and the SDK exports CancelledParams.
+        - cancelled
     nakedret:
       max-func-lines: 30
     revive:

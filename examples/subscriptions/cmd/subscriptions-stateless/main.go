@@ -23,7 +23,7 @@
 //     must touch every watched URI on an interval — this binary does,
 //     via watchHeartbeat (-heartbeat, default 30s). Recovery on go-sdk
 //     v1.7.0 is a full reconnect: Unsubscribe (like any canceled
-//     in-flight call) emits a cancellation notification missing the
+//     in-flight call) emits a notifications/cancelled POST missing the
 //     _meta protocolVersion the 2026-07-28 protocol requires, the
 //     server rejects it, and the client hard-fails the whole session —
 //     so close the ClientSession, Connect a fresh one (any replica

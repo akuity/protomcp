@@ -370,7 +370,7 @@ func TestStateless_HeartbeatDeliversWithoutMutation(t *testing.T) {
 //
 // The poisoning half is a go-sdk v1.7.0 defect: Unsubscribe cancels
 // the per-URI listen call, which makes the client send a
-// cancellation notification without the _meta protocolVersion the
+// notifications/cancelled POST without the _meta protocolVersion the
 // 2026-07-28 protocol requires on every message (cancelCall skips the
 // injectRequestMeta step every other client send performs). The server
 // rejects it (-32602 over HTTP 400) and the client treats the failed
@@ -406,7 +406,7 @@ func TestStateless_UnsubscribeKillsSessionReconnectRecovers(t *testing.T) {
 	}
 	waitForURI(t, h.unsubscribed, uri, "UnsubscribeHandler")
 
-	// The cancellation notification goes out asynchronously; poll until
+	// The cancelled notification goes out asynchronously; poll until
 	// its rejection has latched the client connection into failure.
 	deadline := time.After(5 * time.Second)
 	for {
@@ -415,7 +415,7 @@ func TestStateless_UnsubscribeKillsSessionReconnectRecovers(t *testing.T) {
 		}
 		select {
 		case <-deadline:
-			t.Fatal("session survived Unsubscribe: the upstream cancellation-notification defect appears fixed — revisit the README recovery guidance and this test")
+			t.Fatal("session survived Unsubscribe: the upstream cancelled-notification defect appears fixed — revisit the README recovery guidance and this test")
 		case <-time.After(100 * time.Millisecond):
 		}
 	}

@@ -25,13 +25,23 @@ internally and fans each `ResourceUpdated` call out to only the
 sessions that asked for that URI.
 
 **The subscribe/unsubscribe handlers only act as a gate.** When a
-`resources/subscribe` request arrives, the SDK calls your handler
-first (`return err` to reject, `return nil` to allow); on allow, it
+subscription request arrives, the SDK calls your handler first
+(`return err` to reject, `return nil` to allow); on allow, it
 **unconditionally** records the session in its internal
 subscriptions map. `ResourceUpdated` always reads from that same map,
 so it fans out to subscribed sessions regardless of whether your
 handlers are no-ops or doing real upstream work. The handler type
 decides **which URIs are accepted**, not whether fan-out happens.
+
+**How subscriptions arrive depends on the protocol revision.** Legacy
+sessions (negotiated through `initialize`, up to 2025-11-25) send
+`resources/subscribe` / `resources/unsubscribe` requests. Sessions on
+revision 2026-07-28 or later hold a long-lived `subscriptions/listen`
+stream instead, and `resources/subscribe` is rejected there — but the
+SDK routes each listed URI through the same internal subscribe path,
+so your `SubscribeHandler`/`UnsubscribeHandler` fire per URI on both
+paths and `ResourceUpdated` delivers over whichever channel the
+session holds. The go-sdk client picks the mechanism transparently.
 
 ## Pick the pattern that matches your event source
 

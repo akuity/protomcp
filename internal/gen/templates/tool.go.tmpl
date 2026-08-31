@@ -33,22 +33,36 @@
 			g.Metadata.Set(srv.ProgressTokenHeader(), {{.QProtomcpSanitizeMetadataValue}}({{.QFmtSprintf}}("%v", tok)))
 		}
 {{- if .Elicitation}}
-		// Confirm with the client before making the upstream call.
-		// A nil session is tolerated for unit-test harnesses.
-		if req.Session != nil {
-			elicitResult, elicitErr := req.Session.Elicit(ctx, &{{.Elicitation.QMCPElicitParams}}{
-				Message: {{.Elicitation.MessageExpr}},
-			})
-			if elicitErr != nil {
-				return srv.FinishToolCall(ctx, req, g, nil, elicitErr)
-			}
-			if elicitResult == nil || elicitResult.Action != "accept" {
-				// Explicit refusal; the gRPC call does NOT run.
-				return srv.FinishToolCall(ctx, req, g, &{{.QMCPCallResult}}{
-					IsError: true,
-					Content: []{{.QMCPContent}}{&{{.QMCPTextContent}}{Text: "User declined to proceed."}},
-				}, nil)
-			}
+		// Confirm with the client before making the upstream call, via
+		// the multi-round-trip protocol (SEP-2322): the first invocation
+		// returns an elicitation InputRequest, and the SDK re-invokes
+		// this handler with the client's answer (client middleware on
+		// >= 2026-07-28 sessions, the SDK's server-side shim for older
+		// clients). RequestState binds the answer to this exact tool
+		// call: a stale or replayed answer (e.g. from a CallToolParams
+		// the SDK mutated in place on an earlier call) re-prompts
+		// instead of silently confirming.
+		elicitState := {{.Elicitation.QProtomcpElicitationState}}({{printf "%q" .ToolName}}, raw)
+		elicitAnswer, elicitAnswered := req.Params.InputResponses[{{printf "%q" .Elicitation.RequestID}}]
+		if !elicitAnswered || req.Params.RequestState != elicitState {
+			// Intermediate protocol result, not a tool result: skip
+			// FinishToolCall so ToolResultProcessors cannot attach
+			// Content, which the SDK rejects alongside InputRequests.
+			return &{{.QMCPCallResult}}{
+				RequestState: elicitState,
+				InputRequests: {{.Elicitation.QMCPInputRequestMap}}{
+					{{printf "%q" .Elicitation.RequestID}}: &{{.Elicitation.QMCPElicitParams}}{
+						Message: {{.Elicitation.MessageExpr}},
+					},
+				},
+			}, nil, nil
+		}
+		if er, ok := elicitAnswer.(*{{.Elicitation.QMCPElicitResult}}); !ok || er == nil || er.Action != "accept" {
+			// Explicit refusal; the gRPC call does NOT run.
+			return srv.FinishToolCall(ctx, req, g, &{{.QMCPCallResult}}{
+				IsError: true,
+				Content: []{{.QMCPContent}}{&{{.QMCPTextContent}}{Text: "User declined to proceed."}},
+			}, nil)
 		}
 {{- end}}
 {{if .IsServerStreaming}}

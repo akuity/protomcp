@@ -268,22 +268,36 @@ func RegisterTasksMCPTools(srv *protomcp.Server, client TasksClient) {
 		if tok := req.Params.GetProgressToken(); tok != nil {
 			g.Metadata.Set(srv.ProgressTokenHeader(), protomcp.SanitizeMetadataValue(fmt.Sprintf("%v", tok)))
 		}
-		// Confirm with the client before making the upstream call.
-		// A nil session is tolerated for unit-test harnesses.
-		if req.Session != nil {
-			elicitResult, elicitErr := req.Session.Elicit(ctx, &mcp.ElicitParams{
-				Message: "Delete task with id " + fmt.Sprintf("%v", (&in).GetId()) + "? This cannot be undone.",
-			})
-			if elicitErr != nil {
-				return srv.FinishToolCall(ctx, req, g, nil, elicitErr)
-			}
-			if elicitResult == nil || elicitResult.Action != "accept" {
-				// Explicit refusal; the gRPC call does NOT run.
-				return srv.FinishToolCall(ctx, req, g, &mcp.CallToolResult{
-					IsError: true,
-					Content: []mcp.Content{&mcp.TextContent{Text: "User declined to proceed."}},
-				}, nil)
-			}
+		// Confirm with the client before making the upstream call, via
+		// the multi-round-trip protocol (SEP-2322): the first invocation
+		// returns an elicitation InputRequest, and the SDK re-invokes
+		// this handler with the client's answer (client middleware on
+		// >= 2026-07-28 sessions, the SDK's server-side shim for older
+		// clients). RequestState binds the answer to this exact tool
+		// call: a stale or replayed answer (e.g. from a CallToolParams
+		// the SDK mutated in place on an earlier call) re-prompts
+		// instead of silently confirming.
+		elicitState := protomcp.ElicitationState("Tasks_DeleteTask", raw)
+		elicitAnswer, elicitAnswered := req.Params.InputResponses["confirm"]
+		if !elicitAnswered || req.Params.RequestState != elicitState {
+			// Intermediate protocol result, not a tool result: skip
+			// FinishToolCall so ToolResultProcessors cannot attach
+			// Content, which the SDK rejects alongside InputRequests.
+			return &mcp.CallToolResult{
+				RequestState: elicitState,
+				InputRequests: mcp.InputRequestMap{
+					"confirm": &mcp.ElicitParams{
+						Message: "Delete task with id " + fmt.Sprintf("%v", (&in).GetId()) + "? This cannot be undone.",
+					},
+				},
+			}, nil, nil
+		}
+		if er, ok := elicitAnswer.(*mcp.ElicitResult); !ok || er == nil || er.Action != "accept" {
+			// Explicit refusal; the gRPC call does NOT run.
+			return srv.FinishToolCall(ctx, req, g, &mcp.CallToolResult{
+				IsError: true,
+				Content: []mcp.Content{&mcp.TextContent{Text: "User declined to proceed."}},
+			}, nil)
 		}
 
 		final := func(ctx context.Context, _ *mcp.CallToolRequest, g *protomcp.GRPCData) (*mcp.CallToolResult, error) {

@@ -262,7 +262,7 @@ Full runnable version: [`examples/greeter/cmd/greeter/main.go`](examples/greeter
 | **Resource (list_changed)** | The server, when the resource list mutates | Background watcher over a server-streaming RPC → `notifications/resources/list_changed` per received event (SDK debounces bursts) | `(protomcp.v1.resource_list_changed) = {}` on a server-streaming RPC |
 | **Resource (subscribe)** | The user, asking the client to track a URI | User-wired `SubscribeHandler` / `UnsubscribeHandler` + `srv.SDK().ResourceUpdated(...)` | *(no annotation, see [Resource subscriptions](#resource-subscriptions-are-user-wired-not-an-annotation))* |
 | **Prompt** | The user, picking a slash-command | `prompts/get` renders a Mustache template against the gRPC response | `(protomcp.v1.prompt) = {…}` |
-| **Elicitation** | (modifier) the server, mid-tool-call, asking the user to confirm | `session.Elicit(...)` gate before the gRPC call runs | `(protomcp.v1.elicitation) = {…}` *(requires a `tool` on the same RPC)* |
+| **Elicitation** | (modifier) the server, mid-tool-call, asking the user to confirm | Multi-round-trip confirmation `InputRequest` (SEP-2322) before the gRPC call runs; the SDK shims legacy clients transparently | `(protomcp.v1.elicitation) = {…}` *(requires a `tool` on the same RPC)* |
 
 Multiple primitives on one RPC are legal and additive. A `GetTask` RPC annotated with `tool` + `resource_template` becomes both a tool the LLM can invoke and a URI the user can attach.
 
@@ -365,6 +365,8 @@ Lifecycle is explicit via `ctx` (not `Server.Close()`-driven) so it mirrors `htt
 
 **Implementation note.** The MCP Go SDK currently only fires `notifications/resources/list_changed` as a side effect of mutating its static resource registry. `Server.NotifyResourceListChanged()` triggers it by adding then immediately removing a sentinel resource template (`protomcp-internal-list-changed-trigger://{_}`); the two SDK calls coalesce into one wire notification via the 10 ms debounce. A client that runs `resources/templates/list` in the sub-millisecond window between the add and remove could observe the sentinel, which is a documented caveat of the current workaround.
 
+**Delivery on protocol ≥ 2026-07-28.** Legacy sessions (anything negotiated through `initialize`) receive list-changed notifications unconditionally. Sessions on protocol revision 2026-07-28 or later receive them **only** over a `subscriptions/listen` stream that opted into the matching notification type. The go-sdk client opens that stream automatically when a `ResourceListChangedHandler` (or the tools/prompts equivalent) is registered — so a 2026-07-28 client with **no such handler silently stops receiving `NotifyResourceListChanged`** where a legacy client would still have seen the wire notification. Register the handler client-side if you depend on the signal.
+
 ### Resource subscriptions are user-wired, not an annotation
 
 protomcp deliberately does not codegen subscribe handlers. MCP's `resources/subscribe` is a per-URI fanout the server delivers to every interested session; gRPC server-streaming is the opposite shape, a per-request stream owned by one caller. The two models do not map cleanly, and real backends also deliver change events from places that are not gRPC streams at all (pub/sub, CDC, polling, webhooks). An annotation would pick a wrong default for most users.
@@ -373,13 +375,15 @@ The MCP Go SDK already handles the mechanics. Supply `ServerOptions.SubscribeHan
 
 The subscribe/unsubscribe handlers only act as a gate: the SDK calls them first (`return err` to reject, `return nil` to allow), and on allow unconditionally records the session in its subscriptions map. `ResourceUpdated` always reads from that same map, so the same fan-out works with either no-op handlers or custom ones. The handler type decides **which URIs are accepted** and **what extra work runs on subscribe/unsubscribe** (starting an upstream feed, cleaning it up), not whether `ResourceUpdated` delivers.
 
+How a subscription arrives depends on the negotiated protocol revision. Legacy sessions call `resources/subscribe` / `resources/unsubscribe` directly. Sessions on revision 2026-07-28 or later use a long-lived `subscriptions/listen` stream instead (`resources/subscribe` itself is rejected there) — but the SDK routes both paths through the same internal subscription machinery, so **your `SubscribeHandler`/`UnsubscribeHandler` still fire per URI either way**, and `ResourceUpdated` delivers over whichever channel the session holds. The go-sdk client picks the right mechanism transparently.
+
 There are two common shapes:
 
 1. **Push from the write path (no-op handlers).** Supply `func(...) error { return nil }` for both handlers and call `ResourceUpdated` from wherever mutations happen. Best when events originate inside the same process as the MCP server.
 
 2. **Wrap an external source.** Real handlers that start/stop upstream delivery per subscription (open a gRPC stream, run a PG `LISTEN`, subscribe to a Redis/Kafka topic, register a webhook). Best when events come from outside the process. Still call `ResourceUpdated` on each incoming event.
 
-[`examples/subscriptions`](examples/subscriptions) ships both as runnable demos: `cmd/subscriptions-simple` for the push-from-write-path pattern (about 30 lines of wiring) and `cmd/subscriptions` for the external-source pattern with a reusable `Hub` + `Manager` and race-tested session-close cleanup.
+[`examples/subscriptions`](examples/subscriptions) ships both as runnable demos: `cmd/subscriptions-simple` for the push-from-write-path pattern (about 30 lines of wiring) and `cmd/subscriptions` for the external-source pattern, with per-principal subscribe authorization and a watcher wrapped in `protomcp.RetryLoop`.
 
 ### `protomcp.v1.prompt`, method option
 
@@ -397,7 +401,13 @@ Enum-typed and `buf.validate.string.in`-constrained prompt arguments automatical
 
 | Field | Required? | Effect |
 |---|---|---|
-| `message` | required | Mustache template over the tool's **request** message; rendered into the confirmation prompt. `session.Elicit(...)` runs before the gRPC call, any non-accept action returns `IsError: true` and the tool never executes. |
+| `message` | required | Mustache template over the tool's **request** message; rendered into the confirmation prompt shown to the user before the gRPC call runs. Any non-accept answer returns `IsError: true` and the tool never executes. |
+
+The gate uses the multi-round-trip protocol (SEP-2322). The generated handler's first invocation returns a `CallToolResult` carrying a single elicitation `InputRequest` under the fixed key `"confirm"` — not a tool result. The SDK then obtains the user's answer and re-invokes the handler with it echoed in `inputResponses`; only an `action == "accept"` answer lets the gRPC call run. On sessions speaking protocol ≥ 2026-07-28 the client's middleware fulfills the request through its `ElicitationHandler` and retries automatically; on older sessions the SDK's server-side shim performs a classic `elicitation/create` round-trip and re-invokes the handler in place. One annotation serves both. Note the handler body runs twice per confirmed call.
+
+**Answers are bound to the call that prompted them.** The input-required result carries a `RequestState` derived from the tool name and raw arguments (`protomcp.ElicitationState`), and the retry must echo it back alongside the answer or the gate re-prompts. This matters because the SDK's client middleware mutates the caller's `CallToolParams` in place when it fulfills an elicitation: a client reusing one params struct across calls would otherwise carry a stale `"confirm"` answer into the next call and silently skip the confirmation. The binding is a content hash, not an authenticator or a nonce — a client willing to lie about the user's answer can compute it, just as it could return `accept` from its handler without asking anyone, and a byte-identical call re-issued with the already-echoed answer (same tool, same arguments, same state) will not re-prompt. Elicitation is a UX confirmation for honest clients, not a server-enforced authorization control; enforce authorization — and, for operations where even an identical replay must be re-confirmed, idempotency — server-side. The reused-struct hazard originates in the SDK: go-sdk's client middleware leaves the fulfilled `inputResponses`/`requestState` on the caller's params ([modelcontextprotocol/go-sdk#1144](https://github.com/modelcontextprotocol/go-sdk/issues/1144)). With the upstream fix ([modelcontextprotocol/go-sdk#1145](https://github.com/modelcontextprotocol/go-sdk/pull/1145)) retry state travels on a copy, a reused struct arrives clean, and the gate re-prompts even for a byte-identical call; protomcp will pin the first go-sdk release containing it, and `TestDeleteTask_ElicitationIdenticalReplayRePrompts` activates against that release.
+
+**Clients must register an `ElicitationHandler`.** A client without one fails the tool call with a hard JSON-RPC error (`client does not support elicitation`) — the error never reaches your `ToolErrorHandler`, and there is no `IsError` result for the LLM to read. (Under go-sdk v1.5.0 this case surfaced as a graceful `IsError` tool result instead.)
 
 Hard codegen error when used without a companion `tool`, or on a streaming RPC.
 
@@ -454,7 +464,7 @@ Each example is standalone, runnable, and has its own README.
 |---|---|
 | [`examples/greeter`](examples/greeter) | Tool primitive surface, unary + server-streaming RPCs, progress notifications with monotonic counter, **progress-token gRPC-metadata propagation**, `ToolErrorHandler`, `ToolResultProcessor` redaction, `ToolMiddleware` request mutation, SDK options pass-through, **`field_schema.exclude` schema masking round-trip** |
 | [`examples/tasks`](examples/tasks) | **Every declarative MCP primitive end-to-end.** Tools with `read_only` / `idempotent` / `destructive` hints + `OUTPUT_ONLY` stripping, **two `resource_template` annotations (`tasks://{id}`, `tags://{id}`)**, **a single `resource_list` that enumerates both types via `{type}://{id}` with `OffsetPagination`**, **prompts (`tasks_review`)**, **elicitation (confirm `DeleteTask`)**, plus `@example` markers and `enumDescriptions` on `TaskStatus` |
-| [`examples/subscriptions`](examples/subscriptions) | **User-wired resource subscriptions** on top of the Tasks resource template. In-process `Hub` + `Manager` + `SubscribeHandler`/`UnsubscribeHandler` + `ss.Wait()` session-close watchdog. Race-tested. |
+| [`examples/subscriptions`](examples/subscriptions) | **User-wired resource subscriptions** on top of the Tasks resource template. Per-principal subscribe authorization in `SubscribeHandler`/`UnsubscribeHandler`, plus a watcher wrapped in `protomcp.RetryLoop` pushing `ResourceUpdated`. Race-tested. |
 | [`examples/auth`](examples/auth) | Two-layer auth: SDK-native bearer middleware **or** custom HTTP middleware, both writing gRPC metadata for the upstream |
 
 Cmd directories inside each example hold the runnable binaries:
@@ -466,7 +476,7 @@ Cmd directories inside each example hold the runnable binaries:
 - [`examples/greeter/cmd/errorhandler`](examples/greeter/cmd/errorhandler), custom `ErrorHandler`
 - [`examples/greeter/cmd/sdkopts`](examples/greeter/cmd/sdkopts), pass `mcp.ServerOptions` / `mcp.StreamableHTTPOptions`
 - [`examples/tasks/cmd/tasks`](examples/tasks/cmd/tasks), CRUD
-- [`examples/subscriptions/cmd/subscriptions`](examples/subscriptions/cmd/subscriptions), Hub-driven subscribe wiring
+- [`examples/subscriptions/cmd/subscriptions`](examples/subscriptions/cmd/subscriptions), authorization-gated subscribe wiring
 - [`examples/auth/cmd/auth`](examples/auth/cmd/auth), custom HTTP middleware → ctx → metadata
 - [`examples/auth/cmd/sdkauth`](examples/auth/cmd/sdkauth), MCP Go SDK's `auth.RequireBearerToken` → `TokenInfoFromContext` → metadata
 
@@ -568,22 +578,24 @@ func injectTenant(next protomcp.ToolHandler) protomcp.ToolHandler {
 
 Override with `protomcp.WithToolErrorHandler(...)`, mirrors `grpc-gateway`'s `runtime.WithErrorHandler` but produces JSON-RPC shapes.
 
+**Error-code landscape (go-sdk ≥ v1.7.0).** protomcp's own JSON-RPC codes are unchanged: `Unauthenticated → -32001`, `PermissionDenied → -32002`, `Canceled → -32003`, `DeadlineExceeded → -32004` (all in JSON-RPC's implementation-defined `-32000..-32099` range, below the `-32020` and up band the SDK claims for its own codes). The SDK's resource-not-found error moved from `-32002` to `-32602` (`mcp.CodeResourceNotFound` is now a deprecated `var` aliasing `jsonrpc.CodeInvalidParams`), so `-32002` no longer collides with any SDK response — but `-32602` is now shared between the SDK's resource-not-found / invalid-params errors and protomcp's invalid-cursor mapping. protomcp does not set the `MCPGODEBUG=customresnotfounderrcode` escape hatch.
+
 ### ResultProcessor, mutate responses before the client sees them
 
 ```go
-func scrubEmails(_ context.Context, _ *mcp.CallToolRequest, r *mcp.CallToolResult) (*mcp.CallToolResult, error) {
-    for _, c := range r.Content {
+func scrubEmails(_ context.Context, _ *protomcp.GRPCData, m *protomcp.MCPData[*mcp.CallToolRequest, *mcp.CallToolResult]) (*mcp.CallToolResult, error) {
+    for _, c := range m.Output.Content {
         if tc, ok := c.(*mcp.TextContent); ok {
             tc.Text = emailRE.ReplaceAllString(tc.Text, "[email]")
         }
     }
-    return r, nil
+    return m.Output, nil
 }
 
 protomcp.New("svc", "0.1.0", protomcp.WithToolResultProcessor(scrubEmails))
 ```
 
-Processors run on **both** success and `IsError` results, so a single redaction rule covers every response path.
+Processors run on **both** success and `IsError` results, so a single redaction rule covers both of those response paths. They do **not** run on input-required (multi-round-trip) intermediates such as the generated elicitation confirmation — the SDK rejects results carrying both `Content` and `InputRequests`, so those bypass the pipeline finish. In particular, the elicitation prompt (rendered from request fields) reaches the client unredacted; keep sensitive values out of `elicitation.message` templates.
 
 ### RetryLoop
 
@@ -613,7 +625,7 @@ srv = protomcp.New("svc", "0.1.0",
 )
 ```
 
-An invalid client-supplied cursor surfaces as JSON-RPC error `-32602` (Invalid params). Callers that build their own middleware can return `&protomcp.InvalidCursorError{Err: …}` to get the same mapping.
+An invalid client-supplied cursor surfaces as JSON-RPC error `-32602` (Invalid params). Callers that build their own middleware can return `&protomcp.InvalidCursorError{Err: …}` to get the same mapping. Note that since go-sdk v1.7.0 the SDK also uses `-32602` for its own resource-not-found and malformed-params errors, so clients cannot distinguish those cases from an invalid cursor by code alone.
 
 The runnable `examples/tasks/cmd/tasks` command wires `OffsetPagination` (default `page-size=3`) so `resources/list` pages live; `examples/tasks/e2e_resources_test.go` asserts the three-page round-trip.
 
@@ -719,6 +731,12 @@ srv := protomcp.New("svc", "0.1.0",
     }),
 )
 ```
+
+**Cross-origin protection.** go-sdk v1.7.0 stopped installing cross-origin protection when `StreamableHTTPOptions.CrossOriginProtection` is nil (and deprecated the field). protomcp keeps the protection **on by default** by wrapping its HTTP handler with `http.NewCrossOriginProtection()`. To customize or relax the policy, supply your own `CrossOriginProtection` via `WithHTTPOptions` — a caller-supplied instance passes through to the SDK untouched and disables protomcp's wrap. (The SDK's own escape hatch for the old default is `MCPGODEBUG=enableoriginverification=1`; protomcp does not rely on it.)
+
+**Request body limit.** Since go-sdk v1.7.0 the streamable HTTP transport caps request bodies at 4 MiB by default (`mcp.DefaultMaxRequestBodyBytes`), returning HTTP 413 above the limit. Raise or disable it via `StreamableHTTPOptions.MaxRequestBodyBytes` (negative disables).
+
+**`MCPGODEBUG` flags.** go-sdk v1.7.0 gates several behavior changes behind environment escape hatches (`enableoriginverification`, `allowsessionsinstateless`, `hintomitempty`, `customresnotfounderrcode`, `nowrapinvalidparams`, `noprotocolerrorbody`, `disablecontenttypecheck`, `disablecompleteparamsvalidation`, `disablelocalhostprotection`). protomcp relies on **none** of them — they are temporary and slated for removal in later SDK releases.
 
 ---
 
@@ -850,10 +868,10 @@ We surveyed every Go-based proto → MCP project we could find before starting. 
 | **`google.api.field_behavior`** | `REQUIRED` + `OUTPUT_ONLY` (recursive runtime clear) | `REQUIRED` only | ❌ (via `buf.validate.required` only) | `REQUIRED` + `OUTPUT_ONLY` (codegen only, no runtime clear) |
 | **Resources (templates + list)** | ✅ `resource_template` (multiple per server, served via `resources/templates/list`) + single `resource_list` with `{type}://{id}`-style multi-type enumeration; `OffsetPagination` / `PageTokenPagination` helpers | ❌ | ❌ | ❌ |
 | **Resources (list_changed)** | ✅ `resource_list_changed` annotation on a server-streaming RPC → auto-generated reconnecting watcher that fires `notifications/resources/list_changed` per backend event (SDK debounces) | ❌ | ❌ | ❌ |
-| **Resources (subscribe)** | user-wired via `SubscribeHandler` / `UnsubscribeHandler` + `srv.SDK().ResourceUpdated(...)`, same SDK surface the upstream Go SDK exposes, with a reference `Hub` + `Manager` + session-close watchdog in [`examples/subscriptions`](examples/subscriptions) | ❌ | ❌ | ❌ |
+| **Resources (subscribe)** | user-wired via `SubscribeHandler` / `UnsubscribeHandler` + `srv.SDK().ResourceUpdated(...)`, same SDK surface the upstream Go SDK exposes, with reference authorization-gated wiring in [`examples/subscriptions`](examples/subscriptions) | ❌ | ❌ | ❌ |
 | **Prompts** | ✅ `prompt` annotation with Mustache template; `prompts/list` + `prompts/get` | ❌ | ❌ | ❌ |
 | **Prompt argument completion** | ✅ auto-wired for enum and `buf.validate.string.in` args | ❌ | ❌ | ❌ |
-| **Elicitation** | ✅ `elicitation` modifier; `session.Elicit()` gate before tool execution | ❌ | ❌ | ❌ |
+| **Elicitation** | ✅ `elicitation` modifier; multi-round-trip confirmation `InputRequest` (SEP-2322) before tool execution, SDK-shimmed for legacy clients | ❌ | ❌ | ❌ |
 | **Progress-token metadata forwarding** | ✅ `mcp-progress-token` forwarded as outgoing gRPC metadata | ❌ | ❌ | ❌ |
 | **`@example` schema hints** | ✅ from proto `// @example <json>` comment markers | ❌ | ❌ | ❌ |
 | **`enumDescriptions` schema hints** | ✅ from enum-value leading comments | ❌ | ❌ | ❌ |

@@ -227,18 +227,42 @@ of retrying it; because `subscriptions/listen` is dispatched
 fire-and-forget, the synthesized `request terminated without response`
 error is discarded, so no error surfaces to the application. A later
 `ClientSession.Subscribe` for the same URI is a no-op while the client
-still believes it is subscribed — recovery is `Unsubscribe` (which
-clears that client-side entry) followed by a fresh `Subscribe`, and any
-replica can answer the new stream. A client that must survive
-connection drops therefore needs a liveness signal that rides the
-stream itself: a subscribed heartbeat resource the server touches on an
-interval, where a missed-heartbeat timeout marks the stream dead and
-triggers the recovery above — or, more bluntly, an unconditional
-periodic re-subscribe. Periodic re-reads of the watched resource are a
+still believes it is subscribed (and a `Subscribe` whose initial listen
+call fails leaves the same stale entry behind), so a dead subscription
+cannot be repaired in place by subscribing again.
+
+Detection has to ride each watched URI's own stream:
+`ClientSession.Subscribe` opens a separate `subscriptions/listen` POST
+per URI, so a dedicated heartbeat resource attests only its own stream
+and can keep beating while the stream for the URI you actually watch
+is already dead. To notice a dead stream, have the server emit a
+periodic update for every watched URI and treat a missed heartbeat as
+that stream's death — at the cost of one update (and, since a
+heartbeat is indistinguishable from a real change, one re-read) per
+URI per interval. Periodic re-reads of the watched resource remain a
 reconciliation fallback, not a liveness check: each read is its own
 stateless POST and succeeds whether or not the listen stream is alive,
 so polling bounds how stale a client can silently become, but an
 unchanged resource reveals nothing and a dead stream goes undetected.
+
+Recovery is session-scoped on go-sdk v1.7.0. The natural per-URI cycle
+— `Unsubscribe` to clear the client-side entry, then a fresh
+`Subscribe` — does not survive contact with the implementation:
+canceling the listen call makes the client send a
+`notifications/cancelled` POST without the
+`_meta["io.modelcontextprotocol/protocolVersion"]` the 2026-07-28
+protocol requires on every message (`cancelCall` skips the
+`injectRequestMeta` step every other client send performs), the server
+rejects it (`-32602` over HTTP 400), and the client treats the failed
+send as fatal and permanently fails the connection. From that point
+every awaited call returns `connection closed` and every
+fire-and-forget send — a re-`Subscribe` included — vanishes silently;
+canceling any in-flight request poisons the session through the same
+path. Until that is fixed upstream, recover by replacing the session:
+close the poisoned `ClientSession`, `Connect` a fresh one (any replica
+answers), re-`Subscribe` every watched URI, and re-read each one to
+reconcile updates missed while dark. The e2e suite pins both halves —
+the poisoning and the reconnect recovery.
 
 `PropagateRequestCancellation` ties each in-flight handler context to
 its HTTP request, so a client that goes away mid-call cancels the

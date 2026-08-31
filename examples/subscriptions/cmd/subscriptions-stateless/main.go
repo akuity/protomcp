@@ -17,11 +17,16 @@
 //     a listen POST that dies without one, and — because the listen
 //     call is dispatched fire-and-forget — no error surfaces to the
 //     application. A later Subscribe for the same URI is a no-op while
-//     the client still thinks it is subscribed; recovery is
-//     Unsubscribe then a fresh Subscribe, which any replica can
-//     answer. Clients that must survive drops need their own liveness
-//     signal (e.g. a subscribed heartbeat resource) to notice a dead
-//     stream.
+//     the client still thinks it is subscribed. Each Subscribe opens
+//     its own per-URI listen stream, so a separate heartbeat resource
+//     attests only its own stream: to detect a dead stream, the server
+//     must touch every watched URI on an interval. Recovery on go-sdk
+//     v1.7.0 is a full reconnect: Unsubscribe (like any canceled
+//     in-flight call) emits a notifications/cancelled POST missing the
+//     _meta protocolVersion the 2026-07-28 protocol requires, the
+//     server rejects it, and the client hard-fails the whole session —
+//     so close the ClientSession, Connect a fresh one (any replica
+//     answers), re-Subscribe every URI, and re-read to reconcile.
 //   - SubscribeHandler / UnsubscribeHandler fire per URI exactly as in
 //     the legacy modes — `subscriptions/listen` routes through the same
 //     gate — so ACL checks carry over unchanged.

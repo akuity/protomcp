@@ -136,6 +136,9 @@ func run(ctx context.Context, addr string, heartbeat time.Duration) error {
 	hb := newWatchHeartbeat()
 	srv := newStatelessServer(grpcClient,
 		func(_ context.Context, req *mcp.SubscribeRequest) error {
+			if err := rejectRequestScopedSubscribe(req); err != nil {
+				return err
+			}
 			hb.subscribed(req.Params.URI)
 			return nil
 		},
@@ -191,6 +194,19 @@ func run(ctx context.Context, addr string, heartbeat time.Duration) error {
 	}
 }
 
+// rejectRequestScopedSubscribe refuses a legacy resources/subscribe on this
+// stateless server: the ephemeral per-POST session dies with the response, so
+// the subscription could never deliver — and go-sdk tears such sessions down
+// without firing UnsubscribeHandler (v1.7.0 server.go disconnect), which
+// would leak watchHeartbeat's refcount. Subscriptions established via
+// subscriptions/listen carry the SEP-2575 _meta protocol version and pass.
+func rejectRequestScopedSubscribe(req *mcp.SubscribeRequest) error {
+	if v, _ := req.Params.GetMeta()[mcp.MetaKeyProtocolVersion].(string); v >= "2026-07-28" {
+		return nil
+	}
+	return fmt.Errorf("stateless server: a resources/subscribe subscription dies with its request; use subscriptions/listen (protocol >= 2026-07-28)")
+}
+
 // watchHeartbeat refcounts watched URIs via the subscribe/unsubscribe gate
 // and touches each one on an interval, so a client can treat a missed
 // heartbeat as its listen stream's death (see the README's liveness section).
@@ -207,6 +223,13 @@ func (h *watchHeartbeat) subscribed(uri string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.watched[uri]++
+}
+
+// count reports uri's current subscriber refcount.
+func (h *watchHeartbeat) count(uri string) int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.watched[uri]
 }
 
 func (h *watchHeartbeat) unsubscribed(uri string) {

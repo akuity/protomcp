@@ -55,6 +55,9 @@ func startHarness(t *testing.T) *harness {
 	}
 	h.srv = newStatelessServer(grpcClient,
 		func(_ context.Context, req *mcp.SubscribeRequest) error {
+			if err := rejectRequestScopedSubscribe(req); err != nil {
+				return err
+			}
 			h.hb.subscribed(req.Params.URI)
 			h.subscribed <- req.Params.URI
 			return nil
@@ -255,6 +258,39 @@ func TestStateless_UnsubscribeTearsDown(t *testing.T) {
 	case uri := <-notif:
 		t.Fatalf("received %q after Unsubscribe", uri)
 	case <-time.After(700 * time.Millisecond):
+	}
+}
+
+// TestStateless_LegacySubscribeDoesNotLeakHeartbeatRef pins the gate's
+// rejection of a legacy resources/subscribe: on this stateless server the
+// per-POST session dies with the response, and go-sdk's session teardown
+// skips UnsubscribeHandler — accepted, the subscribe could never deliver
+// and would leak watchHeartbeat's refcount (+1 with no matching -1).
+func TestStateless_LegacySubscribeDoesNotLeakHeartbeatRef(t *testing.T) {
+	h := startHarness(t)
+	const uri = "tasks://legacy-heartbeat-ref"
+
+	body := `{"jsonrpc":"2.0","id":1,"method":"resources/subscribe","params":{"uri":"` + uri + `"}}`
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, h.url, strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(respBody), `"error"`) {
+		t.Fatalf("legacy resources/subscribe was not rejected: %s", respBody)
+	}
+	if n := h.hb.count(uri); n != 0 {
+		t.Fatalf("heartbeat refcount = %d, want 0", n)
 	}
 }
 

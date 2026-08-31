@@ -218,7 +218,15 @@ holding a listen stream delivers to it. Your `SubscribeHandler` /
 `subscriptions/listen` routes through the same gate — and the push
 side (`ResourceUpdated`) is unchanged; in a multi-replica deployment,
 feed every replica from a shared event source so whichever one holds a
-given stream can deliver.
+given stream can deliver. One asymmetry to guard: a legacy
+`resources/subscribe` also reaches the gate on a stateless server, but
+its per-POST session dies with the response — the subscription could
+never deliver, and go-sdk tears the session down without firing
+`UnsubscribeHandler`, so any gate-side bookkeeping (the demo's
+heartbeat refcount included) leaks +1 with no matching -1. The demo
+rejects such subscribes outright (`rejectRequestScopedSubscribe`):
+only `subscriptions/listen` subscriptions, whose params carry the
+SEP-2575 `_meta` protocol version, are accepted.
 
 **A dropped listen stream is not replaced, and the loss is silent.** On
 go-sdk v1.7.0, streams on this protocol carry no SSE event IDs, and the

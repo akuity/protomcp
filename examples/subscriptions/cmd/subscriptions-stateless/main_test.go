@@ -254,6 +254,81 @@ func TestStateless_UnsubscribeTearsDown(t *testing.T) {
 	}
 }
 
+// TestStateless_UnsubscribeKillsSessionReconnectRecovers pins the
+// recovery story the README documents, in both halves.
+//
+// The poisoning half is a go-sdk v1.7.0 defect: Unsubscribe cancels
+// the per-URI listen call, which makes the client send a
+// notifications/cancelled POST without the _meta protocolVersion the
+// 2026-07-28 protocol requires on every message (cancelCall skips the
+// injectRequestMeta step every other client send performs). The server
+// rejects it (-32602 over HTTP 400) and the client treats the failed
+// send as fatal, permanently failing the whole connection: awaited
+// calls return "connection closed", and a re-Subscribe — dispatched
+// fire-and-forget — vanishes without reaching the server's gate.
+//
+// The recovery half is what works today: replace the session. A fresh
+// Connect negotiates anew (any replica could answer it), re-Subscribe
+// reaches the gate, and delivery resumes.
+//
+// If the poisoning assertions start failing, the upstream defect has
+// been fixed — revisit the README's recovery guidance, because the
+// cheaper per-URI Unsubscribe + Subscribe cycle becomes viable then.
+func TestStateless_UnsubscribeKillsSessionReconnectRecovers(t *testing.T) {
+	ctx := context.Background()
+	h := startHarness(t)
+
+	notif := make(chan string, 16)
+	cs := h.connect(ctx, t, notif)
+
+	task := h.createTask(ctx, t, "reconnect-recovery")
+	uri := "tasks://" + task.Id
+
+	if err := cs.Subscribe(ctx, &mcp.SubscribeParams{URI: uri}); err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	waitForURI(t, h.subscribed, uri, "SubscribeHandler (initial)")
+	h.mutateUntilNotified(ctx, t, task, notif)
+
+	if err := cs.Unsubscribe(ctx, &mcp.UnsubscribeParams{URI: uri}); err != nil {
+		t.Fatalf("Unsubscribe: %v", err)
+	}
+	waitForURI(t, h.unsubscribed, uri, "UnsubscribeHandler")
+
+	// The cancelled notification goes out asynchronously; poll until
+	// its rejection has latched the client connection into failure.
+	deadline := time.After(5 * time.Second)
+	for {
+		if _, err := cs.ListResources(ctx, &mcp.ListResourcesParams{}); err != nil {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatal("session survived Unsubscribe: the upstream cancelled-notification defect appears fixed — revisit the README recovery guidance and this test")
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+
+	// A re-Subscribe on the poisoned session is dispatched into the
+	// failed connection and must not reach the server's gate.
+	_ = cs.Subscribe(ctx, &mcp.SubscribeParams{URI: uri})
+	select {
+	case got := <-h.subscribed:
+		t.Fatalf("SubscribeHandler fired for %q on a poisoned session", got)
+	case <-time.After(700 * time.Millisecond):
+	}
+
+	// Recovery: a fresh session against the same server — nothing
+	// server-side needs cleaning up.
+	notif2 := make(chan string, 16)
+	cs2 := h.connect(ctx, t, notif2)
+	if err := cs2.Subscribe(ctx, &mcp.SubscribeParams{URI: uri}); err != nil {
+		t.Fatalf("Subscribe (fresh session): %v", err)
+	}
+	waitForURI(t, h.subscribed, uri, "SubscribeHandler (fresh session)")
+	h.mutateUntilNotified(ctx, t, task, notif2)
+}
+
 // TestStateless_CancellationPropagatesToHandler proves
 // PropagateRequestCancellation: aborting the HTTP request mid-call
 // cancels the in-flight handler context instead of letting the handler

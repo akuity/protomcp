@@ -23,7 +23,7 @@
 //     must touch every watched URI on an interval — this binary does,
 //     via watchHeartbeat (-heartbeat, default 30s). Recovery on go-sdk
 //     v1.7.0 is a full reconnect: Unsubscribe (like any canceled
-//     in-flight call) emits a notifications/cancelled POST missing the
+//     in-flight call) emits a cancellation notification missing the
 //     _meta protocolVersion the 2026-07-28 protocol requires, the
 //     server rejects it, and the client hard-fails the whole session —
 //     so close the ClientSession, Connect a fresh one (any replica
@@ -136,13 +136,16 @@ func run(ctx context.Context, addr string, heartbeat time.Duration) error {
 	hb := newWatchHeartbeat()
 	srv := newStatelessServer(grpcClient,
 		func(_ context.Context, req *mcp.SubscribeRequest) error {
-			if err := rejectRequestScopedSubscribe(req); err != nil {
+			if err := requireListenScopedSubscription(req.Params.GetMeta(), "resources/subscribe"); err != nil {
 				return err
 			}
 			hb.subscribed(req.Params.URI)
 			return nil
 		},
 		func(_ context.Context, req *mcp.UnsubscribeRequest) error {
+			if err := requireListenScopedSubscription(req.Params.GetMeta(), "resources/unsubscribe"); err != nil {
+				return err
+			}
 			hb.unsubscribed(req.Params.URI)
 			return nil
 		},
@@ -194,17 +197,15 @@ func run(ctx context.Context, addr string, heartbeat time.Duration) error {
 	}
 }
 
-// rejectRequestScopedSubscribe refuses a legacy resources/subscribe on this
-// stateless server: the ephemeral per-POST session dies with the response, so
-// the subscription could never deliver — and go-sdk tears such sessions down
-// without firing UnsubscribeHandler (v1.7.0 server.go disconnect), which
-// would leak watchHeartbeat's refcount. Subscriptions established via
-// subscriptions/listen carry the SEP-2575 _meta protocol version and pass.
-func rejectRequestScopedSubscribe(req *mcp.SubscribeRequest) error {
-	if v, _ := req.Params.GetMeta()[mcp.MetaKeyProtocolVersion].(string); v >= "2026-07-28" {
+// requireListenScopedSubscription refuses legacy subscription lifecycle RPCs
+// on this stateless server: the ephemeral per-POST session dies with the
+// response, so it cannot own or release a durable subscription. Modern
+// subscriptions/listen handlers carry the SEP-2575 _meta protocol version.
+func requireListenScopedSubscription(meta mcp.Meta, method string) error {
+	if v, _ := meta[mcp.MetaKeyProtocolVersion].(string); v >= "2026-07-28" {
 		return nil
 	}
-	return fmt.Errorf("stateless server: a resources/subscribe subscription dies with its request; use subscriptions/listen (protocol >= 2026-07-28)")
+	return fmt.Errorf("stateless server: %s is request-scoped and cannot manage a durable subscription; use subscriptions/listen (protocol >= 2026-07-28)", method)
 }
 
 // watchHeartbeat refcounts watched URIs via the subscribe/unsubscribe gate

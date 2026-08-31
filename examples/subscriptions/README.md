@@ -224,9 +224,10 @@ its per-POST session dies with the response — the subscription could
 never deliver, and go-sdk tears the session down without firing
 `UnsubscribeHandler`, so any gate-side bookkeeping (the demo's
 heartbeat refcount included) leaks +1 with no matching -1. The demo
-rejects such subscribes outright (`rejectRequestScopedSubscribe`):
-only `subscriptions/listen` subscriptions, whose params carry the
-SEP-2575 `_meta` protocol version, are accepted.
+rejects those legacy lifecycle RPCs outright
+(`requireListenScopedSubscription`): only `subscriptions/listen`
+subscriptions, whose params carry the SEP-2575 `_meta` protocol version,
+are accepted.
 
 **A dropped listen stream is not replaced, and the loss is silent.** On
 go-sdk v1.7.0, streams on this protocol carry no SSE event IDs, and the

@@ -55,7 +55,7 @@ func startHarness(t *testing.T) *harness {
 	}
 	h.srv = newStatelessServer(grpcClient,
 		func(_ context.Context, req *mcp.SubscribeRequest) error {
-			if err := rejectRequestScopedSubscribe(req); err != nil {
+			if err := requireListenScopedSubscription(req.Params.GetMeta(), "resources/subscribe"); err != nil {
 				return err
 			}
 			h.hb.subscribed(req.Params.URI)
@@ -63,6 +63,9 @@ func startHarness(t *testing.T) *harness {
 			return nil
 		},
 		func(_ context.Context, req *mcp.UnsubscribeRequest) error {
+			if err := requireListenScopedSubscription(req.Params.GetMeta(), "resources/unsubscribe"); err != nil {
+				return err
+			}
 			h.hb.unsubscribed(req.Params.URI)
 			h.unsubscribed <- req.Params.URI
 			return nil
@@ -152,6 +155,27 @@ func waitForURI(t *testing.T, ch <-chan string, want, what string) {
 	case <-time.After(5 * time.Second):
 		t.Fatalf("%s did not fire for %q within 5s", what, want)
 	}
+}
+
+func postLegacySubscriptionRPC(t *testing.T, h *harness, method, uri string) []byte {
+	t.Helper()
+	body := `{"jsonrpc":"2.0","id":1,"method":"` + method + `","params":{"uri":"` + uri + `"}}`
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, h.url, strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return respBody
 }
 
 // TestStateless_ToolCallsOnModernProtocol pins the baseline: a v1.7.0
@@ -270,27 +294,38 @@ func TestStateless_LegacySubscribeDoesNotLeakHeartbeatRef(t *testing.T) {
 	h := startHarness(t)
 	const uri = "tasks://legacy-heartbeat-ref"
 
-	body := `{"jsonrpc":"2.0","id":1,"method":"resources/subscribe","params":{"uri":"` + uri + `"}}`
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, h.url, strings.NewReader(body))
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json, text/event-stream")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
+	respBody := postLegacySubscriptionRPC(t, h, "resources/subscribe", uri)
 	if !strings.Contains(string(respBody), `"error"`) {
 		t.Fatalf("legacy resources/subscribe was not rejected: %s", respBody)
 	}
 	if n := h.hb.count(uri); n != 0 {
 		t.Fatalf("heartbeat refcount = %d, want 0", n)
+	}
+}
+
+// TestStateless_LegacyUnsubscribeDoesNotRemoveModernHeartbeatRef proves that
+// an ephemeral legacy session cannot release another session's durable listen
+// subscription and disable its heartbeat.
+func TestStateless_LegacyUnsubscribeDoesNotRemoveModernHeartbeatRef(t *testing.T) {
+	h := startHarness(t)
+	ctx := context.Background()
+	cs := h.connect(ctx, t, nil)
+	const uri = "tasks://modern-heartbeat-ref"
+
+	if err := cs.Subscribe(ctx, &mcp.SubscribeParams{URI: uri}); err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	waitForURI(t, h.subscribed, uri, "modern SubscribeHandler")
+	if n := h.hb.count(uri); n != 1 {
+		t.Fatalf("heartbeat refcount before legacy unsubscribe = %d, want 1", n)
+	}
+
+	respBody := postLegacySubscriptionRPC(t, h, "resources/unsubscribe", uri)
+	if !strings.Contains(string(respBody), `"error"`) {
+		t.Fatalf("legacy resources/unsubscribe was not rejected: %s", respBody)
+	}
+	if n := h.hb.count(uri); n != 1 {
+		t.Fatalf("heartbeat refcount after legacy unsubscribe = %d, want 1", n)
 	}
 }
 
@@ -335,7 +370,7 @@ func TestStateless_HeartbeatDeliversWithoutMutation(t *testing.T) {
 //
 // The poisoning half is a go-sdk v1.7.0 defect: Unsubscribe cancels
 // the per-URI listen call, which makes the client send a
-// notifications/cancelled POST without the _meta protocolVersion the
+// cancellation notification without the _meta protocolVersion the
 // 2026-07-28 protocol requires on every message (cancelCall skips the
 // injectRequestMeta step every other client send performs). The server
 // rejects it (-32602 over HTTP 400) and the client treats the failed
@@ -371,7 +406,7 @@ func TestStateless_UnsubscribeKillsSessionReconnectRecovers(t *testing.T) {
 	}
 	waitForURI(t, h.unsubscribed, uri, "UnsubscribeHandler")
 
-	// The cancelled notification goes out asynchronously; poll until
+	// The cancellation notification goes out asynchronously; poll until
 	// its rejection has latched the client connection into failure.
 	deadline := time.After(5 * time.Second)
 	for {
@@ -380,7 +415,7 @@ func TestStateless_UnsubscribeKillsSessionReconnectRecovers(t *testing.T) {
 		}
 		select {
 		case <-deadline:
-			t.Fatal("session survived Unsubscribe: the upstream cancelled-notification defect appears fixed — revisit the README recovery guidance and this test")
+			t.Fatal("session survived Unsubscribe: the upstream cancellation-notification defect appears fixed — revisit the README recovery guidance and this test")
 		case <-time.After(100 * time.Millisecond):
 		}
 	}

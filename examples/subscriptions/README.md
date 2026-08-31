@@ -195,6 +195,100 @@ resources push from internal code and others need an external watch.
 Return `nil` for push-path URIs (no-op) and open the external watch
 only for URIs that need it.
 
+## Serving stateless (protocol ≥ 2026-07-28, no session affinity)
+
+`cmd/subscriptions-stateless` runs the same subscription wiring with
+
+```go
+protomcp.WithHTTPOptions(&mcp.StreamableHTTPOptions{
+    Stateless:                    true,
+    PropagateRequestCancellation: true,
+})
+```
+
+Stateless mode is the shape for horizontally scaled servers behind a
+plain round-robin load balancer — and it is the only mode in which the
+Go SDK speaks protocol revision 2026-07-28, where `resources/subscribe`
+is replaced by `subscriptions/listen`: one long-lived POST whose
+response stream carries the notifications. Subscription state lives on
+that connection, not in a server-side session map, so no affinity
+mechanism is needed: any replica can serve any request, and the replica
+holding a listen stream delivers to it. Your `SubscribeHandler` /
+`UnsubscribeHandler` fire per URI exactly as in the other patterns —
+`subscriptions/listen` routes through the same gate — and the push
+side (`ResourceUpdated`) is unchanged; in a multi-replica deployment,
+feed every replica from a shared event source so whichever one holds a
+given stream can deliver. One asymmetry to guard: a legacy
+`resources/subscribe` also reaches the gate on a stateless server, but
+its per-POST session dies with the response — the subscription could
+never deliver, and go-sdk tears the session down without firing
+`UnsubscribeHandler`, so any gate-side bookkeeping (the demo's
+heartbeat refcount included) leaks +1 with no matching -1. The demo
+rejects those legacy lifecycle RPCs outright
+(`requireListenScopedSubscription`): only `subscriptions/listen`
+subscriptions, whose params carry the SEP-2575 `_meta` protocol version,
+are accepted.
+
+**A dropped listen stream is not replaced, and the loss is silent.** On
+go-sdk v1.7.0, streams on this protocol carry no SSE event IDs, and the
+client abandons a POST stream whose connection dies without one instead
+of retrying it; because `subscriptions/listen` is dispatched
+fire-and-forget, the synthesized `request terminated without response`
+error is discarded, so no error surfaces to the application. A later
+`ClientSession.Subscribe` for the same URI is a no-op while the client
+still believes it is subscribed (and a `Subscribe` whose initial listen
+call fails leaves the same stale entry behind), so a dead subscription
+cannot be repaired in place by subscribing again.
+
+Detection has to ride each watched URI's own stream:
+`ClientSession.Subscribe` opens a separate `subscriptions/listen` POST
+per URI, so a dedicated heartbeat resource attests only its own stream
+and can keep beating while the stream for the URI you actually watch
+is already dead. To notice a dead stream, have the server emit a
+periodic update for every watched URI and treat a missed heartbeat as
+that stream's death — at the cost of one update (and, since a
+heartbeat is indistinguishable from a real change, one re-read) per
+URI per interval. The stateless demo implements this: `watchHeartbeat`
+refcounts watched URIs from the subscribe/unsubscribe gate and touches
+each one on the `-heartbeat` interval (default 30s, `0` disables). Periodic re-reads of the watched resource remain a
+reconciliation fallback, not a liveness check: each read is its own
+stateless POST and succeeds whether or not the listen stream is alive,
+so polling bounds how stale a client can silently become, but an
+unchanged resource reveals nothing and a dead stream goes undetected.
+
+Recovery is session-scoped on go-sdk v1.7.0. The natural per-URI cycle
+— `Unsubscribe` to clear the client-side entry, then a fresh
+`Subscribe` — does not survive contact with the implementation:
+canceling the listen call makes the client send a
+`notifications/cancelled` POST without the
+`_meta["io.modelcontextprotocol/protocolVersion"]` the 2026-07-28
+protocol requires on every message (`cancelCall` skips the
+`injectRequestMeta` step every other client send performs), the server
+rejects it (`-32602` over HTTP 400), and the client treats the failed
+send as fatal and permanently fails the connection. From that point
+every awaited call returns `connection closed` and every
+fire-and-forget send — a re-`Subscribe` included — vanishes silently;
+canceling any in-flight request poisons the session through the same
+path. Until that is fixed upstream, recover by replacing the session:
+close the poisoned `ClientSession`, `Connect` a fresh one (any replica
+answers), re-`Subscribe` every watched URI, and re-read each one to
+reconcile updates missed while dark. The e2e suite pins both halves —
+the poisoning and the reconnect recovery.
+
+`PropagateRequestCancellation` ties each in-flight handler context to
+its HTTP request, so a client that goes away mid-call cancels the
+handler instead of leaving it running for nobody. (The SDK forces this
+on for `subscriptions/listen` requests regardless — a listen handler
+blocks until its request ends.)
+
+The e2e suite in `cmd/subscriptions-stateless/main_test.go` pins the
+whole contract: 2026-07-28 negotiated over plain HTTP, listen-based
+delivery to concurrent clients, unsubscribe teardown, heartbeats
+arriving with no mutation at all, the Unsubscribe poisoning and its
+reconnect recovery, handler cancellation on request abort, and the
+same endpoint still answering a classic `initialize` from pre-2026
+clients.
+
 ## Running the demos
 
 ```shell
@@ -203,6 +297,11 @@ go run ./examples/subscriptions/cmd/subscriptions-simple -addr :8080
 
 # Pattern B: watch stream + authz (requires a bearer token)
 go run ./examples/subscriptions/cmd/subscriptions -addr :8080
+
+# Stateless: same push wiring, Stateless + PropagateRequestCancellation,
+# subscriptions arrive via subscriptions/listen (protocol >= 2026-07-28);
+# -heartbeat touches every watched URI on an interval for stream liveness
+go run ./examples/subscriptions/cmd/subscriptions-stateless -addr :8080 -heartbeat 30s
 ```
 
 Point any MCP client at `http://localhost:8080`. For Pattern B,

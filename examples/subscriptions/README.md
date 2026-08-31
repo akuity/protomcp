@@ -239,7 +239,9 @@ is already dead. To notice a dead stream, have the server emit a
 periodic update for every watched URI and treat a missed heartbeat as
 that stream's death — at the cost of one update (and, since a
 heartbeat is indistinguishable from a real change, one re-read) per
-URI per interval. Periodic re-reads of the watched resource remain a
+URI per interval. The stateless demo implements this: `watchHeartbeat`
+refcounts watched URIs from the subscribe/unsubscribe gate and touches
+each one on the `-heartbeat` interval (default 30s, `0` disables). Periodic re-reads of the watched resource remain a
 reconciliation fallback, not a liveness check: each read is its own
 stateless POST and succeeds whether or not the listen stream is alive,
 so polling bounds how stale a client can silently become, but an
@@ -272,9 +274,11 @@ blocks until its request ends.)
 
 The e2e suite in `cmd/subscriptions-stateless/main_test.go` pins the
 whole contract: 2026-07-28 negotiated over plain HTTP, listen-based
-delivery to concurrent clients, unsubscribe teardown, handler
-cancellation on request abort, and the same endpoint still answering a
-classic `initialize` from pre-2026 clients.
+delivery to concurrent clients, unsubscribe teardown, heartbeats
+arriving with no mutation at all, the Unsubscribe poisoning and its
+reconnect recovery, handler cancellation on request abort, and the
+same endpoint still answering a classic `initialize` from pre-2026
+clients.
 
 ## Running the demos
 
@@ -286,8 +290,9 @@ go run ./examples/subscriptions/cmd/subscriptions-simple -addr :8080
 go run ./examples/subscriptions/cmd/subscriptions -addr :8080
 
 # Stateless: same push wiring, Stateless + PropagateRequestCancellation,
-# subscriptions arrive via subscriptions/listen (protocol >= 2026-07-28)
-go run ./examples/subscriptions/cmd/subscriptions-stateless -addr :8080
+# subscriptions arrive via subscriptions/listen (protocol >= 2026-07-28);
+# -heartbeat touches every watched URI on an interval for stream liveness
+go run ./examples/subscriptions/cmd/subscriptions-stateless -addr :8080 -heartbeat 30s
 ```
 
 Point any MCP client at `http://localhost:8080`. For Pattern B,

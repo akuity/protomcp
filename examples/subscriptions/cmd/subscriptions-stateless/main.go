@@ -20,7 +20,8 @@
 //     the client still thinks it is subscribed. Each Subscribe opens
 //     its own per-URI listen stream, so a separate heartbeat resource
 //     attests only its own stream: to detect a dead stream, the server
-//     must touch every watched URI on an interval. Recovery on go-sdk
+//     must touch every watched URI on an interval — this binary does,
+//     via watchHeartbeat (-heartbeat, default 30s). Recovery on go-sdk
 //     v1.7.0 is a full reconnect: Unsubscribe (like any canceled
 //     in-flight call) emits a notifications/cancelled POST missing the
 //     _meta protocolVersion the 2026-07-28 protocol requires, the
@@ -46,6 +47,7 @@
 //
 //	go run ./examples/subscriptions/cmd/subscriptions-stateless            # listens on 127.0.0.1:8080
 //	go run ./examples/subscriptions/cmd/subscriptions-stateless -addr :9000
+//	go run ./examples/subscriptions/cmd/subscriptions-stateless -heartbeat 5s  # faster liveness beats
 package main
 
 import (
@@ -58,6 +60,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -72,10 +75,12 @@ import (
 
 func main() {
 	addr := flag.String("addr", "127.0.0.1:8080", "HTTP listen address for the MCP server")
+	heartbeat := flag.Duration("heartbeat", 30*time.Second,
+		"interval for touching every watched URI so clients can detect a dead listen stream (0 disables)")
 	flag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	err := run(ctx, *addr)
+	err := run(ctx, *addr, *heartbeat)
 	stop()
 	if err != nil {
 		log.Fatalf("subscriptions-stateless: %v", err)
@@ -114,7 +119,7 @@ func newStatelessServer(
 	return srv
 }
 
-func run(ctx context.Context, addr string) error {
+func run(ctx context.Context, addr string, heartbeat time.Duration) error {
 	// 1. Start the Tasks gRPC service. Its OnChange hook fires on every
 	//    CRUD mutation and becomes our push point below. In a real
 	//    multi-replica deployment this would be a shared event source
@@ -126,8 +131,22 @@ func run(ctx context.Context, addr string) error {
 	}
 	defer shutdownGRPC()
 
-	// 2. Build the stateless MCP server.
-	srv := newStatelessServer(grpcClient, nil, nil)
+	// 2. Build the stateless MCP server. The subscribe/unsubscribe gate
+	//    feeds the heartbeat's refcount of watched URIs.
+	hb := newWatchHeartbeat()
+	srv := newStatelessServer(grpcClient,
+		func(_ context.Context, req *mcp.SubscribeRequest) error {
+			hb.subscribed(req.Params.URI)
+			return nil
+		},
+		func(_ context.Context, req *mcp.UnsubscribeRequest) error {
+			hb.unsubscribed(req.Params.URI)
+			return nil
+		},
+	)
+	if heartbeat > 0 {
+		go hb.run(ctx, srv, heartbeat)
+	}
 
 	// 3. Push path: identical to the stateful examples. The SDK routes
 	//    each ResourceUpdated to whichever live listen streams (or
@@ -149,6 +168,9 @@ func run(ctx context.Context, addr string) error {
 	fmt.Println("  resources: tasks://{id} (read + list + push-on-mutation subscribe via subscriptions/listen)")
 	fmt.Println("  tools:     Tasks_ListTasks, Tasks_GetTask, Tasks_CreateTask,")
 	fmt.Println("             Tasks_UpdateTask, Tasks_DeleteTask")
+	if heartbeat > 0 {
+		fmt.Printf("  heartbeat: every watched URI touched every %s (missed beat = dead stream)\n", heartbeat)
+	}
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -166,6 +188,56 @@ func run(ctx context.Context, addr string) error {
 		return httpSrv.Shutdown(shutdownCtx)
 	case sErr := <-errCh:
 		return sErr
+	}
+}
+
+// watchHeartbeat refcounts watched URIs via the subscribe/unsubscribe gate
+// and touches each one on an interval, so a client can treat a missed
+// heartbeat as its listen stream's death (see the README's liveness section).
+type watchHeartbeat struct {
+	mu      sync.Mutex
+	watched map[string]int // URI -> subscriber count
+}
+
+func newWatchHeartbeat() *watchHeartbeat {
+	return &watchHeartbeat{watched: map[string]int{}}
+}
+
+func (h *watchHeartbeat) subscribed(uri string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.watched[uri]++
+}
+
+func (h *watchHeartbeat) unsubscribed(uri string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.watched[uri]--; h.watched[uri] <= 0 {
+		delete(h.watched, uri)
+	}
+}
+
+// run touches every watched URI once per interval until ctx ends.
+func (h *watchHeartbeat) run(ctx context.Context, srv *protomcp.Server, interval time.Duration) {
+	tick := time.NewTicker(interval)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+			h.mu.Lock()
+			uris := make([]string, 0, len(h.watched))
+			for uri := range h.watched {
+				uris = append(uris, uri)
+			}
+			h.mu.Unlock()
+			for _, uri := range uris {
+				if err := srv.SDK().ResourceUpdated(ctx, &mcp.ResourceUpdatedNotificationParams{URI: uri}); err != nil {
+					log.Printf("heartbeat %s: %v", uri, err)
+				}
+			}
+		}
 	}
 }
 

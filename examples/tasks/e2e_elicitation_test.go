@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os/exec"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -205,11 +206,12 @@ func TestDeleteTask_ElicitationReusedParamsRePrompts(t *testing.T) {
 // into the caller's params, the replay arrives with no answer, and the
 // gate re-prompts. go-sdk <= v1.7.0 instead leaves the fulfilled answer
 // and matching state on the caller's struct
-// (modelcontextprotocol/go-sdk#1144), so the replay skips the prompt;
-// on such SDKs this test detects the mutation and skips. Once the
-// pinned go-sdk contains the fix (modelcontextprotocol/go-sdk#1145),
-// the skip never triggers — turn it into a hard failure then, so an
-// SDK regression cannot silently reopen the replay window.
+// (modelcontextprotocol/go-sdk#1144), so the replay skips the prompt.
+// On detecting the mutation this test skips — but the skip is locked
+// to the audited go-sdk v1.7.0 pin: on any other version the same
+// detection is a hard failure, so a pin bump either enforces the
+// re-prompt (SDK fixed by modelcontextprotocol/go-sdk#1145) or fails
+// loudly (still broken) instead of skipping.
 func TestDeleteTask_ElicitationIdenticalReplayRePrompts(t *testing.T) {
 	ctx := context.Background()
 	grpcClient := startGRPC(t)
@@ -243,7 +245,11 @@ func TestDeleteTask_ElicitationIdenticalReplayRePrompts(t *testing.T) {
 	}
 
 	if params.RequestState != "" || params.InputResponses != nil {
-		t.Skipf("go-sdk left multi-round-trip state on caller params (modelcontextprotocol/go-sdk#1144, fixed by #1145): a byte-identical replay would skip the prompt until the fixed SDK is pinned")
+		if v := goSDKVersion(t); v == "v1.7.0" {
+			t.Skipf("go-sdk %s leaves multi-round-trip state on caller params (modelcontextprotocol/go-sdk#1144, fixed by #1145): a byte-identical replay would skip the prompt; skip locked to this exact version", v)
+		} else {
+			t.Fatalf("go-sdk %s still leaves multi-round-trip state on caller params (modelcontextprotocol/go-sdk#1144): the replay window is open on a version other than the audited v1.7.0 — hold the bump for a release containing modelcontextprotocol/go-sdk#1145, or re-lock deliberately", v)
+		}
 	}
 
 	// Replay the SAME struct, byte-identical arguments included.
@@ -257,6 +263,20 @@ func TestDeleteTask_ElicitationIdenticalReplayRePrompts(t *testing.T) {
 	if !out.IsError {
 		t.Errorf("replayed Delete: want IsError (user declined the re-prompt), got success: %+v", out)
 	}
+}
+
+// goSDKVersion returns the go-sdk module version the build resolves
+// (the replace target's version when a replace is in effect). Test
+// binaries embed no module dep info, so ask the go tool.
+func goSDKVersion(t *testing.T) string {
+	t.Helper()
+	out, err := exec.CommandContext(t.Context(), "go", "list", "-m", "-f",
+		"{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}",
+		"github.com/modelcontextprotocol/go-sdk").Output()
+	if err != nil {
+		t.Fatalf("resolving go-sdk version: %v", err)
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // TestDeleteTask_ElicitationPrePopulatedAnswerRePrompts asserts that an

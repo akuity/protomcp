@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package protomcp.gen.testdata.badoutputexclusionservice.v1;
+
+import "bad_output_exclusion_dep.proto";
+import "protomcp/v1/annotations.proto";
+
+option go_package = "github.com/akuity/protomcp/internal/gen/testdata/badoutputexclusionservice;badoutputexclusionservicev1";
+
+service Widgets {
+  rpc ListWidgets(ListWidgetsRequest) returns (ListWidgetsReply) {
+    option (protomcp.v1.tool) = {
+      read_only: true
+    };
+  }
+}
+
+message ListWidgetsRequest {
+  string filter = 1;
+}
+
+message ListWidgetsReply {
+  repeated protomcp.gen.testdata.badoutputexclusiondep.v1.Widget widgets = 1;
+}

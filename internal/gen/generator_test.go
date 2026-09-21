@@ -360,6 +360,59 @@ func TestGenerate_OutputExclusions(t *testing.T) {
 	}
 }
 
+// TestGenerate_OutputExclusionsAcrossFiles covers generation split by
+// directory, where the plugin sees a file and its imports but never the
+// files importing it. Generating the message file alone must not read
+// an entry naming a service it cannot see as a mistake.
+func TestGenerate_OutputExclusionsAcrossFiles(t *testing.T) {
+	t.Run("message file alone", func(t *testing.T) {
+		out, err := runGenerateIsolated(t, "output_exclusions_shared.proto")
+		if err != nil {
+			t.Fatalf("generating the message file on its own failed: %v", err)
+		}
+		if out != "" {
+			t.Errorf("a file with no annotated RPC must emit nothing, got:\n%s", out)
+		}
+	})
+
+	t.Run("service file with the message file as an import", func(t *testing.T) {
+		out, err := runGenerateIsolated(t, "output_exclusions_split.proto")
+		if err != nil {
+			t.Fatalf("generating the service file failed: %v", err)
+		}
+		const listRPC = "protomcp.gen.testdata.outputexclusionssplit.v1.Catalog.ListProducts"
+		if !strings.Contains(out, `MarshalProtoMaskedFor(resp, "`+listRPC+`")`) {
+			t.Errorf("the list tool does not mask for its own RPC\n--- file ---\n%s", out)
+		}
+		if strings.Contains(schemaLiteral(t, out, "_Catalog_ListProducts_OutputSchema"), "reviews") {
+			t.Error("an imported field that opts out of this RPC is still in its output schema")
+		}
+		if !strings.Contains(schemaLiteral(t, out, "_Catalog_GetProduct_OutputSchema"), "reviews") {
+			t.Error("the detail tool lost an imported field that never opted out of it")
+		}
+	})
+}
+
+// TestGenerate_BadOutputExclusionInImportedFile pins the other half of
+// the same boundary: an entry in an imported message is checked while
+// generating the service that reaches it, so the typo guard does not
+// depend on which file generation was pointed at.
+func TestGenerate_BadOutputExclusionInImportedFile(t *testing.T) {
+	_, err := runGenerateIsolated(t, "bad_output_exclusion_service.proto")
+	if err == nil {
+		t.Fatal("want error, got nil")
+	}
+	for _, want := range []string{
+		"Widget.notes",
+		"Widgets.ListWidget",
+		"not an RPC annotated with protomcp.v1.tool",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q\nerror: %v", want, err)
+		}
+	}
+}
+
 func TestGenerate_BadOutputExclusionUnknownRPC(t *testing.T) {
 	err := runGenerateExpectError(t, "bad_output_exclusion_unknown.proto")
 	if err == nil {
@@ -1113,4 +1166,64 @@ func buildGenRequest(t *testing.T, target string) *pluginpb.CodeGeneratorRequest
 			Patch: proto.Int32(12),
 		},
 	}
+}
+
+// buildIsolatedGenRequest is buildGenRequest narrowed to target and its
+// transitive imports, which is what a plugin receives when protoc is
+// invoked per directory (buf's default strategy for local plugins).
+// Files that import target are absent, so a request built this way is
+// the one that catches assumptions about seeing the whole module.
+func buildIsolatedGenRequest(t *testing.T, target string) *pluginpb.CodeGeneratorRequest {
+	t.Helper()
+
+	req := buildGenRequest(t, target)
+	byName := map[string]*descriptorpb.FileDescriptorProto{}
+	for _, f := range req.ProtoFile {
+		byName[f.GetName()] = f
+	}
+
+	keep := map[string]bool{}
+	var walk func(name string)
+	walk = func(name string) {
+		if keep[name] {
+			return
+		}
+		f, ok := byName[name]
+		if !ok {
+			t.Fatalf("fixture %q references missing file %q", target, name)
+		}
+		keep[name] = true
+		for _, dep := range f.GetDependency() {
+			walk(dep)
+		}
+	}
+	walk(target)
+
+	closure := make([]*descriptorpb.FileDescriptorProto, 0, len(keep))
+	for _, f := range req.ProtoFile {
+		if keep[f.GetName()] {
+			closure = append(closure, f)
+		}
+	}
+	req.ProtoFile = closure
+	return req
+}
+
+func runGenerateIsolated(t *testing.T, protoName string) (string, error) {
+	t.Helper()
+	plugin, err := protogen.Options{}.New(buildIsolatedGenRequest(t, protoName))
+	if err != nil {
+		t.Fatalf("protogen.New: %v", err)
+	}
+	if genErr := Generate(plugin); genErr != nil {
+		return "", genErr
+	}
+	resp := plugin.Response()
+	if resp.Error != nil {
+		return "", fmt.Errorf("%s", *resp.Error)
+	}
+	if len(resp.File) == 0 {
+		return "", nil
+	}
+	return resp.File[0].GetContent(), nil
 }

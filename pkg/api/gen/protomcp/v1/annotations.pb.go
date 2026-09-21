@@ -28,19 +28,15 @@ type FieldSchemaOptions struct {
 	// Required adds the field to the generated MCP JSON Schema's
 	// `required` array without changing the protobuf or OpenAPI contract.
 	Required bool `protobuf:"varint,2,opt,name=required,proto3" json:"required,omitempty"`
-	// Fully-qualified names (package.Service.Method) of RPCs whose tool
-	// output omits this field, from both the generated output schema and
-	// the serialized response. Every other RPC keeps it, so a list RPC
-	// can drop a heavy field that the matching detail RPC still returns;
-	// exclude, by contrast, hides the field on every surface. Applies to
-	// outputs only.
+	// Fully-qualified RPC names (package.Service.Method) whose MCP tool
+	// output omits this field, from both the output schema and the JSON
+	// response, so a list RPC can drop a heavy field that the matching
+	// detail RPC still returns. Inputs and other MCP primitives are
+	// unaffected; exclude still applies.
 	//
-	// Each name must resolve, within one generation run, to an RPC that
-	// carries protomcp.v1.tool; anything else is a generation error. A
-	// run sees the files it generates and their imports, so declare the
-	// field in the same file as the RPC, or generate the module in a
-	// single run (buf: strategy: all) when the message lives in a file
-	// the service imports.
+	// Each name must resolve to a tool RPC in the generation request.
+	// Include every referenced service when generating; with Buf,
+	// strategy: all covers services declared in other directories.
 	ExcludeFromOutputs []string `protobuf:"bytes,3,rep,name=exclude_from_outputs,json=excludeFromOutputs,proto3" json:"exclude_from_outputs,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache

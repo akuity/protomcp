@@ -87,7 +87,7 @@
 					return nil, rErr
 				}
 {{- if .OutputHasExcluded}}
-				payload, mErr := srv.MarshalProtoMaskedFor(msg, {{printf "%q" .RPCFullName}})
+				payload, mErr := srv.MarshalProtoMaskedForRPC(msg, {{printf "%q" .RPCFullName}})
 {{- else}}
 				payload, mErr := srv.MarshalProto(msg)
 {{- end}}
@@ -138,7 +138,7 @@
 			}
 			g.Output = resp
 {{- if .OutputHasExcluded}}
-			outBytes, err := srv.MarshalProtoMaskedFor(resp, {{printf "%q" .RPCFullName}})
+			outBytes, err := srv.MarshalProtoMaskedForRPC(resp, {{printf "%q" .RPCFullName}})
 {{- else}}
 			outBytes, err := srv.MarshalProto(resp)
 {{- end}}

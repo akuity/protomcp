@@ -254,7 +254,7 @@ func RegisterGreeterMCPTools(srv *protomcp.Server, client GreeterClient) {
 				return nil, err
 			}
 			g.Output = resp
-			outBytes, err := srv.MarshalProtoMaskedFor(resp, "protomcp.examples.greeter.v1.Greeter.EchoComplex")
+			outBytes, err := srv.MarshalProtoMaskedForRPC(resp, "protomcp.examples.greeter.v1.Greeter.EchoComplex")
 			if err != nil {
 				return nil, err
 			}

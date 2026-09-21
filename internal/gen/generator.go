@@ -641,7 +641,7 @@ func buildToolTemplateData(
 	baseVar := "_" + svc.GoName + "_" + m.GoName
 
 	rpc := string(m.Desc.FullName())
-	schemaOpts := schema.Options{MaxRecursionDepth: opts.MaxRecursionDepth, RPC: rpc}
+	schemaOpts := schema.Options{MaxRecursionDepth: opts.MaxRecursionDepth, RPCFullName: rpc}
 
 	inSchema, err := schema.ForInputE(m.Input.Desc, schemaOpts)
 	if err != nil {

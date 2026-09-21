@@ -260,11 +260,11 @@ func TestGenerate_Slim(t *testing.T) {
 	if got := strings.Count(out, "ClearSchemaExcluded(&in)"); got != 2 {
 		t.Errorf("ClearSchemaExcluded(&in) emitted %d times, want 2 (the two tools)", got)
 	}
-	if got := strings.Count(out, "MarshalProtoMaskedFor(resp, "); got != 1 {
-		t.Errorf("MarshalProtoMaskedFor(resp, ...) emitted %d times, want 1 (unary tool)\n--- file ---\n%s", got, out)
+	if got := strings.Count(out, "MarshalProtoMaskedForRPC(resp, "); got != 1 {
+		t.Errorf("MarshalProtoMaskedForRPC(resp, ...) emitted %d times, want 1 (unary tool)\n--- file ---\n%s", got, out)
 	}
-	if got := strings.Count(out, "MarshalProtoMaskedFor(msg, "); got != 1 {
-		t.Errorf("MarshalProtoMaskedFor(msg, ...) emitted %d times, want 1 (streaming tool)", got)
+	if got := strings.Count(out, "MarshalProtoMaskedForRPC(msg, "); got != 1 {
+		t.Errorf("MarshalProtoMaskedForRPC(msg, ...) emitted %d times, want 1 (streaming tool)", got)
 	}
 	if got := strings.Count(out, "MarshalProtoMasked(resp)"); got != 2 {
 		t.Errorf("MarshalProtoMasked(resp) emitted %d times, want 2 "+
@@ -328,20 +328,18 @@ func TestGenerate_AnyMasking(t *testing.T) {
 
 	cases := []substringCase{
 		{"input containing Any clears excluded fields at runtime", true, "srv.ClearSchemaExcluded(&in)"},
-		{"output containing Any is masked at runtime", true, "MarshalProtoMaskedFor(resp, "},
+		{"output containing Any is masked at runtime", true, "MarshalProtoMaskedForRPC(resp, "},
 	}
 	assertSubstrings(t, out, cases)
 }
 
-// TestGenerate_OutputExclusions pins the property exclude_from_outputs
-// exists for: two RPCs over the same messages, and only the one the
-// field names loses it, from its schema and its payload alike.
+// Two RPCs share the messages; only the one the field names loses it.
 func TestGenerate_OutputExclusions(t *testing.T) {
 	out := runGenerate(t, "output_exclusions.proto")
 	const listRPC = "protomcp.gen.testdata.outputexclusions.v1.Inventory.ListProducts"
 
 	assertSubstrings(t, out, []substringCase{
-		{"list tool masks for its own RPC", true, `MarshalProtoMaskedFor(resp, "` + listRPC + `")`},
+		{"list tool masks for its own RPC", true, `MarshalProtoMaskedForRPC(resp, "` + listRPC + `")`},
 		{"detail tool marshals plainly", true, "MarshalProto(resp)"},
 	})
 	if got := strings.Count(out, "MarshalProto(resp)"); got != 1 {
@@ -360,12 +358,11 @@ func TestGenerate_OutputExclusions(t *testing.T) {
 	}
 }
 
-// TestGenerate_OutputExclusionsAcrossFiles covers generation split by
-// directory, where the plugin sees a file and its imports but never the
-// files importing it. The run that generates the service resolves an
-// entry on an imported message; the run that generates the message file
-// alone cannot, and says what to do about it.
+// Generation split by directory: the plugin sees a file and its imports,
+// never the files importing it.
 func TestGenerate_OutputExclusionsAcrossFiles(t *testing.T) {
+	const listRPC = "protomcp.gen.testdata.outputexclusionssplit.v1.Catalog.ListProducts"
+
 	t.Run("message file alone", func(t *testing.T) {
 		err := runGenerateExpectError(t, "output_exclusions_shared.proto")
 		for _, want := range []string{
@@ -382,8 +379,7 @@ func TestGenerate_OutputExclusionsAcrossFiles(t *testing.T) {
 
 	t.Run("service file with the message file as an import", func(t *testing.T) {
 		out := runGenerate(t, "output_exclusions_split.proto")
-		const listRPC = "protomcp.gen.testdata.outputexclusionssplit.v1.Catalog.ListProducts"
-		if !strings.Contains(out, `MarshalProtoMaskedFor(resp, "`+listRPC+`")`) {
+		if !strings.Contains(out, `MarshalProtoMaskedForRPC(resp, "`+listRPC+`")`) {
 			t.Errorf("the list tool does not mask for its own RPC\n--- file ---\n%s", out)
 		}
 		if strings.Contains(schemaLiteral(t, out, "_Catalog_ListProducts_OutputSchema"), "reviews") {
@@ -393,18 +389,34 @@ func TestGenerate_OutputExclusionsAcrossFiles(t *testing.T) {
 			t.Error("the detail tool lost an imported field that never opted out of it")
 		}
 	})
+
+	t.Run("both files in one request", func(t *testing.T) {
+		out := runGenerateAll(t, "output_exclusions_shared.proto", "output_exclusions_split.proto")
+		if !strings.Contains(out, `MarshalProtoMaskedForRPC(resp, "`+listRPC+`")`) {
+			t.Errorf("the list tool does not mask for its own RPC\n--- files ---\n%s", out)
+		}
+	})
 }
 
-// TestGenerate_BadOutputExclusionInImportedFile pins the other half of
-// the same boundary: an entry in an imported message is checked while
-// generating the service that reaches it, so the typo guard does not
-// depend on which file generation was pointed at.
 func TestGenerate_BadOutputExclusionInImportedFile(t *testing.T) {
 	err := runGenerateExpectError(t, "bad_output_exclusion_service.proto")
 	for _, want := range []string{
 		"Widget.notes",
 		"Widgets.ListWidget",
-		"not an RPC annotated with protomcp.v1.tool",
+		"no matching tool RPC",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q\nerror: %v", want, err)
+		}
+	}
+}
+
+func TestGenerate_BadOutputExclusionUnknownService(t *testing.T) {
+	err := runGenerateExpectError(t, "bad_output_exclusion_unknown_service.proto")
+	for _, want := range []string{
+		"Widget.notes",
+		`"protomcp.gen.testdata.badoutputexclusionunknownservice.v1.Widgetz.ListWidgets"`,
+		"no matching tool RPC",
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error missing %q\nerror: %v", want, err)
@@ -421,7 +433,7 @@ func TestGenerate_BadOutputExclusionUnknownRPC(t *testing.T) {
 		"bad_output_exclusion_unknown.proto",
 		"Widget.notes",
 		`"protomcp.gen.testdata.badoutputexclusionunknown.v1.Widgets.ListWidget"`,
-		"not an RPC annotated with protomcp.v1.tool",
+		"no matching tool RPC",
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error missing %q\nerror: %v", want, err)
@@ -437,7 +449,7 @@ func TestGenerate_BadOutputExclusionNotATool(t *testing.T) {
 	for _, want := range []string{
 		"Widget.notes",
 		"Widgets.Audit",
-		"not an RPC annotated with protomcp.v1.tool",
+		"no matching tool RPC",
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error missing %q\nerror: %v", want, err)
@@ -1133,32 +1145,19 @@ func assertNoAnnotationsInBlock(t *testing.T, out, toolNameMarker string) {
 // generate; all transitively imported files are included as context so
 // protogen can resolve cross-file references.
 func buildGenRequest(t *testing.T, target string) *pluginpb.CodeGeneratorRequest {
+	return buildGenRequestFor(t, target)
+}
+
+// buildGenRequestFor models one generation request: the targets and
+// their transitive imports, in dependency order. Unrelated fixtures
+// would hide references the request cannot resolve.
+func buildGenRequestFor(t *testing.T, targets ...string) *pluginpb.CodeGeneratorRequest {
 	t.Helper()
 
 	var fds descriptorpb.FileDescriptorSet
 	if err := proto.Unmarshal(fixturesBin, &fds); err != nil {
 		t.Fatalf("unmarshal fixtures.binpb: %v", err)
 	}
-
-	// Sanity: target must exist in the set.
-	found := false
-	for _, f := range fds.File {
-		if f.GetName() == target {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatalf("target proto %q not present in fixtures.binpb; regenerate it with "+
-			"protoc --include_source_info --include_imports", target)
-	}
-
-	// ProtoFile carries target and its transitive imports, in dependency
-	// order, which is what protoc hands a plugin: every file the target
-	// references and nothing else. Passing the whole fixture set instead
-	// would hand the plugin files no real invocation puts in front of it,
-	// including the ones that import target, and hide any assumption
-	// about seeing more of a module than one directory.
 	byName := map[string]*descriptorpb.FileDescriptorProto{}
 	for _, f := range fds.File {
 		byName[f.GetName()] = f
@@ -1171,14 +1170,17 @@ func buildGenRequest(t *testing.T, target string) *pluginpb.CodeGeneratorRequest
 		}
 		f, ok := byName[name]
 		if !ok {
-			t.Fatalf("fixture %q references missing file %q", target, name)
+			t.Fatalf("proto %q not present in fixtures.binpb; regenerate it with "+
+				"protoc --include_source_info --include_imports", name)
 		}
 		keep[name] = true
 		for _, dep := range f.GetDependency() {
 			walk(dep)
 		}
 	}
-	walk(target)
+	for _, target := range targets {
+		walk(target)
+	}
 	closure := make([]*descriptorpb.FileDescriptorProto, 0, len(keep))
 	for _, f := range fds.File {
 		if keep[f.GetName()] {
@@ -1187,7 +1189,7 @@ func buildGenRequest(t *testing.T, target string) *pluginpb.CodeGeneratorRequest
 	}
 
 	return &pluginpb.CodeGeneratorRequest{
-		FileToGenerate: []string{target},
+		FileToGenerate: targets,
 		ProtoFile:      closure,
 		CompilerVersion: &pluginpb.Version{
 			Major: proto.Int32(3),
@@ -1195,4 +1197,26 @@ func buildGenRequest(t *testing.T, target string) *pluginpb.CodeGeneratorRequest
 			Patch: proto.Int32(12),
 		},
 	}
+}
+
+// runGenerateAll generates targets in one request, as a whole-module run
+// does, and returns every emitted file joined together.
+func runGenerateAll(t *testing.T, targets ...string) string {
+	t.Helper()
+	plugin, err := protogen.Options{}.New(buildGenRequestFor(t, targets...))
+	if err != nil {
+		t.Fatalf("protogen.New: %v", err)
+	}
+	if err := Generate(plugin); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	resp := plugin.Response()
+	if resp.Error != nil {
+		t.Fatalf("plugin error: %s", *resp.Error)
+	}
+	var out strings.Builder
+	for _, f := range resp.File {
+		out.WriteString(f.GetContent())
+	}
+	return out.String()
 }

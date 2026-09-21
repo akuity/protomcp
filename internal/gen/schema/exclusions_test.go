@@ -71,7 +71,7 @@ func ratingsDescriptor(t *testing.T) protoreflect.MessageDescriptor {
 func TestForOutputOmitsFieldsExcludedFromThisRPC(t *testing.T) {
 	md := ratingsDescriptor(t)
 
-	forList := props(t, jsonRound(t, ForOutput(md, Options{RPC: listRPC})))
+	forList := props(t, jsonRound(t, ForOutput(md, Options{RPCFullName: listRPC})))
 	if _, found := forList["reviews"]; found {
 		t.Error("reviews is still in the output schema of the RPC it opts out of")
 	}
@@ -80,7 +80,7 @@ func TestForOutputOmitsFieldsExcludedFromThisRPC(t *testing.T) {
 	}
 
 	for name, opts := range map[string]Options{
-		"another RPC": {RPC: getRPC},
+		"another RPC": {RPCFullName: getRPC},
 		"no RPC":      {},
 	} {
 		if _, found := props(t, jsonRound(t, ForOutput(md, opts)))["reviews"]; !found {
@@ -93,7 +93,7 @@ func TestForOutputOmitsFieldsExcludedFromThisRPC(t *testing.T) {
 // it shapes what an RPC returns, never what a client may send.
 func TestForInputIgnoresOutputExclusions(t *testing.T) {
 	md := ratingsDescriptor(t)
-	if _, found := props(t, jsonRound(t, ForInput(md, Options{RPC: listRPC})))["reviews"]; !found {
+	if _, found := props(t, jsonRound(t, ForInput(md, Options{RPCFullName: listRPC})))["reviews"]; !found {
 		t.Error("exclude_from_outputs removed a field from an input schema")
 	}
 }

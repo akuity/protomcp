@@ -117,9 +117,9 @@ func newListReply(t *testing.T) proto.Message {
 
 func decodeFor(t *testing.T, srv *protomcp.Server, m proto.Message, rpc string) map[string]any {
 	t.Helper()
-	payload, err := srv.MarshalProtoMaskedFor(m, rpc)
+	payload, err := srv.MarshalProtoMaskedForRPC(m, rpc)
 	if err != nil {
-		t.Fatalf("MarshalProtoMaskedFor(%q): %v", rpc, err)
+		t.Fatalf("MarshalProtoMaskedForRPC(%q): %v", rpc, err)
 	}
 	var decoded map[string]any
 	if err := json.Unmarshal(payload, &decoded); err != nil {
@@ -128,11 +128,9 @@ func decodeFor(t *testing.T, srv *protomcp.Server, m proto.Message, rpc string) 
 	return decoded
 }
 
-// TestMarshalProtoMaskedForDropsKeysNotEmptiesThem is the property the
-// option exists for: under the default EmitDefaultValues a cleared
-// repeated field would come back as [], which reads as "none found"
-// rather than "not returned here". The key itself has to go.
-func TestMarshalProtoMaskedForDropsKeysNotEmptiesThem(t *testing.T) {
+// EmitDefaultValues would restore a cleared repeated field as [].
+// Masking must remove the JSON key as well.
+func TestMarshalProtoMaskedForRPC_RemovesExcludedKeys(t *testing.T) {
 	srv := protomcp.New("t", "0.0.1")
 	decoded := decodeFor(t, srv, newListReply(t), listRPC)
 
@@ -160,7 +158,7 @@ func TestMarshalProtoMaskedForDropsKeysNotEmptiesThem(t *testing.T) {
 	}
 }
 
-func TestMarshalProtoMaskedForLeavesOtherRPCsIntact(t *testing.T) {
+func TestMarshalProtoMaskedForRPC_LeavesOtherRPCsIntact(t *testing.T) {
 	srv := protomcp.New("t", "0.0.1")
 	reply := newListReply(t)
 
@@ -179,21 +177,18 @@ func TestMarshalProtoMaskedForLeavesOtherRPCsIntact(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MarshalProtoMasked: %v", err)
 	}
-	viaEmpty, err := srv.MarshalProtoMaskedFor(reply, "")
+	viaEmpty, err := srv.MarshalProtoMaskedForRPC(reply, "")
 	if err != nil {
-		t.Fatalf("MarshalProtoMaskedFor(\"\"): %v", err)
+		t.Fatalf("MarshalProtoMaskedForRPC(\"\"): %v", err)
 	}
 	if string(plain) != string(viaEmpty) {
-		t.Errorf("MarshalProtoMasked and MarshalProtoMaskedFor(\"\") disagree:\n%s\n%s", plain, viaEmpty)
+		t.Errorf("MarshalProtoMasked and MarshalProtoMaskedForRPC(\"\") disagree:\n%s\n%s", plain, viaEmpty)
 	}
 }
 
-// TestMarshalProtoMaskedForKeepsFieldLevelExclusions checks the two
-// options compose: the RPC-scoped set widens the exclude set instead of
-// replacing it.
-func TestMarshalProtoMaskedForKeepsFieldLevelExclusions(t *testing.T) {
+func TestMarshalProtoMaskedForRPC_KeepsFieldLevelExclusions(t *testing.T) {
 	srv := protomcp.New("t", "0.0.1")
-	payload, err := srv.MarshalProtoMaskedFor(&greeterv1.EchoComplexResponse{
+	payload, err := srv.MarshalProtoMaskedForRPC(&greeterv1.EchoComplexResponse{
 		Name:         "n",
 		InternalNote: "secret",
 	}, "protomcp.examples.greeter.v1.Greeter.EchoComplex")
@@ -208,10 +203,9 @@ func TestMarshalProtoMaskedForKeepsFieldLevelExclusions(t *testing.T) {
 	}
 }
 
-// TestMarshalProtoMaskedForWithoutEmittedDefaults covers the marshaler
-// configuration under which clearing alone already removes the key, so
-// the JSON strip pass is skipped.
-func TestMarshalProtoMaskedForWithoutEmittedDefaults(t *testing.T) {
+// Without emitted defaults clearing alone removes the key and the JSON
+// strip pass is skipped.
+func TestMarshalProtoMaskedForRPC_WithoutEmittedDefaults(t *testing.T) {
 	srv := protomcp.New("t", "0.0.1",
 		protomcp.WithProtoJSONMarshal(protojson.MarshalOptions{}))
 	decoded := decodeFor(t, srv, newListReply(t), listRPC)
@@ -220,15 +214,15 @@ func TestMarshalProtoMaskedForWithoutEmittedDefaults(t *testing.T) {
 	}
 }
 
-func TestMarshalProtoMaskedForNilMessage(t *testing.T) {
+func TestMarshalProtoMaskedForRPC_NilMessage(t *testing.T) {
 	srv := protomcp.New("t", "0.0.1")
 	want, err := srv.MarshalProto(nil)
 	if err != nil {
 		t.Fatalf("MarshalProto(nil): %v", err)
 	}
-	got, err := srv.MarshalProtoMaskedFor(nil, listRPC)
+	got, err := srv.MarshalProtoMaskedForRPC(nil, listRPC)
 	if err != nil {
-		t.Fatalf("MarshalProtoMaskedFor(nil): %v", err)
+		t.Fatalf("MarshalProtoMaskedForRPC(nil): %v", err)
 	}
 	if string(got) != string(want) {
 		t.Errorf("nil handling diverged: got %s, want %s", got, want)

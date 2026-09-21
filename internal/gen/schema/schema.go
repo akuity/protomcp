@@ -28,11 +28,10 @@ type Options struct {
 	// (3).
 	MaxRecursionDepth int
 
-	// RPC is the fully-qualified package.Service.Method whose output
-	// schema is being built. Fields listing it in
-	// (protomcp.v1.field_schema).exclude_from_outputs are omitted from
-	// the output schema; input schemas ignore it.
-	RPC string
+	// RPCFullName is the package.Service.Method whose output schema is
+	// being built. Fields listing it in exclude_from_outputs are omitted;
+	// input schemas ignore it.
+	RPCFullName string
 }
 
 const defaultMaxRecursionDepth = 3
@@ -99,7 +98,7 @@ func ForOutputE(md protoreflect.MessageDescriptor, opts Options) (_ map[string]a
 		}
 	}()
 	return messageSchema(md, opts, nil, func(fd protoreflect.FieldDescriptor) bool {
-		return !isExcluded(fd) && !isExcludedFromOutput(fd, opts.RPC)
+		return !isExcluded(fd) && !isExcludedFromOutput(fd, opts.RPCFullName)
 	}, false), nil
 }
 

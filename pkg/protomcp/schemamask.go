@@ -38,16 +38,14 @@ func (s *Server) ClearSchemaExcluded(m proto.Message) {
 // an unresolvable or corrupt Any payload, or nesting beyond the depth
 // bound — is an error, never a silently truncated success.
 func (s *Server) MarshalProtoMasked(m proto.Message) ([]byte, error) {
-	return s.MarshalProtoMaskedFor(m, "")
+	return s.MarshalProtoMaskedForRPC(m, "")
 }
 
-// MarshalProtoMaskedFor is MarshalProtoMasked for the output of one RPC,
-// named by its fully-qualified package.Service.Method: fields whose
-// (protomcp.v1.field_schema).exclude_from_outputs lists rpc are cleared
-// and stripped alongside the exclude fields. An empty rpc applies the
-// field-level exclusions only. Generated tool handlers pass their own
-// RPC name.
-func (s *Server) MarshalProtoMaskedFor(m proto.Message, rpc string) ([]byte, error) {
+// MarshalProtoMaskedForRPC serializes m like MarshalProtoMasked, also
+// removing the fields whose exclude_from_outputs names rpc, a
+// fully-qualified package.Service.Method. An empty rpc applies the
+// field-level exclusions only. m is left intact.
+func (s *Server) MarshalProtoMaskedForRPC(m proto.Message, rpc string) ([]byte, error) {
 	if m == nil {
 		return s.MarshalProto(m)
 	}
@@ -180,9 +178,6 @@ func stripSchemaExcludedJSONValue(fd protoreflect.FieldDescriptor, value any, re
 	}
 }
 
-// outputExclusionMatcher selects the fields MarshalProtoMaskedFor removes:
-// the field-level exclude set, widened by exclude_from_outputs entries
-// naming rpc when one is given.
 func outputExclusionMatcher(rpc string) func(protoreflect.FieldDescriptor) bool {
 	if rpc == "" {
 		return isSchemaExcluded

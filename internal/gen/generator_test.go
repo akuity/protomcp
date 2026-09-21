@@ -362,24 +362,26 @@ func TestGenerate_OutputExclusions(t *testing.T) {
 
 // TestGenerate_OutputExclusionsAcrossFiles covers generation split by
 // directory, where the plugin sees a file and its imports but never the
-// files importing it. Generating the message file alone must not read
-// an entry naming a service it cannot see as a mistake.
+// files importing it. The run that generates the service resolves an
+// entry on an imported message; the run that generates the message file
+// alone cannot, and says what to do about it.
 func TestGenerate_OutputExclusionsAcrossFiles(t *testing.T) {
 	t.Run("message file alone", func(t *testing.T) {
-		out, err := runGenerateIsolated(t, "output_exclusions_shared.proto")
-		if err != nil {
-			t.Fatalf("generating the message file on its own failed: %v", err)
-		}
-		if out != "" {
-			t.Errorf("a file with no annotated RPC must emit nothing, got:\n%s", out)
+		err := runGenerateExpectError(t, "output_exclusions_shared.proto")
+		for _, want := range []string{
+			"output_exclusions_shared.proto",
+			"Ratings.reviews",
+			`"protomcp.gen.testdata.outputexclusionssplit.v1.Catalog.ListProducts"`,
+			"strategy: all",
+		} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("error missing %q\nerror: %v", want, err)
+			}
 		}
 	})
 
 	t.Run("service file with the message file as an import", func(t *testing.T) {
-		out, err := runGenerateIsolated(t, "output_exclusions_split.proto")
-		if err != nil {
-			t.Fatalf("generating the service file failed: %v", err)
-		}
+		out := runGenerate(t, "output_exclusions_split.proto")
 		const listRPC = "protomcp.gen.testdata.outputexclusionssplit.v1.Catalog.ListProducts"
 		if !strings.Contains(out, `MarshalProtoMaskedFor(resp, "`+listRPC+`")`) {
 			t.Errorf("the list tool does not mask for its own RPC\n--- file ---\n%s", out)
@@ -398,10 +400,7 @@ func TestGenerate_OutputExclusionsAcrossFiles(t *testing.T) {
 // generating the service that reaches it, so the typo guard does not
 // depend on which file generation was pointed at.
 func TestGenerate_BadOutputExclusionInImportedFile(t *testing.T) {
-	_, err := runGenerateIsolated(t, "bad_output_exclusion_service.proto")
-	if err == nil {
-		t.Fatal("want error, got nil")
-	}
+	err := runGenerateExpectError(t, "bad_output_exclusion_service.proto")
 	for _, want := range []string{
 		"Widget.notes",
 		"Widgets.ListWidget",
@@ -1154,34 +1153,16 @@ func buildGenRequest(t *testing.T, target string) *pluginpb.CodeGeneratorRequest
 			"protoc --include_source_info --include_imports", target)
 	}
 
-	return &pluginpb.CodeGeneratorRequest{
-		FileToGenerate: []string{target},
-		// ProtoFile must include every file transitively referenced, in
-		// dependency order. protoc's --include_imports already orders deps
-		// before dependents, so we pass the set through unchanged.
-		ProtoFile: fds.File,
-		CompilerVersion: &pluginpb.Version{
-			Major: proto.Int32(3),
-			Minor: proto.Int32(21),
-			Patch: proto.Int32(12),
-		},
-	}
-}
-
-// buildIsolatedGenRequest is buildGenRequest narrowed to target and its
-// transitive imports, which is what a plugin receives when protoc is
-// invoked per directory (buf's default strategy for local plugins).
-// Files that import target are absent, so a request built this way is
-// the one that catches assumptions about seeing the whole module.
-func buildIsolatedGenRequest(t *testing.T, target string) *pluginpb.CodeGeneratorRequest {
-	t.Helper()
-
-	req := buildGenRequest(t, target)
+	// ProtoFile carries target and its transitive imports, in dependency
+	// order, which is what protoc hands a plugin: every file the target
+	// references and nothing else. Passing the whole fixture set instead
+	// would hand the plugin files no real invocation puts in front of it,
+	// including the ones that import target, and hide any assumption
+	// about seeing more of a module than one directory.
 	byName := map[string]*descriptorpb.FileDescriptorProto{}
-	for _, f := range req.ProtoFile {
+	for _, f := range fds.File {
 		byName[f.GetName()] = f
 	}
-
 	keep := map[string]bool{}
 	var walk func(name string)
 	walk = func(name string) {
@@ -1198,32 +1179,20 @@ func buildIsolatedGenRequest(t *testing.T, target string) *pluginpb.CodeGenerato
 		}
 	}
 	walk(target)
-
 	closure := make([]*descriptorpb.FileDescriptorProto, 0, len(keep))
-	for _, f := range req.ProtoFile {
+	for _, f := range fds.File {
 		if keep[f.GetName()] {
 			closure = append(closure, f)
 		}
 	}
-	req.ProtoFile = closure
-	return req
-}
 
-func runGenerateIsolated(t *testing.T, protoName string) (string, error) {
-	t.Helper()
-	plugin, err := protogen.Options{}.New(buildIsolatedGenRequest(t, protoName))
-	if err != nil {
-		t.Fatalf("protogen.New: %v", err)
+	return &pluginpb.CodeGeneratorRequest{
+		FileToGenerate: []string{target},
+		ProtoFile:      closure,
+		CompilerVersion: &pluginpb.Version{
+			Major: proto.Int32(3),
+			Minor: proto.Int32(21),
+			Patch: proto.Int32(12),
+		},
 	}
-	if genErr := Generate(plugin); genErr != nil {
-		return "", genErr
-	}
-	resp := plugin.Response()
-	if resp.Error != nil {
-		return "", fmt.Errorf("%s", *resp.Error)
-	}
-	if len(resp.File) == 0 {
-		return "", nil
-	}
-	return resp.File[0].GetContent(), nil
 }

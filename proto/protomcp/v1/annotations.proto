@@ -54,8 +54,14 @@ message FieldSchemaOptions {
   // the serialized response. Every other RPC keeps it, so a list RPC
   // can drop a heavy field that the matching detail RPC still returns;
   // exclude, by contrast, hides the field on every surface. Applies to
-  // outputs only. Naming an RPC that does not exist or carries no
-  // protomcp.v1.tool annotation is a generation error.
+  // outputs only.
+  //
+  // Each name must resolve, within one generation run, to an RPC that
+  // carries protomcp.v1.tool; anything else is a generation error. A
+  // run sees the files it generates and their imports, so declare the
+  // field in the same file as the RPC, or generate the module in a
+  // single run (buf: strategy: all) when the message lives in a file
+  // the service imports.
   repeated string exclude_from_outputs = 3;
 }
 

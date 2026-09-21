@@ -27,9 +27,17 @@ type FieldSchemaOptions struct {
 	Exclude bool                   `protobuf:"varint,1,opt,name=exclude,proto3" json:"exclude,omitempty"`
 	// Required adds the field to the generated MCP JSON Schema's
 	// `required` array without changing the protobuf or OpenAPI contract.
-	Required      bool `protobuf:"varint,2,opt,name=required,proto3" json:"required,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Required bool `protobuf:"varint,2,opt,name=required,proto3" json:"required,omitempty"`
+	// Fully-qualified names (package.Service.Method) of RPCs whose tool
+	// output omits this field, from both the generated output schema and
+	// the serialized response. Every other RPC keeps it, so a list RPC
+	// can drop a heavy field that the matching detail RPC still returns;
+	// exclude, by contrast, hides the field on every surface. Applies to
+	// outputs only. Naming an RPC that does not exist or carries no
+	// protomcp.v1.tool annotation is a generation error.
+	ExcludeFromOutputs []string `protobuf:"bytes,3,rep,name=exclude_from_outputs,json=excludeFromOutputs,proto3" json:"exclude_from_outputs,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *FieldSchemaOptions) Reset() {
@@ -74,6 +82,13 @@ func (x *FieldSchemaOptions) GetRequired() bool {
 		return x.Required
 	}
 	return false
+}
+
+func (x *FieldSchemaOptions) GetExcludeFromOutputs() []string {
+	if x != nil {
+		return x.ExcludeFromOutputs
+	}
+	return nil
 }
 
 // ToolOptions controls how a single RPC is surfaced as an MCP tool.
@@ -777,10 +792,11 @@ var File_protomcp_v1_annotations_proto protoreflect.FileDescriptor
 
 const file_protomcp_v1_annotations_proto_rawDesc = "" +
 	"\n" +
-	"\x1dprotomcp/v1/annotations.proto\x12\vprotomcp.v1\x1a google/protobuf/descriptor.proto\"J\n" +
+	"\x1dprotomcp/v1/annotations.proto\x12\vprotomcp.v1\x1a google/protobuf/descriptor.proto\"|\n" +
 	"\x12FieldSchemaOptions\x12\x18\n" +
 	"\aexclude\x18\x01 \x01(\bR\aexclude\x12\x1a\n" +
-	"\brequired\x18\x02 \x01(\bR\brequired\"\xe5\x02\n" +
+	"\brequired\x18\x02 \x01(\bR\brequired\x120\n" +
+	"\x14exclude_from_outputs\x18\x03 \x03(\tR\x12excludeFromOutputs\"\xe5\x02\n" +
 	"\vToolOptions\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +

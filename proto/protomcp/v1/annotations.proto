@@ -48,6 +48,15 @@ message FieldSchemaOptions {
   // Required adds the field to the generated MCP JSON Schema's
   // `required` array without changing the protobuf or OpenAPI contract.
   bool required = 2;
+
+  // Fully-qualified names (package.Service.Method) of RPCs whose tool
+  // output omits this field, from both the generated output schema and
+  // the serialized response. Every other RPC keeps it, so a list RPC
+  // can drop a heavy field that the matching detail RPC still returns;
+  // exclude, by contrast, hides the field on every surface. Applies to
+  // outputs only. Naming an RPC that does not exist or carries no
+  // protomcp.v1.tool annotation is a generation error.
+  repeated string exclude_from_outputs = 3;
 }
 
 // Method-level elicitation modifier. Requires a sibling

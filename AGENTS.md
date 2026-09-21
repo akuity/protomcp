@@ -62,6 +62,7 @@ If you want to understand *why* a piece of code is the way it is, look here befo
 |---|---|
 | Fork-free SDK usage | `pkg/protomcp/server.go` (`SDK()` method SECURITY block) |
 | OUTPUT_ONLY recursion | `pkg/protomcp/fieldbehavior.go` (doc comment on `ClearOutputOnly`) |
+| `exclude_from_outputs` validated at codegen, applied by predicate at runtime | `internal/gen/exclusions.go` (doc comment on `validateOutputExclusions`), `pkg/protomcp/schemamask.go` (`outputExclusionMatcher`) |
 | Middleware ordering (outermost-first) | `pkg/protomcp/pipeline.go` (doc comment on `pipeline.chain`) |
 | Per-primitive typed pipelines | `pkg/protomcp/pipeline.go` (doc comment on `pipeline`) |
 | `ResultProcessor` receives `*GRPCData` + `*MCPData` | `pkg/protomcp/pipeline.go` (doc comment on `ResultProcessor`) |

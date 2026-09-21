@@ -50,6 +50,9 @@ func Generate(plugin *protogen.Plugin) error {
 // GenerateWithOptions is the configurable entry point.
 func GenerateWithOptions(plugin *protogen.Plugin, opts Options) error {
 	plugin.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
+	if err := validateOutputExclusions(plugin); err != nil {
+		return err
+	}
 	// The SDK's registry replaces a tool with the same name silently,
 	// so cross-file collisions are caught here at codegen time; the
 	// generated code registers through protomcp.AddTool, which catches
@@ -89,6 +92,11 @@ type toolTemplateData struct {
 	// evaluating to a string of JSON (usually a raw-string literal).
 	InputSchemaJSON  string
 	OutputSchemaJSON string
+
+	// RPCFullName is the package.Service.Method the handler passes to
+	// MarshalProtoMaskedFor, so exclude_from_outputs entries naming it
+	// apply.
+	RPCFullName string
 
 	ToolName string
 
@@ -632,7 +640,8 @@ func buildToolTemplateData(
 	toolName := deriveToolName(svc, svcOpts, m, to)
 	baseVar := "_" + svc.GoName + "_" + m.GoName
 
-	schemaOpts := schema.Options{MaxRecursionDepth: opts.MaxRecursionDepth}
+	rpc := string(m.Desc.FullName())
+	schemaOpts := schema.Options{MaxRecursionDepth: opts.MaxRecursionDepth, RPC: rpc}
 
 	inSchema, err := schema.ForInputE(m.Input.Desc, schemaOpts)
 	if err != nil {
@@ -683,6 +692,7 @@ func buildToolTemplateData(
 		OutputSchemaVar:    baseVar + "_OutputSchema",
 		InputSchemaJSON:    safeRawString(inSchemaJSON),
 		OutputSchemaJSON:   safeRawString(outSchemaJSON),
+		RPCFullName:        rpc,
 		ToolName:           toolName,
 		Title:              to.GetTitle(),
 		Description:        methodDescription(m, to.GetDescription()),
@@ -711,7 +721,7 @@ func buildToolTemplateData(
 		QProtomcpOutgoingContext:       q("OutgoingContext", importProtomcp),
 		QProtomcpSanitizeMetadataValue: q("SanitizeMetadataValue", importProtomcp),
 		InputHasExcluded:               schema.HasExclusions(m.Input.Desc),
-		OutputHasExcluded:              schema.HasExclusions(m.Output.Desc),
+		OutputHasExcluded:              schema.HasOutputExclusions(m.Output.Desc, rpc),
 	}, nil
 }
 

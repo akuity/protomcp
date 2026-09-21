@@ -260,12 +260,15 @@ func TestGenerate_Slim(t *testing.T) {
 	if got := strings.Count(out, "ClearSchemaExcluded(&in)"); got != 2 {
 		t.Errorf("ClearSchemaExcluded(&in) emitted %d times, want 2 (the two tools)", got)
 	}
-	if got := strings.Count(out, "MarshalProtoMasked(resp)"); got != 3 {
-		t.Errorf("MarshalProtoMasked(resp) emitted %d times, want 3 "+
-			"(unary tool, resource read, prompt)\n--- file ---\n%s", got, out)
+	if got := strings.Count(out, "MarshalProtoMaskedFor(resp, "); got != 1 {
+		t.Errorf("MarshalProtoMaskedFor(resp, ...) emitted %d times, want 1 (unary tool)\n--- file ---\n%s", got, out)
 	}
-	if got := strings.Count(out, "MarshalProtoMasked(msg)"); got != 1 {
-		t.Errorf("MarshalProtoMasked(msg) emitted %d times, want 1 (streaming tool)", got)
+	if got := strings.Count(out, "MarshalProtoMaskedFor(msg, "); got != 1 {
+		t.Errorf("MarshalProtoMaskedFor(msg, ...) emitted %d times, want 1 (streaming tool)", got)
+	}
+	if got := strings.Count(out, "MarshalProtoMasked(resp)"); got != 2 {
+		t.Errorf("MarshalProtoMasked(resp) emitted %d times, want 2 "+
+			"(resource read, prompt)\n--- file ---\n%s", got, out)
 	}
 	if got := strings.Count(out, "MarshalProtoMasked(item)"); got != 1 {
 		t.Errorf("MarshalProtoMasked(item) emitted %d times, want 1 (resource list)", got)
@@ -325,9 +328,69 @@ func TestGenerate_AnyMasking(t *testing.T) {
 
 	cases := []substringCase{
 		{"input containing Any clears excluded fields at runtime", true, "srv.ClearSchemaExcluded(&in)"},
-		{"output containing Any is masked at runtime", true, "MarshalProtoMasked(resp)"},
+		{"output containing Any is masked at runtime", true, "MarshalProtoMaskedFor(resp, "},
 	}
 	assertSubstrings(t, out, cases)
+}
+
+// TestGenerate_OutputExclusions pins the property exclude_from_outputs
+// exists for: two RPCs over the same messages, and only the one the
+// field names loses it, from its schema and its payload alike.
+func TestGenerate_OutputExclusions(t *testing.T) {
+	out := runGenerate(t, "output_exclusions.proto")
+	const listRPC = "protomcp.gen.testdata.outputexclusions.v1.Inventory.ListProducts"
+
+	assertSubstrings(t, out, []substringCase{
+		{"list tool masks for its own RPC", true, `MarshalProtoMaskedFor(resp, "` + listRPC + `")`},
+		{"detail tool marshals plainly", true, "MarshalProto(resp)"},
+	})
+	if got := strings.Count(out, "MarshalProto(resp)"); got != 1 {
+		t.Errorf("MarshalProto(resp) emitted %d times, want 1 (the detail tool only)", got)
+	}
+
+	listSchema := schemaLiteral(t, out, "_Inventory_ListProducts_OutputSchema")
+	if strings.Contains(listSchema, "reviews") {
+		t.Error("the list tool's output schema still advertises the field that opts out of it")
+	}
+	if !strings.Contains(listSchema, "reviewCount") {
+		t.Error("an unannotated sibling vanished from the list tool's output schema")
+	}
+	if !strings.Contains(schemaLiteral(t, out, "_Inventory_GetProduct_OutputSchema"), "reviews") {
+		t.Error("the detail tool lost a field that never opted out of it")
+	}
+}
+
+func TestGenerate_BadOutputExclusionUnknownRPC(t *testing.T) {
+	err := runGenerateExpectError(t, "bad_output_exclusion_unknown.proto")
+	if err == nil {
+		t.Fatal("want error, got nil")
+	}
+	for _, want := range []string{
+		"bad_output_exclusion_unknown.proto",
+		"Widget.notes",
+		`"protomcp.gen.testdata.badoutputexclusionunknown.v1.Widgets.ListWidget"`,
+		"not an RPC annotated with protomcp.v1.tool",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q\nerror: %v", want, err)
+		}
+	}
+}
+
+func TestGenerate_BadOutputExclusionNotATool(t *testing.T) {
+	err := runGenerateExpectError(t, "bad_output_exclusion_not_tool.proto")
+	if err == nil {
+		t.Fatal("want error, got nil")
+	}
+	for _, want := range []string{
+		"Widget.notes",
+		"Widgets.Audit",
+		"not an RPC annotated with protomcp.v1.tool",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q\nerror: %v", want, err)
+		}
+	}
 }
 
 func TestGenerate_BadOneofRequired(t *testing.T) {
@@ -976,6 +1039,20 @@ func assertSubstrings(t *testing.T, out string, cases []substringCase) {
 			}
 		})
 	}
+}
+
+// schemaLiteral returns the source line declaring the named schema var,
+// so a test can assert on one tool's schema without matching another
+// tool's literal elsewhere in the file.
+func schemaLiteral(t *testing.T, out, varName string) string {
+	t.Helper()
+	for line := range strings.Lines(out) {
+		if strings.HasPrefix(line, "var "+varName+" =") {
+			return line
+		}
+	}
+	t.Fatalf("generated file declares no %s\n--- file ---\n%s", varName, out)
+	return ""
 }
 
 // assertNoAnnotationsInBlock slices out the registration block beginning

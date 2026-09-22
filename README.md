@@ -419,6 +419,7 @@ Hard codegen error when used without a companion `tool`, or on a streaming RPC.
 |---|---|---|
 | `required` | false | Adds the field to the generated MCP JSON Schema parent's `required[]` and marks a corresponding prompt argument as required. This option is codegen-only: it does not change protobuf validation or OpenAPI output. It composes additively with `google.api.field_behavior = REQUIRED` and effective `buf.validate.field.required`; `false` never cancels either. An input field cannot be both `required` and `exclude`. |
 | `exclude` | false | Masks the field from the generated tool input **and** output JSON Schemas, and masks it at runtime in both directions: client-supplied values are cleared after unmarshal (`protomcp.ClearSchemaExcluded`, recursive: nested, repeated, map) before the gRPC call, and server-set values are stripped from the serialized response JSON before it reaches the MCP client (`MarshalProtoMasked`; the proto message in `GRPCData.Output` is left untouched so trusted result processors, e.g. pagination, can still read backend-only fields). The response-side masking applies to every generated surface that marshals the RPC response: tool results, resource reads, resource-list items, and prompt rendering. Referencing an excluded field from a URI binding, `item_path`, `name_field`/`description_field`, `blob_field`, prompt template, or elicitation message is a codegen error, and excluded request fields are dropped from prompt arguments. Use it to slim tools generated from very large proto messages, or to keep internal-only fields out of LLM-visible schemas. Excluding a required field is a codegen error because the upstream call could never succeed. Required fields are identified by `field_schema.required`, `google.api.field_behavior = REQUIRED`, or effective `buf.validate` `required`; `IGNORE_ALWAYS`, and `IGNORE_IF_ZERO_VALUE` on fields without presence, make the latter constraint inert. |
+| `exclude_from_outputs` | *empty* | Omits the field from the output schema and JSON response of the listed tool RPCs (`package.Service.Method`). Inputs and other MCP primitives are unaffected; `exclude` still applies. |
 
 ```proto
 message ApplySpec {
@@ -428,6 +429,17 @@ message ApplySpec {
   InternalConfig raw_config = 2 [(protomcp.v1.field_schema).exclude = true];
 }
 ```
+
+Use `exclude_from_outputs` when a heavy field belongs in a detail RPC and not in the list RPC beside it:
+
+```proto
+message Ratings {
+  uint32 review_count = 1;
+  repeated Review reviews = 2 [(protomcp.v1.field_schema).exclude_from_outputs = "example.v1.Inventory.ListProducts"];
+}
+```
+
+Each name must resolve to a tool RPC in the same generation request, otherwise generation fails and the error names the entry. Include every referenced service when generating; with Buf, `strategy: all` covers services declared in other directories. In the list tool's `description`, point to the detail tool for the omitted fields.
 
 Pair with the plugin flag `max_tool_schema_bytes=N` (via `opt:` in `buf.gen.yaml`) to make CI fail when any single tool's combined input+output schema size exceeds `N` bytes; the error message points at `field_schema.exclude` as the fix. `0` (the default) disables the check.
 

@@ -27,6 +27,11 @@ type Options struct {
 	// before substituting a permissive object placeholder. Zero uses the default
 	// (3).
 	MaxRecursionDepth int
+
+	// RPCFullName is the package.Service.Method whose output schema is
+	// being built. Fields listing it in exclude_from_outputs are omitted;
+	// input schemas ignore it.
+	RPCFullName string
 }
 
 const defaultMaxRecursionDepth = 3
@@ -93,7 +98,7 @@ func ForOutputE(md protoreflect.MessageDescriptor, opts Options) (_ map[string]a
 		}
 	}()
 	return messageSchema(md, opts, nil, func(fd protoreflect.FieldDescriptor) bool {
-		return !isExcluded(fd)
+		return !isExcluded(fd) && !isExcludedFromOutput(fd, opts.RPCFullName)
 	}, false), nil
 }
 
@@ -137,6 +142,12 @@ func ValidateInputExclusions(md protoreflect.MessageDescriptor) error {
 
 func isExcluded(fd protoreflect.FieldDescriptor) bool {
 	return fieldSchemaOptions(fd).GetExclude()
+}
+
+// isExcludedFromOutput reports whether fd's exclude_from_outputs names
+// rpc. An empty rpc never matches.
+func isExcludedFromOutput(fd protoreflect.FieldDescriptor, rpc string) bool {
+	return rpc != "" && slices.Contains(fieldSchemaOptions(fd).GetExcludeFromOutputs(), rpc)
 }
 
 func fieldSchemaOptions(fd protoreflect.FieldDescriptor) *protomcpv1.FieldSchemaOptions {
@@ -219,10 +230,18 @@ func validateInputExclusions(md protoreflect.MessageDescriptor, seen map[protore
 // unknown until runtime, so the generated code must route through the
 // masking helpers, which inspect the packed message dynamically.
 func HasExclusions(md protoreflect.MessageDescriptor) bool {
-	return hasExclusions(md, make(map[protoreflect.FullName]bool))
+	return hasMatching(md, isExcluded, make(map[protoreflect.FullName]bool))
 }
 
-func hasExclusions(md protoreflect.MessageDescriptor, seen map[protoreflect.FullName]bool) bool {
+// HasOutputExclusions is HasExclusions for the output of rpc: fields
+// whose exclude_from_outputs names rpc count as well.
+func HasOutputExclusions(md protoreflect.MessageDescriptor, rpc string) bool {
+	return hasMatching(md, func(fd protoreflect.FieldDescriptor) bool {
+		return isExcluded(fd) || isExcludedFromOutput(fd, rpc)
+	}, make(map[protoreflect.FullName]bool))
+}
+
+func hasMatching(md protoreflect.MessageDescriptor, match func(protoreflect.FieldDescriptor) bool, seen map[protoreflect.FullName]bool) bool {
 	if md.FullName() == "google.protobuf.Any" {
 		return true
 	}
@@ -233,16 +252,16 @@ func hasExclusions(md protoreflect.MessageDescriptor, seen map[protoreflect.Full
 	fields := md.Fields()
 	for i := range fields.Len() {
 		fd := fields.Get(i)
-		if isExcluded(fd) {
+		if match(fd) {
 			return true
 		}
 		switch {
 		case fd.IsMap():
-			if fd.MapValue().Kind() == protoreflect.MessageKind && hasExclusions(fd.MapValue().Message(), seen) {
+			if fd.MapValue().Kind() == protoreflect.MessageKind && hasMatching(fd.MapValue().Message(), match, seen) {
 				return true
 			}
 		case fd.Kind() == protoreflect.MessageKind || fd.Kind() == protoreflect.GroupKind:
-			if hasExclusions(fd.Message(), seen) {
+			if hasMatching(fd.Message(), match, seen) {
 				return true
 			}
 		}

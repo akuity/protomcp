@@ -2,6 +2,7 @@ package protomcp
 
 import (
 	"encoding/json"
+	"slices"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -37,11 +38,20 @@ func (s *Server) ClearSchemaExcluded(m proto.Message) {
 // an unresolvable or corrupt Any payload, or nesting beyond the depth
 // bound — is an error, never a silently truncated success.
 func (s *Server) MarshalProtoMasked(m proto.Message) ([]byte, error) {
+	return s.MarshalProtoMaskedForRPC(m, "")
+}
+
+// MarshalProtoMaskedForRPC serializes m like MarshalProtoMasked, also
+// removing the fields whose exclude_from_outputs names rpc, a
+// fully-qualified package.Service.Method. An empty rpc applies the
+// field-level exclusions only. m is left intact.
+func (s *Server) MarshalProtoMaskedForRPC(m proto.Message, rpc string) ([]byte, error) {
 	if m == nil {
 		return s.MarshalProto(m)
 	}
+	match := outputExclusionMatcher(rpc)
 	masked := proto.Clone(m)
-	if err := clearFieldsMatchingMode(masked, s.marshalResolver(), clearFailLoud, isSchemaExcluded); err != nil {
+	if err := clearFieldsMatchingMode(masked, s.marshalResolver(), clearFailLoud, match); err != nil {
 		return nil, err
 	}
 	payload, err := s.MarshalProto(masked)
@@ -55,7 +65,7 @@ func (s *Server) MarshalProtoMasked(m proto.Message) ([]byte, error) {
 	if err := json.Unmarshal(payload, &decoded); err != nil {
 		return nil, err
 	}
-	stripSchemaExcludedJSON(masked.ProtoReflect().Descriptor(), decoded, s.marshalResolver())
+	stripSchemaExcludedJSON(masked.ProtoReflect().Descriptor(), decoded, s.marshalResolver(), match)
 	if s.protoMarshal.Multiline || s.protoMarshal.Indent != "" {
 		indent := s.protoMarshal.Indent
 		if indent == "" {
@@ -66,19 +76,19 @@ func (s *Server) MarshalProtoMasked(m proto.Message) ([]byte, error) {
 	return json.Marshal(decoded)
 }
 
-func stripSchemaExcludedJSON(md protoreflect.MessageDescriptor, decoded any, resolver anyTypeResolver) {
+func stripSchemaExcludedJSON(md protoreflect.MessageDescriptor, decoded any, resolver anyTypeResolver, match func(protoreflect.FieldDescriptor) bool) {
 	obj, ok := decoded.(map[string]any)
 	if !ok {
 		return
 	}
 	if md.FullName() == anyMessageName {
-		stripSchemaExcludedAnyJSON(md, obj, resolver)
+		stripSchemaExcludedAnyJSON(md, obj, resolver, match)
 		return
 	}
 	fields := md.Fields()
 	for i := range fields.Len() {
 		fd := fields.Get(i)
-		if isSchemaExcluded(fd) {
+		if match(fd) {
 			delete(obj, fd.JSONName())
 			delete(obj, string(fd.Name()))
 			continue
@@ -88,12 +98,12 @@ func stripSchemaExcludedJSON(md protoreflect.MessageDescriptor, decoded any, res
 			value, exists = obj[string(fd.Name())]
 		}
 		if exists {
-			stripSchemaExcludedJSONValue(fd, value, resolver)
+			stripSchemaExcludedJSONValue(fd, value, resolver, match)
 		}
 	}
 }
 
-func stripSchemaExcludedAnyJSON(anyMD protoreflect.MessageDescriptor, obj map[string]any, resolver anyTypeResolver) {
+func stripSchemaExcludedAnyJSON(anyMD protoreflect.MessageDescriptor, obj map[string]any, resolver anyTypeResolver, match func(protoreflect.FieldDescriptor) bool) {
 	typeURL, _ := obj["@type"].(string)
 	mt, err := resolver.FindMessageByURL(typeURL)
 	if err != nil {
@@ -107,11 +117,11 @@ func stripSchemaExcludedAnyJSON(anyMD protoreflect.MessageDescriptor, obj map[st
 	md := mt.Descriptor()
 	switch {
 	case md.FullName() == anyMessageName:
-		stripSchemaExcludedJSON(anyMD, obj["value"], resolver)
+		stripSchemaExcludedJSON(anyMD, obj["value"], resolver, match)
 	case protojsonCustomWKTs[md.FullName()]:
 		return
 	default:
-		stripSchemaExcludedJSON(md, obj, resolver)
+		stripSchemaExcludedJSON(md, obj, resolver, match)
 	}
 }
 
@@ -139,7 +149,7 @@ var protojsonCustomWKTs = map[protoreflect.FullName]bool{
 	"google.protobuf.UInt64Value": true,
 }
 
-func stripSchemaExcludedJSONValue(fd protoreflect.FieldDescriptor, value any, resolver anyTypeResolver) {
+func stripSchemaExcludedJSONValue(fd protoreflect.FieldDescriptor, value any, resolver anyTypeResolver, match func(protoreflect.FieldDescriptor) bool) {
 	switch {
 	case fd.IsMap():
 		if fd.MapValue().Kind() != protoreflect.MessageKind {
@@ -150,7 +160,7 @@ func stripSchemaExcludedJSONValue(fd protoreflect.FieldDescriptor, value any, re
 			return
 		}
 		for _, entry := range entries {
-			stripSchemaExcludedJSON(fd.MapValue().Message(), entry, resolver)
+			stripSchemaExcludedJSON(fd.MapValue().Message(), entry, resolver, match)
 		}
 	case fd.IsList():
 		if fd.Kind() != protoreflect.MessageKind {
@@ -161,21 +171,31 @@ func stripSchemaExcludedJSONValue(fd protoreflect.FieldDescriptor, value any, re
 			return
 		}
 		for _, item := range items {
-			stripSchemaExcludedJSON(fd.Message(), item, resolver)
+			stripSchemaExcludedJSON(fd.Message(), item, resolver, match)
 		}
 	case fd.Kind() == protoreflect.MessageKind || fd.Kind() == protoreflect.GroupKind:
-		stripSchemaExcludedJSON(fd.Message(), value, resolver)
+		stripSchemaExcludedJSON(fd.Message(), value, resolver, match)
+	}
+}
+
+func outputExclusionMatcher(rpc string) func(protoreflect.FieldDescriptor) bool {
+	if rpc == "" {
+		return isSchemaExcluded
+	}
+	return func(fd protoreflect.FieldDescriptor) bool {
+		return isSchemaExcluded(fd) || slices.Contains(fieldSchemaOptions(fd).GetExcludeFromOutputs(), rpc)
 	}
 }
 
 func isSchemaExcluded(fd protoreflect.FieldDescriptor) bool {
+	return fieldSchemaOptions(fd).GetExclude()
+}
+
+func fieldSchemaOptions(fd protoreflect.FieldDescriptor) *protomcpv1.FieldSchemaOptions {
 	opts := fd.Options()
-	if opts == nil {
-		return false
-	}
-	if !proto.HasExtension(opts, protomcpv1.E_FieldSchema) {
-		return false
+	if opts == nil || !proto.HasExtension(opts, protomcpv1.E_FieldSchema) {
+		return nil
 	}
 	fso, _ := proto.GetExtension(opts, protomcpv1.E_FieldSchema).(*protomcpv1.FieldSchemaOptions)
-	return fso.GetExclude()
+	return fso
 }
